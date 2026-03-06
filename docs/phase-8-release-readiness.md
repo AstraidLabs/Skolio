@@ -6,6 +6,15 @@
 - Cross-service project references between business services remain prohibited.
 - React remains the single business frontend; Razor Pages remain host bridge only.
 
+Detail freeze documents:
+- `docs/governance/phase-8-architecture-freeze.md`
+- `docs/governance/service-boundaries.md`
+- `docs/governance/role-model.md`
+- `docs/governance/school-type-differences.md`
+- `docs/operations/configuration-matrix.md`
+- `docs/operations/runbook-release-candidate.md`
+- `docs/operations/out-of-scope-freeze.md`
+
 ## Final role model
 - `PlatformAdministrator`: administration read/write and operational policy control.
 - `SchoolAdministrator`: school-level organization, identity role assignment, and operational management.
