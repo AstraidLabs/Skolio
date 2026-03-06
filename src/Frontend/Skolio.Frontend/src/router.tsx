@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { SkolioBootstrapConfig } from './bootstrap';
-import { createHttpClient } from './shared/http/httpClient';
+import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
 import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createOrganizationApi } from './organization/api';
 import { createAcademicsApi } from './academics/api';
@@ -17,8 +17,13 @@ export function RouterShell({ config }: RouterProps) {
 
   useEffect(() => {
     const onPop = () => setRoute(window.location.pathname as AppRoute);
+    const onExpired = () => setSession(null);
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    window.addEventListener('skolio:auth-expired', onExpired);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('skolio:auth-expired', onExpired);
+    };
   }, []);
 
   const http = useMemo(() => createHttpClient(config), [config]);
@@ -31,7 +36,7 @@ export function RouterShell({ config }: RouterProps) {
 
   if (Date.now() > session.expiresAtUtc) {
     clearSession();
-    return <LoginPage config={config} />;
+    return <UnauthorizedPage message="Session expired. Please sign in again." />;
   }
 
   const nav = navigationFor(session.roles, session.schoolType);
@@ -51,6 +56,10 @@ function LoginPage({ config }: { config: SkolioBootstrapConfig }) {
   return <section className="space-y-4"><h1 className="text-2xl font-semibold">Skolio</h1><button className="rounded bg-indigo-600 px-3 py-2 text-white" onClick={() => void beginLogin(config)}>Sign in</button></section>;
 }
 
+function UnauthorizedPage({ message }: { message: string }) {
+  return <section className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{message}</section>;
+}
+
 function AppShell({ session, nav, active, onNavigate, onLogout, children }: { session: SessionState; nav: AppRoute[]; active: AppRoute; onNavigate: (r: AppRoute) => void; onLogout: () => void; children: ReactNode }) {
   return <section className="space-y-4"><header className="flex items-center justify-between border-b pb-3"><div><h1 className="text-xl font-semibold">Skolio App Shell</h1><p className="text-xs text-slate-600">{session.roles.join(', ')} · {session.schoolType}</p></div><button className="rounded bg-slate-700 px-3 py-2 text-white" onClick={onLogout}>Sign out</button></header><nav className="flex flex-wrap gap-2">{nav.map((item) => <button key={item} className={`rounded px-3 py-1 ${active === item ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`} onClick={() => { history.pushState({}, '', item); onNavigate(item); }}>{item.replace('/', '')}</button>)}</nav><div>{children}</div></section>;
 }
@@ -62,52 +71,61 @@ function DashboardPage({ session }: { session: SessionState }) {
 }
 
 function OrganizationPage({ api }: { api: ReturnType<typeof createOrganizationApi> }) {
-  const [schoolId, setSchoolId] = useState('');
   const [schools, setSchools] = useState<any[]>([]);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [err, setErr] = useState('');
-  useEffect(() => { void api.schools().then(setSchools).catch((e: Error) => setErr(e.message)); }, [api]);
-  return <section className="space-y-3"><h2 className="font-semibold">Organization</h2>{err && <p className="text-sm text-red-700">{err}</p>}<ul className="text-sm">{schools.map((s) => <li key={s.id}>{s.name} ({s.schoolType})</li>)}</ul><input className="rounded border p-2" placeholder="SchoolId for detail flows" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} /></section>;
+  useEffect(() => { void api.schools().then((result) => { setSchools(result); setState('ready'); }).catch((e: Error) => { setErr(e.message); setState('error'); }); }, [api]);
+  if (state === 'loading') return <p className="text-sm text-slate-600">Loading organization view...</p>;
+  if (state === 'error') return <p className="text-sm text-red-700">{err}</p>;
+  return <section className="space-y-3"><h2 className="font-semibold">Organization</h2><ul className="text-sm">{schools.map((s) => <li key={s.id}>{s.name} ({s.schoolType})</li>)}</ul></section>;
 }
 
 function AcademicsPage({ api, schoolType }: { api: ReturnType<typeof createAcademicsApi>; schoolType: SchoolType }) {
-  const [schoolId, setSchoolId] = useState('');
   const [dailyReports, setDailyReports] = useState<any[]>([]);
-  return <section className="space-y-3"><h2 className="font-semibold">Academics</h2><p className="text-sm text-slate-600">{schoolType === 'Kindergarten' ? 'Daily report workflow je zvýrazněný.' : 'Rozvrh, lessons, attendance, grades a homework.'}</p><input className="rounded border p-2" placeholder="SchoolId" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} /><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(schoolId).then(setDailyReports)}>Load daily reports</button><ul>{dailyReports.map((x) => <li key={x.id}>{x.reportDate} · {x.summary}</li>)}</ul></section>;
+  const [error, setError] = useState('');
+  return <section className="space-y-3"><h2 className="font-semibold">Academics</h2><p className="text-sm text-slate-600">{schoolType === 'Kindergarten' ? 'Daily report workflow je zvýrazněný.' : 'Rozvrh, lessons, attendance, grades a homework.'}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports('').then(setDailyReports).catch((e: Error) => setError(e.message))}>Load daily reports</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul></section>;
 }
 
-function CommunicationPage({ api, session, config }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState; config: SkolioBootstrapConfig }) {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [schoolId, setSchoolId] = useState('');
+function CommunicationPage({ api }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState; config: SkolioBootstrapConfig }) {
   const [announcements, setAnnouncements] = useState<any[]>([]);
-
-  useEffect(() => {
-    void api.notifications(session.subject).then(setNotifications).catch(() => undefined);
-    const hub = new WebSocket(config.communicationApi.replace('http', 'ws') + '/hubs/communication');
-    hub.onmessage = () => void api.notifications(session.subject).then(setNotifications).catch(() => undefined);
-    return () => hub.close();
-  }, [api, config.communicationApi, session.subject]);
-
-  return <section className="space-y-3"><h2 className="font-semibold">Communication</h2><input className="rounded border p-2" placeholder="SchoolId" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} /><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.announcements(schoolId).then(setAnnouncements)}>Load announcements</button><ul>{announcements.map((a) => <li key={a.id}>{a.title}</li>)}</ul><div className="rounded border p-2"><h3 className="font-medium">Notifications</h3>{notifications.map((n) => <p key={n.id} className="text-sm">{n.title}</p>)}</div></section>;
+  const [connectionState, setConnectionState] = useState('connected');
+  const [retryCount, setRetryCount] = useState(0);
+  const load = () => void api.announcements('').then(setAnnouncements).catch(() => { setConnectionState('disconnected'); setTimeout(() => { setRetryCount((v) => v + 1); setConnectionState('retrying'); }, 1500); });
+  useEffect(load, [retryCount]);
+  return <section className="space-y-3"><h2 className="font-semibold">Communication</h2><p className="text-xs text-slate-500">Connection: {connectionState}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={load}>Reload</button><ul>{announcements.map((a) => <li key={a.id}>{a.title}</li>)}</ul></section>;
 }
 
 function AdministrationPage({ api }: { api: ReturnType<typeof createAdministrationApi> }) {
   const [settings, setSettings] = useState<any[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
-  useEffect(() => { void api.settings().then(setSettings); void api.auditLogs().then(setAudit); }, [api]);
-  return <section className="space-y-3"><h2 className="font-semibold">Administration</h2><h3 className="font-medium">System settings</h3><ul>{settings.map((s) => <li key={s.id}>{s.key}</li>)}</ul><h3 className="font-medium">Audit log</h3><ul>{audit.slice(0, 10).map((a) => <li key={a.id}>{a.actionCode}</li>)}</ul></section>;
+  const [error, setError] = useState('');
+  useEffect(() => {
+    void api.settings().then(setSettings).catch((e: Error) => setError(e.message));
+    void api.auditLogs().then(setAudit).catch((e: Error) => setError(e.message));
+  }, [api]);
+
+  if (error.includes('Forbidden')) {
+    return <UnauthorizedPage message="You are not authorized for administration route." />;
+  }
+
+  return <section className="space-y-3"><h2 className="font-semibold">Administration</h2>{error && <p className="text-sm text-red-700">{error}</p>}<h3 className="font-medium">System settings</h3><ul>{settings.map((s) => <li key={s.id}>{s.key}</li>)}</ul><h3 className="font-medium">Audit log</h3><ul>{audit.slice(0, 10).map((a) => <li key={a.id}>{a.actionCode}</li>)}</ul></section>;
 }
 
 function IdentityPage({ api }: { api: ReturnType<typeof createIdentityApi> }) {
   const [profile, setProfile] = useState<any>();
-  const [roles, setRoles] = useState<any[]>([]);
-  const [links, setLinks] = useState<any[]>([]);
   const [error, setError] = useState('');
   useEffect(() => {
-    void api.myProfile().then(setProfile).catch((e: unknown) => setError((e as Error).message));
-    void api.roleAssignments().then(setRoles).catch(() => undefined);
-    void api.parentStudentLinks().then(setLinks).catch(() => undefined);
+    void api.myProfile().then(setProfile).catch((e: unknown) => {
+      if (e instanceof SkolioHttpError && e.status === 403) {
+        setError('Forbidden');
+        return;
+      }
+
+      setError((e as Error).message);
+    });
   }, [api]);
-  return <section className="space-y-3"><h2 className="font-semibold">Identity</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<p className="text-sm">Role assignments: {roles.length}</p><p className="text-sm">Parent-student links: {links.length}</p></section>;
+  if (error === 'Forbidden') return <UnauthorizedPage message="You are not authorized for identity profile details." />;
+  return <section className="space-y-3"><h2 className="font-semibold">Identity</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}</section>;
 }
 
 function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {

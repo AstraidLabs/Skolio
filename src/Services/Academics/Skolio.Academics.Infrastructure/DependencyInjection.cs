@@ -23,7 +23,13 @@ public static class DependencyInjection
         services.AddDbContext<AcademicsDbContext>(options => options.UseNpgsql(databaseOptions.ConnectionString, npgsql => npgsql.MigrationsAssembly(typeof(AssemblyMarker).Assembly.FullName)));
         services.AddScoped<IAcademicsCommandStore, AcademicsCommandStore>();
         services.AddSingleton<IAcademicsClock, SystemAcademicsClock>();
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions
+        {
+            EndPoints = { redisOptions.ConnectionString },
+            AbortOnConnectFail = false,
+            ConnectRetry = 3,
+            ConnectTimeout = 5000
+        }));
         services.AddStackExchangeRedisCache(options => { options.Configuration = redisOptions.ConnectionString; options.InstanceName = redisOptions.InstanceName; });
         return services;
     }

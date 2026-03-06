@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Skolio.WebHost.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,9 +17,24 @@ builder.Services.AddRazorPages();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+app.Logger.LogInformation("Starting {ServiceName} in {Environment}.", "Skolio.WebHost", app.Environment.EnvironmentName);
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
 
 app.UseStaticFiles();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
 app.MapGet("/bootstrap-config", (Microsoft.Extensions.Options.IOptions<ServiceEndpointsOptions> endpoints) =>
 {
     return Results.Ok(new
@@ -33,9 +49,10 @@ app.MapGet("/bootstrap-config", (Microsoft.Extensions.Options.IOptions<ServiceEn
         communicationApi = endpoints.Value.CommunicationApi,
         administrationApi = endpoints.Value.AdministrationApi
     });
-});
+}).WithName("SkolioBootstrapConfig");
 
 app.MapRazorPages();
 app.MapFallbackToPage("/AppHost");
 
+app.Lifetime.ApplicationStopping.Register(() => app.Logger.LogInformation("Stopping {ServiceName}.", "Skolio.WebHost"));
 app.Run();

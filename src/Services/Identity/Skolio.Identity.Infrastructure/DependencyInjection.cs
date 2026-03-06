@@ -100,7 +100,13 @@ public static class DependencyInjection
 
         services.AddScoped<IIdentityCommandStore, IdentityCommandStore>();
         services.AddScoped<IIdentityReadStore, IdentityReadStore>();
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions
+        {
+            EndPoints = { redisOptions.ConnectionString },
+            AbortOnConnectFail = false,
+            ConnectRetry = 3,
+            ConnectTimeout = 5000
+        }));
         services.AddStackExchangeRedisCache(options =>
         {
             options.Configuration = redisOptions.ConnectionString;

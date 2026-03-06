@@ -42,8 +42,34 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     }
 
     [HttpGet("audit-log")]
-    public async Task<ActionResult<IReadOnlyCollection<AuditLogEntryContract>>> AuditLog(CancellationToken cancellationToken)
-        => Ok(await dbContext.AuditLogEntries.OrderByDescending(x => x.CreatedAtUtc).Take(200).Select(x => new AuditLogEntryContract(x.Id, x.ActorUserId, x.ActionCode, x.Payload, x.CreatedAtUtc)).ToListAsync(cancellationToken));
+    public async Task<ActionResult<IReadOnlyCollection<AuditLogEntryContract>>> AuditLog([FromQuery] Guid? actorUserId, [FromQuery] string? actionCode, [FromQuery] DateTimeOffset? fromUtc, [FromQuery] DateTimeOffset? toUtc, CancellationToken cancellationToken)
+    {
+        var query = dbContext.AuditLogEntries.AsQueryable();
+        if (actorUserId.HasValue)
+        {
+            query = query.Where(x => x.ActorUserId == actorUserId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(actionCode))
+        {
+            query = query.Where(x => x.ActionCode == actionCode);
+        }
+
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc >= fromUtc.Value);
+        }
+
+        if (toUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc <= toUtc.Value);
+        }
+
+        return Ok(await query.OrderByDescending(x => x.CreatedAtUtc)
+            .Take(200)
+            .Select(x => new AuditLogEntryContract(x.Id, x.ActorUserId, x.ActionCode, x.Payload, x.CreatedAtUtc))
+            .ToListAsync(cancellationToken));
+    }
 
     [HttpGet("school-year-policies")]
     public async Task<ActionResult<IReadOnlyCollection<SchoolYearLifecyclePolicyContract>>> SchoolYearPolicies(CancellationToken cancellationToken)

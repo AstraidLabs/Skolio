@@ -27,7 +27,13 @@ public static class DependencyInjection
         services.AddScoped<IAdministrationCommandStore, AdministrationCommandStore>();
         services.AddSingleton<IAdministrationClock, SystemAdministrationClock>();
         services.AddTransient<HousekeepingJob>();
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions
+        {
+            EndPoints = { redisOptions.ConnectionString },
+            AbortOnConnectFail = false,
+            ConnectRetry = 3,
+            ConnectTimeout = 5000
+        }));
         services.AddStackExchangeRedisCache(options => { options.Configuration = redisOptions.ConnectionString; options.InstanceName = redisOptions.InstanceName; });
 
         services.AddHangfire((sp, config) =>
