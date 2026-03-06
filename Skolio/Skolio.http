@@ -1,0 +1,6 @@
+@Skolio_HostAddress = http://localhost:5251
+
+GET {{Skolio_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
