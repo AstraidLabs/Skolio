@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Skolio.Communication.Api.Hubs;
@@ -7,6 +8,7 @@ using Skolio.Communication.Application.Contracts;
 
 namespace Skolio.Communication.Api.Controllers;
 [ApiController]
+[Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/communication/announcements")]
 public sealed class AnnouncementsController(IMediator mediator, IHubContext<CommunicationHub> hubContext) : ControllerBase
 {

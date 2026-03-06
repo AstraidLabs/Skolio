@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Timetable;
@@ -7,6 +8,7 @@ using Skolio.Academics.Domain.Enums;
 namespace Skolio.Academics.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/academics/timetable")]
 public sealed class TimetableController(IMediator mediator) : ControllerBase
 {

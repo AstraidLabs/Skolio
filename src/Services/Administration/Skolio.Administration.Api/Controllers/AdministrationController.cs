@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Administration.Application.AuditLogs;
 using Skolio.Administration.Application.Contracts;
@@ -10,6 +11,7 @@ using Skolio.Administration.Application.SystemSettings;
 namespace Skolio.Administration.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.PlatformAdministration)]
 [Route("api/administration")]
 public sealed class AdministrationController(IMediator mediator) : ControllerBase
 {

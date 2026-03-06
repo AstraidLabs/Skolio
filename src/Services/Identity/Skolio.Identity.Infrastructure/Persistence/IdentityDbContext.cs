@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.EntityFrameworkCore.Models;
 using Skolio.Identity.Domain.Entities;
+using Skolio.Identity.Infrastructure.Auth;
 
 namespace Skolio.Identity.Infrastructure.Persistence;
 
-public sealed class IdentityDbContext : DbContext
+public sealed class IdentityDbContext : IdentityDbContext<SkolioIdentityUser, SkolioIdentityRole, string>
 {
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options) : base(options) { }
 
@@ -12,5 +15,9 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<ParentStudentLink> ParentStudentLinks => Set<ParentStudentLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.UseOpenIddict<OpenIddictEntityFrameworkCoreApplication, OpenIddictEntityFrameworkCoreAuthorization, OpenIddictEntityFrameworkCoreScope, OpenIddictEntityFrameworkCoreToken, string>();
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
+    }
 }

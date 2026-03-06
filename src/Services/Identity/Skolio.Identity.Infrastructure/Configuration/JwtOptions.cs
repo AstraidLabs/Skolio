@@ -9,6 +9,5 @@ public sealed class JwtOptions
     [Required]
     public string AccessTokenLifetime { get; init; } = "00:30:00";
 
-    [Required]
-    public string RefreshTokenLifetime { get; init; } = "7.00:00:00";
+    public bool IssueRefreshTokens { get; init; }
 }
