@@ -14,9 +14,41 @@ namespace Skolio.Organization.Api.Controllers;
 [Route("api/organization/schools")]
 public sealed class SchoolsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
 {
+    private const int MaxPageSize = 200;
+
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyCollection<SchoolContract>>> List(CancellationToken cancellationToken)
-        => Ok(await dbContext.Schools.OrderBy(x => x.Name).Select(x => new SchoolContract(x.Id, x.Name, x.SchoolType)).ToListAsync(cancellationToken));
+    public async Task<ActionResult<PagedResult<SchoolContract>>> List(
+        [FromQuery] SchoolType? schoolType,
+        [FromQuery] string? search,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedPageNumber = Math.Max(pageNumber, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var query = dbContext.Schools.AsQueryable();
+
+        if (schoolType.HasValue)
+        {
+            query = query.Where(x => x.SchoolType == schoolType.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(x => EF.Functions.ILike(x.Name, $"%{term}%"));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query.OrderBy(x => x.Name)
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new SchoolContract(x.Id, x.Name, x.SchoolType))
+            .ToListAsync(cancellationToken);
+
+        return Ok(new PagedResult<SchoolContract>(items, normalizedPageNumber, normalizedPageSize, totalCount));
+    }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SchoolContract>> Detail(Guid id, CancellationToken cancellationToken)
@@ -34,4 +66,5 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     public sealed record CreateSchoolRequest(string Name, SchoolType SchoolType);
+    public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
 }

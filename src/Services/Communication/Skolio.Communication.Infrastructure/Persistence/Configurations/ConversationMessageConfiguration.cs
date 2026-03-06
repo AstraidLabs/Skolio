@@ -15,5 +15,6 @@ public sealed class ConversationMessageConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.SenderUserId).HasColumnName("sender_user_id").IsRequired();
         builder.Property(x => x.Message).HasColumnName("message").HasMaxLength(3000).IsRequired();
         builder.Property(x => x.SentAtUtc).HasColumnName("sent_at_utc").IsRequired();
+        builder.HasIndex(x => new { x.ConversationId, x.SentAtUtc });
     }
 }
