@@ -1,0 +1,154 @@
+services:
+  postgresql:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: schoolplatform
+      POSTGRES_PASSWORD: schoolplatform
+      POSTGRES_DB: schoolplatform_identity
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U schoolplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  identity-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Identity/SchoolPlatform.Identity.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_identity;Username=schoolplatform;Password=schoolplatform
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  organization-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Organization/SchoolPlatform.Organization.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_organization;Username=schoolplatform;Password=schoolplatform
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  academics-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Academics/SchoolPlatform.Academics.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_academics;Username=schoolplatform;Password=schoolplatform
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  communication-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Communication/SchoolPlatform.Communication.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_communication;Username=schoolplatform;Password=schoolplatform
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  administration-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Administration/SchoolPlatform.Administration.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_administration;Username=schoolplatform;Password=schoolplatform
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  webhost:
+    build:
+      context: ..
+      dockerfile: src/WebHost/SchoolPlatform.WebHost/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      organization-api:
+        condition: service_healthy
+      academics-api:
+        condition: service_healthy
+      communication-api:
+        condition: service_healthy
+      administration-api:
+        condition: service_healthy
+    ports:
+      - "8088:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/SchoolPlatform.Frontend/Dockerfile
+    ports:
+      - "5173:80"
+
+volumes:
+  postgresql-data:

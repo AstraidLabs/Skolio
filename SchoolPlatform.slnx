@@ -1,0 +1,28 @@
+<Solution>
+  <Project Path="src/WebHost/SchoolPlatform.WebHost/SchoolPlatform.WebHost.csproj" />
+
+  <Project Path="src/Services/Identity/SchoolPlatform.Identity.Domain/SchoolPlatform.Identity.Domain.csproj" />
+  <Project Path="src/Services/Identity/SchoolPlatform.Identity.Application/SchoolPlatform.Identity.Application.csproj" />
+  <Project Path="src/Services/Identity/SchoolPlatform.Identity.Infrastructure/SchoolPlatform.Identity.Infrastructure.csproj" />
+  <Project Path="src/Services/Identity/SchoolPlatform.Identity.Api/SchoolPlatform.Identity.Api.csproj" />
+
+  <Project Path="src/Services/Organization/SchoolPlatform.Organization.Domain/SchoolPlatform.Organization.Domain.csproj" />
+  <Project Path="src/Services/Organization/SchoolPlatform.Organization.Application/SchoolPlatform.Organization.Application.csproj" />
+  <Project Path="src/Services/Organization/SchoolPlatform.Organization.Infrastructure/SchoolPlatform.Organization.Infrastructure.csproj" />
+  <Project Path="src/Services/Organization/SchoolPlatform.Organization.Api/SchoolPlatform.Organization.Api.csproj" />
+
+  <Project Path="src/Services/Academics/SchoolPlatform.Academics.Domain/SchoolPlatform.Academics.Domain.csproj" />
+  <Project Path="src/Services/Academics/SchoolPlatform.Academics.Application/SchoolPlatform.Academics.Application.csproj" />
+  <Project Path="src/Services/Academics/SchoolPlatform.Academics.Infrastructure/SchoolPlatform.Academics.Infrastructure.csproj" />
+  <Project Path="src/Services/Academics/SchoolPlatform.Academics.Api/SchoolPlatform.Academics.Api.csproj" />
+
+  <Project Path="src/Services/Communication/SchoolPlatform.Communication.Domain/SchoolPlatform.Communication.Domain.csproj" />
+  <Project Path="src/Services/Communication/SchoolPlatform.Communication.Application/SchoolPlatform.Communication.Application.csproj" />
+  <Project Path="src/Services/Communication/SchoolPlatform.Communication.Infrastructure/SchoolPlatform.Communication.Infrastructure.csproj" />
+  <Project Path="src/Services/Communication/SchoolPlatform.Communication.Api/SchoolPlatform.Communication.Api.csproj" />
+
+  <Project Path="src/Services/Administration/SchoolPlatform.Administration.Domain/SchoolPlatform.Administration.Domain.csproj" />
+  <Project Path="src/Services/Administration/SchoolPlatform.Administration.Application/SchoolPlatform.Administration.Application.csproj" />
+  <Project Path="src/Services/Administration/SchoolPlatform.Administration.Infrastructure/SchoolPlatform.Administration.Infrastructure.csproj" />
+  <Project Path="src/Services/Administration/SchoolPlatform.Administration.Api/SchoolPlatform.Administration.Api.csproj" />
+</Solution>

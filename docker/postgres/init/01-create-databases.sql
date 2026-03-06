@@ -1,0 +1,5 @@
+CREATE DATABASE schoolplatform_identity;
+CREATE DATABASE schoolplatform_organization;
+CREATE DATABASE schoolplatform_academics;
+CREATE DATABASE schoolplatform_communication;
+CREATE DATABASE schoolplatform_administration;
