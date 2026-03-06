@@ -1,0 +1,120 @@
+services:
+  webhost:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      organization-api:
+        condition: service_healthy
+      academics-api:
+        condition: service_healthy
+      communication-api:
+        condition: service_healthy
+      administration-api:
+        condition: service_healthy
+
+  identity-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      identity-migrator:
+        condition: service_completed_successfully
+
+  organization-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      organization-migrator:
+        condition: service_completed_successfully
+
+  academics-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      academics-migrator:
+        condition: service_completed_successfully
+
+  communication-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      communication-migrator:
+        condition: service_completed_successfully
+
+  administration-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      administration-migrator:
+        condition: service_completed_successfully
+
+  identity-migrator:
+    profiles: ["production-like"]
+    build:
+      context: ..
+      dockerfile: src/Services/Identity/Skolio.Identity.Api/Dockerfile.migrator
+    command: ["--connection", "Host=postgresql;Port=5432;Database=skolio_identity;Username=skolio;Password=skolio"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  organization-migrator:
+    profiles: ["production-like"]
+    build:
+      context: ..
+      dockerfile: src/Services/Organization/Skolio.Organization.Api/Dockerfile.migrator
+    command: ["--connection", "Host=postgresql;Port=5432;Database=skolio_organization;Username=skolio;Password=skolio"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  academics-migrator:
+    profiles: ["production-like"]
+    build:
+      context: ..
+      dockerfile: src/Services/Academics/Skolio.Academics.Api/Dockerfile.migrator
+    command: ["--connection", "Host=postgresql;Port=5432;Database=skolio_academics;Username=skolio;Password=skolio"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  communication-migrator:
+    profiles: ["production-like"]
+    build:
+      context: ..
+      dockerfile: src/Services/Communication/Skolio.Communication.Api/Dockerfile.migrator
+    command: ["--connection", "Host=postgresql;Port=5432;Database=skolio_communication;Username=skolio;Password=skolio"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  administration-migrator:
+    profiles: ["production-like"]
+    build:
+      context: ..
+      dockerfile: src/Services/Administration/Skolio.Administration.Api/Dockerfile.migrator
+    command: ["--connection", "Host=postgresql;Port=5432;Database=skolio_administration;Username=skolio;Password=skolio"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
