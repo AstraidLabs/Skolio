@@ -1,48 +1,48 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11520.95 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.WebHost", "src/Skolio.WebHost/Skolio.WebHost.csproj", "{10000000-0000-0000-0000-000000000001}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.WebHost", "src\Skolio.WebHost\Skolio.WebHost.csproj", "{10000000-0000-0000-0000-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Domain", "src/Services/Identity/Skolio.Identity.Domain/Skolio.Identity.Domain.csproj", "{10000000-0000-0000-0000-000000000002}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Domain", "src\Services\Identity\Skolio.Identity.Domain\Skolio.Identity.Domain.csproj", "{10000000-0000-0000-0000-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Application", "src/Services/Identity/Skolio.Identity.Application/Skolio.Identity.Application.csproj", "{10000000-0000-0000-0000-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Application", "src\Services\Identity\Skolio.Identity.Application\Skolio.Identity.Application.csproj", "{10000000-0000-0000-0000-000000000003}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Infrastructure", "src/Services/Identity/Skolio.Identity.Infrastructure/Skolio.Identity.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000004}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Infrastructure", "src\Services\Identity\Skolio.Identity.Infrastructure\Skolio.Identity.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000004}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Api", "src/Services/Identity/Skolio.Identity.Api/Skolio.Identity.Api.csproj", "{10000000-0000-0000-0000-000000000005}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Identity.Api", "src\Services\Identity\Skolio.Identity.Api\Skolio.Identity.Api.csproj", "{10000000-0000-0000-0000-000000000005}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Domain", "src/Services/Organization/Skolio.Organization.Domain/Skolio.Organization.Domain.csproj", "{10000000-0000-0000-0000-000000000006}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Domain", "src\Services\Organization\Skolio.Organization.Domain\Skolio.Organization.Domain.csproj", "{10000000-0000-0000-0000-000000000006}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Application", "src/Services/Organization/Skolio.Organization.Application/Skolio.Organization.Application.csproj", "{10000000-0000-0000-0000-000000000007}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Application", "src\Services\Organization\Skolio.Organization.Application\Skolio.Organization.Application.csproj", "{10000000-0000-0000-0000-000000000007}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Infrastructure", "src/Services/Organization/Skolio.Organization.Infrastructure/Skolio.Organization.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000008}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Infrastructure", "src\Services\Organization\Skolio.Organization.Infrastructure\Skolio.Organization.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000008}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Api", "src/Services/Organization/Skolio.Organization.Api/Skolio.Organization.Api.csproj", "{10000000-0000-0000-0000-000000000009}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Organization.Api", "src\Services\Organization\Skolio.Organization.Api\Skolio.Organization.Api.csproj", "{10000000-0000-0000-0000-000000000009}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Domain", "src/Services/Academics/Skolio.Academics.Domain/Skolio.Academics.Domain.csproj", "{10000000-0000-0000-0000-000000000010}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Domain", "src\Services\Academics\Skolio.Academics.Domain\Skolio.Academics.Domain.csproj", "{10000000-0000-0000-0000-000000000010}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Application", "src/Services/Academics/Skolio.Academics.Application/Skolio.Academics.Application.csproj", "{10000000-0000-0000-0000-000000000011}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Application", "src\Services\Academics\Skolio.Academics.Application\Skolio.Academics.Application.csproj", "{10000000-0000-0000-0000-000000000011}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Infrastructure", "src/Services/Academics/Skolio.Academics.Infrastructure/Skolio.Academics.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000012}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Infrastructure", "src\Services\Academics\Skolio.Academics.Infrastructure\Skolio.Academics.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000012}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Api", "src/Services/Academics/Skolio.Academics.Api/Skolio.Academics.Api.csproj", "{10000000-0000-0000-0000-000000000013}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Academics.Api", "src\Services\Academics\Skolio.Academics.Api\Skolio.Academics.Api.csproj", "{10000000-0000-0000-0000-000000000013}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Domain", "src/Services/Communication/Skolio.Communication.Domain/Skolio.Communication.Domain.csproj", "{10000000-0000-0000-0000-000000000014}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Domain", "src\Services\Communication\Skolio.Communication.Domain\Skolio.Communication.Domain.csproj", "{10000000-0000-0000-0000-000000000014}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Application", "src/Services/Communication/Skolio.Communication.Application/Skolio.Communication.Application.csproj", "{10000000-0000-0000-0000-000000000015}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Application", "src\Services\Communication\Skolio.Communication.Application\Skolio.Communication.Application.csproj", "{10000000-0000-0000-0000-000000000015}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Infrastructure", "src/Services/Communication/Skolio.Communication.Infrastructure/Skolio.Communication.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000016}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Infrastructure", "src\Services\Communication\Skolio.Communication.Infrastructure\Skolio.Communication.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000016}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Api", "src/Services/Communication/Skolio.Communication.Api/Skolio.Communication.Api.csproj", "{10000000-0000-0000-0000-000000000017}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Communication.Api", "src\Services\Communication\Skolio.Communication.Api\Skolio.Communication.Api.csproj", "{10000000-0000-0000-0000-000000000017}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Domain", "src/Services/Administration/Skolio.Administration.Domain/Skolio.Administration.Domain.csproj", "{10000000-0000-0000-0000-000000000018}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Domain", "src\Services\Administration\Skolio.Administration.Domain\Skolio.Administration.Domain.csproj", "{10000000-0000-0000-0000-000000000018}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Application", "src/Services/Administration/Skolio.Administration.Application/Skolio.Administration.Application.csproj", "{10000000-0000-0000-0000-000000000019}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Application", "src\Services\Administration\Skolio.Administration.Application\Skolio.Administration.Application.csproj", "{10000000-0000-0000-0000-000000000019}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Infrastructure", "src/Services/Administration/Skolio.Administration.Infrastructure/Skolio.Administration.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000020}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Infrastructure", "src\Services\Administration\Skolio.Administration.Infrastructure\Skolio.Administration.Infrastructure.csproj", "{10000000-0000-0000-0000-000000000020}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Api", "src/Services/Administration/Skolio.Administration.Api/Skolio.Administration.Api.csproj", "{10000000-0000-0000-0000-000000000021}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skolio.Administration.Api", "src\Services\Administration\Skolio.Administration.Api\Skolio.Administration.Api.csproj", "{10000000-0000-0000-0000-000000000021}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,5 +50,67 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{10000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000004}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000005}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000005}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000005}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000006}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000009}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000009}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000009}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000010}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000010}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000010}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000010}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000013}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000013}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000013}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000013}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000014}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000014}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000014}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000014}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000015}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000015}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000015}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000015}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000017}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000017}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000017}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000017}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000018}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000018}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000018}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000018}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000020}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000020}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000020}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10000000-0000-0000-0000-000000000021}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000021}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10000000-0000-0000-0000-000000000021}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10000000-0000-0000-0000-000000000021}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DEE82AF5-A990-4E23-AC4C-E24FC5350381}
 	EndGlobalSection
 EndGlobal
