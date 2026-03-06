@@ -1,5 +1,9 @@
 export type SkolioBootstrapConfig = {
   identityAuthority: string;
+  oidcClientId: string;
+  oidcRedirectUri: string;
+  oidcPostLogoutRedirectUri: string;
+  oidcScope: string;
   organizationApi: string;
   academicsApi: string;
   communicationApi: string;

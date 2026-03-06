@@ -11,4 +11,7 @@ public sealed class OpenIddictOptions
 
     [Required]
     public string[] Audiences { get; init; } = [];
+
+    [Required]
+    public OpenIddictClientSeedOptions FrontendClient { get; init; } = new();
 }

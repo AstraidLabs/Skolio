@@ -24,6 +24,10 @@ app.MapGet("/bootstrap-config", (Microsoft.Extensions.Options.IOptions<ServiceEn
     return Results.Ok(new
     {
         identityAuthority = endpoints.Value.IdentityApi,
+        oidcClientId = endpoints.Value.OidcClientId,
+        oidcRedirectUri = endpoints.Value.OidcRedirectUri,
+        oidcPostLogoutRedirectUri = endpoints.Value.OidcPostLogoutRedirectUri,
+        oidcScope = endpoints.Value.OidcScope,
         organizationApi = endpoints.Value.OrganizationApi,
         academicsApi = endpoints.Value.AcademicsApi,
         communicationApi = endpoints.Value.CommunicationApi,
