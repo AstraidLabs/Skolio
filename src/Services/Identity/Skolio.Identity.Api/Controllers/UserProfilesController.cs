@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.Profiles;
@@ -7,6 +8,7 @@ using Skolio.Identity.Domain.Enums;
 namespace Skolio.Identity.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
 [Route("api/identity/user-profiles")]
 public sealed class UserProfilesController(IMediator mediator) : ControllerBase
 {

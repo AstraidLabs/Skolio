@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Api.Configuration;
 using Skolio.Organization.Application;
 using Skolio.Organization.Infrastructure;
@@ -10,8 +12,31 @@ builder.Services.AddOptions<OrganizationServiceOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+builder.Services.AddOptions<JwtValidationOptions>()
+    .Bind(builder.Configuration.GetSection(JwtValidationOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+var jwtOptions = builder.Configuration.GetSection(JwtValidationOptions.SectionName).Get<JwtValidationOptions>() ?? throw new InvalidOperationException("Missing Organization auth options.");
+
 builder.Services.AddOrganizationApplication();
 builder.Services.AddOrganizationInfrastructure(builder.Configuration);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = jwtOptions.Authority;
+        options.Audience = jwtOptions.Audience;
+        options.RequireHttpsMetadata = jwtOptions.RequireHttpsMetadata;
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(SkolioPolicies.PlatformAdministration, policy => policy.RequireRole("PlatformAdministrator"));
+    options.AddPolicy(SkolioPolicies.SchoolAdministration, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator"));
+    options.AddPolicy(SkolioPolicies.TeacherOrSchoolAdministration, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher"));
+    options.AddPolicy(SkolioPolicies.ParentStudentTeacherRead, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"));
+});
 
 builder.Services.AddControllers();
 builder.Services.AddRouting();
@@ -36,6 +61,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("SkolioDevelopment");
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.MapGet("/", (Microsoft.Extensions.Options.IOptions<OrganizationServiceOptions> options) =>
@@ -43,7 +70,7 @@ app.MapGet("/", (Microsoft.Extensions.Options.IOptions<OrganizationServiceOption
     return Results.Ok(new
     {
         service = options.Value.ServiceName,
-        status = "phase-4-ready",
+        status = "phase-5-auth-ready",
         publicBaseUrl = options.Value.PublicBaseUrl
     });
 });

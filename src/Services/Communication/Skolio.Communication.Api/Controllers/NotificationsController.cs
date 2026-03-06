@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Communication.Application.Contracts;
 using Skolio.Communication.Application.Notifications;
@@ -6,6 +7,7 @@ using Skolio.Communication.Domain.Enums;
 
 namespace Skolio.Communication.Api.Controllers;
 [ApiController]
+[Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
 [Route("api/communication/notifications")]
 public sealed class NotificationsController(IMediator mediator) : ControllerBase
 {

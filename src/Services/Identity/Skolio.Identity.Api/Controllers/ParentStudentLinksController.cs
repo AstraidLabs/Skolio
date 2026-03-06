@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.ParentStudentLinks;
@@ -6,6 +7,7 @@ using Skolio.Identity.Application.ParentStudentLinks;
 namespace Skolio.Identity.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/identity/parent-student-links")]
 public sealed class ParentStudentLinksController(IMediator mediator) : ControllerBase
 {

@@ -6,7 +6,11 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ASPNETCORE_ENVIRONMENT: Development
-      ServiceEndpoints__IdentityApi: http://identity-api:8080
+      ServiceEndpoints__IdentityApi: http://localhost:8081
+      ServiceEndpoints__OidcClientId: skolio-frontend
+      ServiceEndpoints__OidcRedirectUri: http://localhost:8080/auth/callback
+      ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:8080/
+      ServiceEndpoints__OidcScope: openid profile skolio_api
       ServiceEndpoints__OrganizationApi: http://organization-api:8080
       ServiceEndpoints__AcademicsApi: http://academics-api:8080
       ServiceEndpoints__CommunicationApi: http://communication-api:8080
@@ -43,11 +47,17 @@ services:
       Identity__Redis__ConnectionString: redis:6379
       Identity__Redis__InstanceName: skolio:identity
       Identity__Service__PublicBaseUrl: http://identity-api:8080
-      Identity__OpenIddict__Issuer: http://identity-api:8080
+      Identity__OpenIddict__Issuer: http://localhost:8081
       Identity__Jwt__AccessTokenLifetime: 00:30:00
-      Identity__Jwt__RefreshTokenLifetime: 7.00:00:00
+      Identity__Jwt__IssueRefreshTokens: false
       Identity__Jwks__DiscoveryPath: /.well-known/jwks.json
       Identity__Jwks__KeySetId: skolio-identity-signing-k1
+      Identity__Signing__UseDevelopmentCertificate: true
+      Identity__Signing__KeyId: skolio-identity-signing-k1
+      Identity__OpenIddict__FrontendClient__ClientId: skolio-frontend
+      Identity__OpenIddict__FrontendClient__DisplayName: Skolio Frontend
+      Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:8080/auth/callback
+      Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:8080/
       
     ports:
       - "8081:8080"
@@ -73,6 +83,9 @@ services:
       Organization__Redis__ConnectionString: redis:6379
       Organization__Redis__InstanceName: skolio:organization
       Organization__Service__PublicBaseUrl: http://organization-api:8080
+      Organization__Auth__Authority: http://identity-api:8080
+      Organization__Auth__Audience: skolio_api
+      Organization__Auth__RequireHttpsMetadata: false
       
     ports:
       - "8082:8080"
@@ -98,6 +111,9 @@ services:
       Academics__Redis__ConnectionString: redis:6379
       Academics__Redis__InstanceName: skolio:academics
       Academics__Service__PublicBaseUrl: http://academics-api:8080
+      Academics__Auth__Authority: http://identity-api:8080
+      Academics__Auth__Audience: skolio_api
+      Academics__Auth__RequireHttpsMetadata: false
       
     ports:
       - "8083:8080"
@@ -123,6 +139,9 @@ services:
       Communication__Redis__ConnectionString: redis:6379
       Communication__Redis__InstanceName: skolio:communication
       Communication__Service__PublicBaseUrl: http://communication-api:8080
+      Communication__Auth__Authority: http://identity-api:8080
+      Communication__Auth__Audience: skolio_api
+      Communication__Auth__RequireHttpsMetadata: false
       
     ports:
       - "8084:8080"
@@ -148,6 +167,9 @@ services:
       Administration__Redis__ConnectionString: redis:6379
       Administration__Redis__InstanceName: skolio:administration
       Administration__Service__PublicBaseUrl: http://administration-api:8080
+      Administration__Auth__Authority: http://identity-api:8080
+      Administration__Auth__Audience: skolio_api
+      Administration__Auth__RequireHttpsMetadata: false
       Administration__Hangfire__StorageConnectionString: Host=postgresql;Port=5432;Database=skolio_administration;Username=skolio;Password=skolio
       Administration__Hangfire__SchemaName: hangfire
       

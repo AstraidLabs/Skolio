@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Organization.Application.ClassRooms;
 using Skolio.Organization.Application.Contracts;
@@ -6,6 +7,7 @@ using Skolio.Organization.Application.Contracts;
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/organization/class-rooms")]
 public sealed class ClassRoomsController(IMediator mediator) : ControllerBase
 {

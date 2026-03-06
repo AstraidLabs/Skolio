@@ -1,10 +1,12 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.DailyReports;
 
 namespace Skolio.Academics.Api.Controllers;
 [ApiController]
+[Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/academics/daily-reports")]
 public sealed class DailyReportsController(IMediator mediator) : ControllerBase
 {
