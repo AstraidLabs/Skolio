@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Skolio.Organization.Application/Skolio.Organization.Application.csproj" />
     <ProjectReference Include="../Skolio.Organization.Domain/Skolio.Organization.Domain.csproj" />
   </ItemGroup>

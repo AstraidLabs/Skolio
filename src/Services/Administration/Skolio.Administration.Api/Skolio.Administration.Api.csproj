@@ -9,6 +9,7 @@
     <ProjectReference Include="../Skolio.Administration.Infrastructure/Skolio.Administration.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="StackExchange.Redis" />
