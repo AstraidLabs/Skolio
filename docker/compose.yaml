@@ -1,129 +1,12 @@
 services:
-  postgresql:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: schoolplatform
-      POSTGRES_PASSWORD: schoolplatform
-      POSTGRES_DB: schoolplatform_identity
-    volumes:
-      - postgresql-data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U schoolplatform"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7.4
-    command: ["redis-server", "--appendonly", "yes"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  identity-api:
-    build:
-      context: ..
-      dockerfile: src/Services/Identity/SchoolPlatform.Identity.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_identity;Username=schoolplatform;Password=schoolplatform
-      ConnectionStrings__Redis: redis:6379
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
-  organization-api:
-    build:
-      context: ..
-      dockerfile: src/Services/Organization/SchoolPlatform.Organization.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_organization;Username=schoolplatform;Password=schoolplatform
-      ConnectionStrings__Redis: redis:6379
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
-  academics-api:
-    build:
-      context: ..
-      dockerfile: src/Services/Academics/SchoolPlatform.Academics.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_academics;Username=schoolplatform;Password=schoolplatform
-      ConnectionStrings__Redis: redis:6379
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
-  communication-api:
-    build:
-      context: ..
-      dockerfile: src/Services/Communication/SchoolPlatform.Communication.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_communication;Username=schoolplatform;Password=schoolplatform
-      ConnectionStrings__Redis: redis:6379
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
-  administration-api:
-    build:
-      context: ..
-      dockerfile: src/Services/Administration/SchoolPlatform.Administration.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=schoolplatform_administration;Username=schoolplatform;Password=schoolplatform
-      ConnectionStrings__Redis: redis:6379
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
   webhost:
     build:
       context: ..
-      dockerfile: src/WebHost/SchoolPlatform.WebHost/Dockerfile
+      dockerfile: src/Skolio.WebHost/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8080:8080"
     depends_on:
       identity-api:
         condition: service_healthy
@@ -135,20 +18,156 @@ services:
         condition: service_healthy
       administration-api:
         condition: service_healthy
-    ports:
-      - "8088:8080"
+      frontend:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 15s
+      interval: 20s
       timeout: 5s
-      retries: 10
+      retries: 5
+
+  identity-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Identity/Skolio.Identity.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=skolio_identity;Username=skolio;Password=skolio
+      ConnectionStrings__Redis: redis:6379
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  organization-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Organization/Skolio.Organization.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=skolio_organization;Username=skolio;Password=skolio
+      ConnectionStrings__Redis: redis:6379
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  academics-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Academics/Skolio.Academics.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=skolio_academics;Username=skolio;Password=skolio
+      ConnectionStrings__Redis: redis:6379
+    ports:
+      - "8083:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  communication-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Communication/Skolio.Communication.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=skolio_communication;Username=skolio;Password=skolio
+      ConnectionStrings__Redis: redis:6379
+    ports:
+      - "8084:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  administration-api:
+    build:
+      context: ..
+      dockerfile: src/Services/Administration/Skolio.Administration.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgresql;Port=5432;Database=skolio_administration;Username=skolio;Password=skolio
+      ConnectionStrings__Redis: redis:6379
+    ports:
+      - "8085:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
       context: ..
-      dockerfile: frontend/SchoolPlatform.Frontend/Dockerfile
+      dockerfile: src/Frontend/Skolio.Frontend/Dockerfile
     ports:
       - "5173:80"
 
+  postgresql:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: skolio
+      POSTGRES_PASSWORD: skolio
+      POSTGRES_DB: postgres
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - ./postgresql/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skolio -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
-  postgresql-data:
+  postgresql_data:
+  redis_data:

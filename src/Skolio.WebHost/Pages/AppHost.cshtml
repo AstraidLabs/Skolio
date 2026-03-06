@@ -1,0 +1,19 @@
+@page "/{*path}"
+@model AppHostModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skolio</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script>window.__SKOLIO_BOOTSTRAP__ = @Html.Raw(Model.BootstrapJson);</script>
+    <script type="module" src="/@vite/client"></script>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
