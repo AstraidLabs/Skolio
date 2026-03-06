@@ -8,8 +8,8 @@
     <ProjectReference Include="..\SchoolPlatform.Organization.Domain\SchoolPlatform.Organization.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="13.1.0" />
+    <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="Mapster" Version="7.4.0" />
-    <PackageReference Include="FluentValidation" Version="12.1.0" />
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
   </ItemGroup>
 </Project>
