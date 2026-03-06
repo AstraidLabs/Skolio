@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Skolio.Organization.Application.Abstractions;
 using Skolio.Organization.Infrastructure.Configuration;
 using Skolio.Organization.Infrastructure.Persistence;
 using StackExchange.Redis;
@@ -24,7 +25,6 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-
         var databaseOptions = configuration.GetSection(OrganizationDatabaseOptions.SectionName).Get<OrganizationDatabaseOptions>()
             ?? throw new InvalidOperationException("Missing OrganizationDatabaseOptions configuration.");
 
@@ -32,9 +32,10 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Missing OrganizationRedisOptions configuration.");
 
         services.AddDbContext<OrganizationDbContext>(options =>
-        {
-            options.UseNpgsql(databaseOptions.ConnectionString);
-        });
+            options.UseNpgsql(databaseOptions.ConnectionString, npgsql => npgsql.MigrationsAssembly(typeof(AssemblyMarker).Assembly.FullName)));
+
+        services.AddScoped<IOrganizationCommandStore, OrganizationCommandStore>();
+        services.AddScoped<IOrganizationReadStore, OrganizationReadStore>();
 
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
 

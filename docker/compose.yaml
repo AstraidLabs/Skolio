@@ -5,6 +5,7 @@ services:
       dockerfile: src/Skolio.WebHost/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       ServiceEndpoints__IdentityApi: http://identity-api:8080
       ServiceEndpoints__OrganizationApi: http://organization-api:8080
       ServiceEndpoints__AcademicsApi: http://academics-api:8080
@@ -37,6 +38,7 @@ services:
       dockerfile: src/Services/Identity/Skolio.Identity.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       Identity__Database__ConnectionString: Host=postgresql;Port=5432;Database=skolio_identity;Username=skolio;Password=skolio
       Identity__Redis__ConnectionString: redis:6379
       Identity__Redis__InstanceName: skolio:identity
@@ -66,6 +68,7 @@ services:
       dockerfile: src/Services/Organization/Skolio.Organization.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       Organization__Database__ConnectionString: Host=postgresql;Port=5432;Database=skolio_organization;Username=skolio;Password=skolio
       Organization__Redis__ConnectionString: redis:6379
       Organization__Redis__InstanceName: skolio:organization
@@ -90,6 +93,7 @@ services:
       dockerfile: src/Services/Academics/Skolio.Academics.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       Academics__Database__ConnectionString: Host=postgresql;Port=5432;Database=skolio_academics;Username=skolio;Password=skolio
       Academics__Redis__ConnectionString: redis:6379
       Academics__Redis__InstanceName: skolio:academics
@@ -114,6 +118,7 @@ services:
       dockerfile: src/Services/Communication/Skolio.Communication.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       Communication__Database__ConnectionString: Host=postgresql;Port=5432;Database=skolio_communication;Username=skolio;Password=skolio
       Communication__Redis__ConnectionString: redis:6379
       Communication__Redis__InstanceName: skolio:communication
@@ -138,6 +143,7 @@ services:
       dockerfile: src/Services/Administration/Skolio.Administration.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
       Administration__Database__ConnectionString: Host=postgresql;Port=5432;Database=skolio_administration;Username=skolio;Password=skolio
       Administration__Redis__ConnectionString: redis:6379
       Administration__Redis__InstanceName: skolio:administration
