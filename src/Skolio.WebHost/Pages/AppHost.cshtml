@@ -9,11 +9,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skolio</title>
+    @if (!Model.IsDevelopment)
+    {
+        <link rel="stylesheet" href="/@(Model.SpaAssetsPath)/assets/index.css" />
+    }
 </head>
 <body>
     <div id="root"></div>
-    <script>window.__SKOLIO_BOOTSTRAP__ = @Html.Raw(Model.BootstrapJson);</script>
-    <script type="module" src="/@vite/client"></script>
-    <script type="module" src="/src/main.tsx"></script>
+
+    @if (Model.IsDevelopment)
+    {
+        <script type="module" src="@(Model.ViteDevServer)/@vite/client"></script>
+        <script type="module" src="@(Model.ViteDevServer)/src/main.tsx"></script>
+    }
+    else
+    {
+        <script>
+            window.__SKOLIO_BOOTSTRAP_ENDPOINT__ = '@Model.BootstrapEndpoint';
+        </script>
+        <script type="module" src="/@(Model.SpaAssetsPath)/assets/index.js"></script>
+    }
 </body>
 </html>
