@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+WORKDIR /src
+COPY . .
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet ef migrations bundle \
+    --project src/Services/Administration/Skolio.Administration.Infrastructure/Skolio.Administration.Infrastructure.csproj \
+    --startup-project src/Services/Administration/Skolio.Administration.Api/Skolio.Administration.Api.csproj \
+    --context AdministrationDbContext \
+    --configuration Release \
+    --self-contained false \
+    --output /out/skolio-administration-migrator
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+WORKDIR /app
+COPY --from=build /out/skolio-administration-migrator ./skolio-administration-migrator
+ENTRYPOINT ["/app/skolio-administration-migrator"]
