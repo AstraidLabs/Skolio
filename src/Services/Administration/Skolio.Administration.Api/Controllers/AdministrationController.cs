@@ -17,6 +17,8 @@ namespace Skolio.Administration.Api.Controllers;
 [Route("api/administration")]
 public sealed class AdministrationController(IMediator mediator, AdministrationDbContext dbContext) : ControllerBase
 {
+    private const int MaxPageSize = 200;
+
     [HttpGet("system-settings")]
     public async Task<ActionResult<IReadOnlyCollection<SystemSettingContract>>> Settings(CancellationToken cancellationToken)
         => Ok(await dbContext.SystemSettings.OrderBy(x => x.Key).Select(x => new SystemSettingContract(x.Id, x.Key, x.Value, x.IsSensitive)).ToListAsync(cancellationToken));
@@ -42,8 +44,18 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     }
 
     [HttpGet("audit-log")]
-    public async Task<ActionResult<IReadOnlyCollection<AuditLogEntryContract>>> AuditLog([FromQuery] Guid? actorUserId, [FromQuery] string? actionCode, [FromQuery] DateTimeOffset? fromUtc, [FromQuery] DateTimeOffset? toUtc, CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<AuditLogEntryContract>>> AuditLog(
+        [FromQuery] Guid? actorUserId,
+        [FromQuery] string? actionCode,
+        [FromQuery] DateTimeOffset? fromUtc,
+        [FromQuery] DateTimeOffset? toUtc,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
     {
+        var normalizedPageNumber = Math.Max(pageNumber, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
         var query = dbContext.AuditLogEntries.AsQueryable();
         if (actorUserId.HasValue)
         {
@@ -65,10 +77,23 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
             query = query.Where(x => x.CreatedAtUtc <= toUtc.Value);
         }
 
-        return Ok(await query.OrderByDescending(x => x.CreatedAtUtc)
-            .Take(200)
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query.OrderByDescending(x => x.CreatedAtUtc)
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
             .Select(x => new AuditLogEntryContract(x.Id, x.ActorUserId, x.ActionCode, x.Payload, x.CreatedAtUtc))
-            .ToListAsync(cancellationToken));
+            .ToListAsync(cancellationToken);
+
+        return Ok(new PagedResult<AuditLogEntryContract>(items, normalizedPageNumber, normalizedPageSize, totalCount));
+    }
+
+    [HttpGet("audit-log/{id:guid}")]
+    public async Task<ActionResult<AuditLogEntryContract>> AuditLogDetail(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.AuditLogEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return entity is null
+            ? NotFound()
+            : Ok(new AuditLogEntryContract(entity.Id, entity.ActorUserId, entity.ActionCode, entity.Payload, entity.CreatedAtUtc));
     }
 
     [HttpGet("school-year-policies")]
@@ -99,6 +124,7 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     public sealed record UpdateToggleRequest(bool IsEnabled);
     public sealed record UpdateSchoolYearPolicyRequest(int ClosureGraceDays, string Status);
     public sealed record UpdateHousekeepingPolicyRequest(int RetentionDays, string Status);
+    public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
 
     public sealed record WriteAuditLogRequest(Guid ActorUserId, string ActionCode, string Payload);
 }
