@@ -1,16 +1,22 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.SchoolYears;
+using Skolio.Organization.Infrastructure.Persistence;
 
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
 [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/organization/school-years")]
-public sealed class SchoolYearsController(IMediator mediator) : ControllerBase
+public sealed class SchoolYearsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+        => Ok(await dbContext.SchoolYears.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.StartDate).Select(x => new SchoolYearContract(x.Id, x.SchoolId, x.Label, x.StartDate, x.EndDate)).ToListAsync(cancellationToken));
+
     [HttpPost]
     [ProducesResponseType(typeof(SchoolYearContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSchoolYear([FromBody] CreateSchoolYearRequest request, CancellationToken cancellationToken)

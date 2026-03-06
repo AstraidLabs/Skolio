@@ -1,17 +1,23 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Skolio.Academics.Application.Attendance;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Excuses;
 using Skolio.Academics.Domain.Enums;
+using Skolio.Academics.Infrastructure.Persistence;
 
 namespace Skolio.Academics.Api.Controllers;
 [ApiController]
 [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/academics/attendance")]
-public sealed class AttendanceController(IMediator mediator) : ControllerBase
+public sealed class AttendanceController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
 {
+    [HttpGet("records")]
+    public async Task<ActionResult<IReadOnlyCollection<AttendanceRecordContract>>> Records([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+        => Ok(await dbContext.AttendanceRecords.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.AttendanceDate).Select(x => new AttendanceRecordContract(x.Id, x.SchoolId, x.AudienceId, x.StudentUserId, x.AttendanceDate, x.Status)).ToListAsync(cancellationToken));
+
     [HttpPost("records")]
     public async Task<ActionResult<AttendanceRecordContract>> RecordAttendance([FromBody] RecordAttendanceRequest request, CancellationToken cancellationToken)
     {

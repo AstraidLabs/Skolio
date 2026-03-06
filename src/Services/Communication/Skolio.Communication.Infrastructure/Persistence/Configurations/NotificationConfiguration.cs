@@ -15,5 +15,6 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
         builder.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
         builder.Property(x => x.Body).HasColumnName("body").HasMaxLength(2000).IsRequired();
         builder.Property(x => x.Channel).HasColumnName("channel").HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.HasIndex(x => x.RecipientUserId);
     }
 }
