@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+WORKDIR /src
+COPY . .
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet ef migrations bundle \
+    --project src/Services/Communication/Skolio.Communication.Infrastructure/Skolio.Communication.Infrastructure.csproj \
+    --startup-project src/Services/Communication/Skolio.Communication.Api/Skolio.Communication.Api.csproj \
+    --context CommunicationDbContext \
+    --configuration Release \
+    --self-contained false \
+    --output /out/skolio-communication-migrator
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+WORKDIR /app
+COPY --from=build /out/skolio-communication-migrator ./skolio-communication-migrator
+ENTRYPOINT ["/app/skolio-communication-migrator"]
