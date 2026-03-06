@@ -1,10 +1,17 @@
+using System.Diagnostics;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Skolio.Administration.Api.Auth;
 using Skolio.Administration.Api.Configuration;
+using Skolio.Administration.Api.Diagnostics;
 using Skolio.Administration.Application;
+using Skolio.Administration.Domain.Exceptions;
 using Skolio.Administration.Infrastructure;
 using Skolio.Administration.Infrastructure.Extensions;
+using Skolio.Administration.Infrastructure.Persistence;
 using Skolio.Administration.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,10 +27,30 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(SkolioPolicies.TeacherOrSchoolAdministration, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher"));
     options.AddPolicy(SkolioPolicies.ParentStudentTeacherRead, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"));
 });
-builder.Services.AddControllers();builder.Services.AddRouting();builder.Services.AddHealthChecks();builder.Services.AddOpenApi();builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));builder.Services.AddHangfireServer();
+builder.Services.AddControllers();builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddOpenApi();builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));builder.Services.AddHangfireServer();
+builder.Services.AddHealthChecks().AddDbContextCheck<AdministrationDbContext>(tags: ["ready"]).AddCheck<RedisHealthCheck>("redis", tags: ["ready"]).AddCheck<HangfireHealthCheck>("hangfire", tags: ["ready"]);
 var app = builder.Build();
 if (app.Environment.IsDevelopment()) { await app.ApplyAdministrationMigrationsAsync(); app.MapOpenApi(); }
-app.UseCors("SkolioDevelopment");app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.MapHealthChecks("/health");app.MapHangfireDashboard("/hangfire");
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault() ?? Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
+    context.Response.Headers["X-Correlation-Id"] = correlationId;
+    using (app.Logger.BeginScope(new Dictionary<string, object> { ["Service"] = "Skolio.Administration.Api", ["Environment"] = app.Environment.EnvironmentName, ["CorrelationId"] = correlationId }))
+    {
+        await next();
+    }
+});
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var problem = new ProblemDetails { Instance = context.Request.Path, Extensions = { ["correlationId"] = context.Response.Headers["X-Correlation-Id"].ToString() } };
+    if (ex is AdministrationDomainException) { problem.Title = "Domain validation failed."; problem.Status = 400; problem.Detail = ex.Message; }
+    else { problem.Title = "Unexpected server error."; problem.Status = 500; problem.Detail = "The request could not be completed."; }
+    app.Logger.LogError(ex, "Unhandled exception for {Path}.", context.Request.Path);
+    context.Response.StatusCode = problem.Status ?? 500;
+    await context.Response.WriteAsJsonAsync(problem);
+}));
+app.UseCors("SkolioDevelopment");app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.MapHealthChecks("/health/live");app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });app.MapHangfireDashboard("/hangfire", new DashboardOptions { Authorization = [new HangfireDashboardAuthorizationFilter()] }).RequireAuthorization(SkolioPolicies.PlatformAdministration);
 RecurringJob.AddOrUpdate<HousekeepingJob>("administration-housekeeping-boundary", job => job.ExecuteAsync(), Cron.HourInterval(6));
-app.MapGet("/", (Microsoft.Extensions.Options.IOptions<AdministrationServiceOptions> options) => Results.Ok(new { service = options.Value.ServiceName, status = "phase-5-auth-ready", publicBaseUrl = options.Value.PublicBaseUrl, hangfireDashboard = "/hangfire" }));
+app.MapGet("/", (Microsoft.Extensions.Options.IOptions<AdministrationServiceOptions> options) => Results.Ok(new { service = options.Value.ServiceName, status = "phase-7-operational-ready", publicBaseUrl = options.Value.PublicBaseUrl, hangfireDashboard = "/hangfire" }));
 app.Run();

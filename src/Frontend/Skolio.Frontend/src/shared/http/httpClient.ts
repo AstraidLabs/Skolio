@@ -26,11 +26,23 @@ export function createHttpClient(config: SkolioBootstrapConfig) {
     headers.set('Content-Type', 'application/json');
     if (session) headers.set('Authorization', `Bearer ${session.accessToken}`);
 
-    const response = await fetch(`${resolveBase(service)}${path}`, { ...init, headers });
+    let response: Response;
+    try {
+      response = await fetch(`${resolveBase(service)}${path}`, { ...init, headers });
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      response = await fetch(`${resolveBase(service)}${path}`, { ...init, headers });
+    }
+
     if (response.status === 401) {
       clearSession();
+      window.dispatchEvent(new CustomEvent('skolio:auth-expired'));
       window.location.replace('/');
       throw new SkolioHttpError('Session expired', 401);
+    }
+
+    if (response.status === 403) {
+      throw new SkolioHttpError('Forbidden', 403);
     }
 
     if (!response.ok) {
