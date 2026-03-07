@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Communication.Api.Auth;
 using Skolio.Communication.Api.Hubs;
 using Skolio.Communication.Application.Announcements;
 using Skolio.Communication.Application.Contracts;
@@ -19,6 +20,8 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<AnnouncementContract>>> List([FromQuery] Guid schoolId, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
         var query = dbContext.Announcements.Where(x => x.SchoolId == schoolId);
         if (isActive.HasValue) query = query.Where(x => x.IsActive == isActive.Value);
 
@@ -32,14 +35,20 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     public async Task<ActionResult<AnnouncementContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return entity is null ? NotFound() : Ok(new AnnouncementContract(entity.Id, entity.SchoolId, entity.Title, entity.Message, entity.PublishAtUtc, entity.IsActive));
+        if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        return Ok(new AnnouncementContract(entity.Id, entity.SchoolId, entity.Title, entity.Message, entity.PublishAtUtc, entity.IsActive));
     }
 
     [HttpPost]
     [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AnnouncementContract>> Publish([FromBody] PublishAnnouncementRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var result = await mediator.Send(new PublishAnnouncementCommand(request.SchoolId, request.Title, request.Message, request.PublishAtUtc), cancellationToken);
+        Audit("communication.school-announcement.published", result.Id, new { request.SchoolId, request.Title });
         await hubContext.Clients.Group(request.SchoolId.ToString()).SendAsync("announcementPublished", result, cancellationToken);
         return CreatedAtAction(nameof(Detail), new { id = result.Id }, result);
     }
@@ -71,11 +80,12 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPut("{id:guid}/deactivation")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<AnnouncementContract>> SetActivation(Guid id, [FromBody] SetAnnouncementActivationRequest request, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
 
         if (request.IsActive) entity.Activate(); else entity.Deactivate();
         await dbContext.SaveChangesAsync(cancellationToken);

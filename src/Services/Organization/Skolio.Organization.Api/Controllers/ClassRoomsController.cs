@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Application.ClassRooms;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -16,14 +17,21 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     [HttpGet]
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<ClassRoomContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.ClassRooms.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DisplayName).Select(x => new ClassRoomContract(x.Id, x.SchoolId, x.GradeLevelId, x.Code, x.DisplayName)).ToListAsync(cancellationToken));
+    {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
+        return Ok(await dbContext.ClassRooms.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DisplayName).Select(x => new ClassRoomContract(x.Id, x.SchoolId, x.GradeLevelId, x.Code, x.DisplayName)).ToListAsync(cancellationToken));
+    }
 
     [HttpPost]
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(ClassRoomContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateClassRoom([FromBody] CreateClassRoomRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var contract = await mediator.Send(new CreateClassRoomCommand(request.SchoolId, request.GradeLevelId, request.Code, request.DisplayName), cancellationToken);
+        Audit("organization.class-room.created", request.SchoolId, new { contract.Id, request.Code, request.DisplayName });
         return CreatedAtAction(nameof(CreateClassRoom), new { id = contract.Id }, contract);
     }
 
@@ -39,14 +47,14 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
         classRoom.OverrideForPlatformSupport(request.Code, request.DisplayName);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("organization.class-room.override", classRoom.SchoolId, request.OverrideReason, new { classRoom.Id, request.Code, request.DisplayName });
+        Audit("organization.class-room.override", classRoom.SchoolId, new { request.OverrideReason, classRoom.Id, request.Code, request.DisplayName });
         return Ok(new ClassRoomContract(classRoom.Id, classRoom.SchoolId, classRoom.GradeLevelId, classRoom.Code, classRoom.DisplayName));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record CreateClassRoomRequest(Guid SchoolId, Guid GradeLevelId, string Code, string DisplayName);

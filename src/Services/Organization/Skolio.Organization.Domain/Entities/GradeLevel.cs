@@ -29,6 +29,13 @@ public sealed class GradeLevel
         return new GradeLevel(id, schoolId, level, displayName);
     }
 
+    public void Update(SchoolType schoolType, int level, string displayName)
+    {
+        ValidateLevelRange(schoolType, level);
+        SetLevel(level);
+        SetDisplayName(displayName);
+    }
+
     private static void ValidateLevelRange(SchoolType schoolType, int level)
     {
         var isValid = schoolType switch

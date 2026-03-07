@@ -7,6 +7,7 @@ export type SessionState = {
   subject: string;
   roles: string[];
   schoolType: SchoolType;
+  schoolIds: string[];
 };
 
 const sessionStorageKey = 'skolio.auth.session';

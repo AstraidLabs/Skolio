@@ -2,9 +2,11 @@ import type { createHttpClient } from '../shared/http/httpClient';
 
 export type School = { id: string; name: string; schoolType: string; isActive: boolean; schoolAdministratorUserProfileId?: string };
 export type SchoolYear = { id: string; schoolId: string; label: string; startDate: string; endDate: string };
+export type GradeLevel = { id: string; schoolId: string; level: number; displayName: string };
 export type ClassRoom = { id: string; schoolId: string; gradeLevelId: string; code: string; displayName: string };
 export type TeachingGroup = { id: string; schoolId: string; classRoomId?: string; name: string; isDailyOperationsGroup: boolean };
 export type Subject = { id: string; schoolId: string; code: string; name: string };
+export type SecondaryFieldOfStudy = { id: string; schoolId: string; code: string; name: string };
 export type TeacherAssignment = { id: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string };
 
 type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
@@ -26,7 +28,11 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     assignSchoolAdministrator: (id: string, userProfileId: string) => http<School>('organization', `/api/organization/schools/${id}/school-administrator`, { method: 'PUT', body: JSON.stringify({ userProfileId }) }),
     createInitialSchoolYear: (id: string, payload: { label: string; startDate: string; endDate: string }) => http<SchoolYear>('organization', `/api/organization/schools/${id}/initial-school-year`, { method: 'POST', body: JSON.stringify(payload) }),
     createSchoolYear: (payload: Omit<SchoolYear, 'id'>) => http<SchoolYear>('organization', '/api/organization/school-years', { method: 'POST', body: JSON.stringify(payload) }),
+    updateSchoolYear: (id: string, payload: { startDate: string; endDate: string }) => http<SchoolYear>('organization', `/api/organization/school-years/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     schoolYears: (schoolId: string) => http<SchoolYear[]>('organization', `/api/organization/school-years?schoolId=${schoolId}`),
+    gradeLevels: (schoolId: string) => http<GradeLevel[]>('organization', `/api/organization/grade-levels?schoolId=${schoolId}`),
+    createGradeLevel: (payload: Omit<GradeLevel, 'id'>) => http<GradeLevel>('organization', '/api/organization/grade-levels', { method: 'POST', body: JSON.stringify(payload) }),
+    updateGradeLevel: (id: string, payload: { level: number; displayName: string }) => http<GradeLevel>('organization', `/api/organization/grade-levels/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     classRooms: (schoolId: string) => http<ClassRoom[]>('organization', `/api/organization/class-rooms?schoolId=${schoolId}`),
     createClassRoom: (payload: Omit<ClassRoom, 'id'>) => http<ClassRoom>('organization', '/api/organization/class-rooms', { method: 'POST', body: JSON.stringify(payload) }),
     overrideClassRoom: (id: string, payload: { code: string; displayName: string; overrideReason: string }) => http<ClassRoom>('organization', `/api/organization/class-rooms/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
@@ -39,6 +45,9 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     },
     createSubject: (payload: Omit<Subject, 'id'>) => http<Subject>('organization', '/api/organization/subjects', { method: 'POST', body: JSON.stringify(payload) }),
     overrideSubject: (id: string, payload: { code: string; name: string; overrideReason: string }) => http<Subject>('organization', `/api/organization/subjects/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
+    secondaryFieldsOfStudy: (schoolId: string) => http<SecondaryFieldOfStudy[]>('organization', `/api/organization/secondary-fields-of-study?schoolId=${schoolId}`),
+    createSecondaryFieldOfStudy: (payload: Omit<SecondaryFieldOfStudy, 'id'>) => http<SecondaryFieldOfStudy>('organization', '/api/organization/secondary-fields-of-study', { method: 'POST', body: JSON.stringify(payload) }),
+    updateSecondaryFieldOfStudy: (id: string, payload: { code: string; name: string }) => http<SecondaryFieldOfStudy>('organization', `/api/organization/secondary-fields-of-study/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     teacherAssignments: (schoolId: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments?schoolId=${schoolId}`),
     createTeacherAssignment: (payload: Omit<TeacherAssignment, 'id'>) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments', { method: 'POST', body: JSON.stringify(payload) }),
     overrideTeacherAssignment: (payload: { existingAssignmentId?: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string; overrideReason: string }) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments/override/reassign', { method: 'POST', body: JSON.stringify(payload) })

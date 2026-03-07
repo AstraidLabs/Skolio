@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Identity.Api.Auth;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.Roles;
 using Skolio.Identity.Infrastructure.Persistence;
@@ -14,6 +15,7 @@ namespace Skolio.Identity.Api.Controllers;
 public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext dbContext, ILogger<SchoolRolesController> logger) : ControllerBase
 {
     private static readonly HashSet<string> SupportedRoleCodes = ["PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"];
+    private static readonly HashSet<string> SchoolAdministratorManageableRoleCodes = ["Teacher", "Parent", "Student"];
 
     [HttpGet]
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
@@ -22,7 +24,13 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
         var query = dbContext.SchoolRoleAssignments.AsQueryable();
         if (schoolId.HasValue)
         {
+            if (!SchoolScope.HasSchoolAccess(User, schoolId.Value)) return Forbid();
             query = query.Where(x => x.SchoolId == schoolId.Value);
+        }
+        else if (!SchoolScope.IsPlatformAdministrator(User))
+        {
+            var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+            query = query.Where(x => scopedSchoolIds.Contains(x.SchoolId));
         }
 
         if (!string.IsNullOrWhiteSpace(roleCode))
@@ -41,31 +49,46 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     public async Task<ActionResult<SchoolRoleAssignmentContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.SchoolRoleAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return entity is null ? NotFound() : Ok(new SchoolRoleAssignmentContract(entity.Id, entity.UserProfileId, entity.SchoolId, entity.RoleCode));
+        if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        return Ok(new SchoolRoleAssignmentContract(entity.Id, entity.UserProfileId, entity.SchoolId, entity.RoleCode));
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolRoleAssignmentContract>> Assign([FromBody] AssignSchoolRoleRequest request, CancellationToken cancellationToken)
     {
         if (!SupportedRoleCodes.Contains(request.RoleCode)) return BadRequest("Unsupported role code.");
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
+        if (!SchoolScope.IsPlatformAdministrator(User) && !SchoolAdministratorManageableRoleCodes.Contains(request.RoleCode))
+        {
+            return Forbid();
+        }
 
         var result = await mediator.Send(new AssignSchoolRoleCommand(request.UserProfileId, request.SchoolId, request.RoleCode), cancellationToken);
-        Audit("identity.role-assignment.created", result.Id, new { request.UserProfileId, request.SchoolId, request.RoleCode });
+        Audit("identity.role-assignment.changed", result.Id, new { request.UserProfileId, request.SchoolId, request.RoleCode, operation = "assign" });
         return CreatedAtAction(nameof(Detail), new { id = result.Id }, result);
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.SchoolRoleAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        if (!SchoolScope.IsPlatformAdministrator(User) && !SchoolAdministratorManageableRoleCodes.Contains(entity.RoleCode))
+        {
+            return Forbid();
+        }
 
         dbContext.SchoolRoleAssignments.Remove(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("identity.role-assignment.deleted", id, new { entity.UserProfileId, entity.SchoolId, entity.RoleCode });
+        Audit("identity.role-assignment.changed", id, new { entity.UserProfileId, entity.SchoolId, entity.RoleCode, operation = "delete" });
         return NoContent();
     }
 

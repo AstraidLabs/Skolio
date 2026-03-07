@@ -7,11 +7,12 @@ using OpenIddict.Abstractions;
 using OpenIddict.Extensions;
 using OpenIddict.Server.AspNetCore;
 using Skolio.Identity.Infrastructure.Auth;
+using Skolio.Identity.Infrastructure.Persistence;
 
 namespace Skolio.Identity.Api.Controllers;
 
 [ApiController]
-public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> signInManager, UserManager<SkolioIdentityUser> userManager) : ControllerBase
+public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> signInManager, UserManager<SkolioIdentityUser> userManager, IdentityDbContext dbContext) : ControllerBase
 {
     [HttpGet("/connect/authorize")]
     public async Task<IActionResult> Authorize(CancellationToken cancellationToken)
@@ -41,6 +42,17 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
         var principal = await signInManager.CreateUserPrincipalAsync(user);
         principal.SetClaim(OpenIddictConstants.Claims.Subject, user.Id);
         principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email ?? string.Empty);
+
+        if (Guid.TryParse(user.Id, out var userProfileId))
+        {
+            var roleAssignments = dbContext.SchoolRoleAssignments.Where(x => x.UserProfileId == userProfileId).ToList();
+            foreach (var assignment in roleAssignments)
+            {
+                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ClaimTypes.Role, assignment.RoleCode));
+                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("school_id", assignment.SchoolId.ToString()));
+            }
+        }
+
         principal.SetScopes(request.GetScopes());
         principal.SetResources("skolio_api");
 
@@ -80,7 +92,8 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
         {
             sub = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Subject),
             email = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Email),
-            role = claimsPrincipal.FindAll(ClaimTypes.Role).Select(roleClaim => roleClaim.Value).ToArray()
+            role = claimsPrincipal.FindAll(ClaimTypes.Role).Select(roleClaim => roleClaim.Value).ToArray(),
+            school_id = claimsPrincipal.FindAll("school_id").Select(x => x.Value).ToArray()
         });
     }
 

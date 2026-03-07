@@ -33,6 +33,17 @@ public sealed class SecondaryFieldOfStudy
         return new SecondaryFieldOfStudy(id, schoolId, code, name);
     }
 
+    public void Update(SchoolType schoolType, string code, string name)
+    {
+        if (schoolType != SchoolType.SecondarySchool)
+        {
+            throw new OrganizationDomainException("Field of study is available only for secondary schools.");
+        }
+
+        SetCode(code);
+        SetName(name);
+    }
+
     private void SetCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

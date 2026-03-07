@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.TeachingGroups;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -16,14 +17,21 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
     [HttpGet]
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<TeachingGroupContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.TeachingGroups.Where(x => x.SchoolId == schoolId).OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
+    {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
+        return Ok(await dbContext.TeachingGroups.Where(x => x.SchoolId == schoolId).OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
+    }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(TeachingGroupContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateTeachingGroup([FromBody] CreateTeachingGroupRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var contract = await mediator.Send(new CreateTeachingGroupCommand(request.SchoolId, request.ClassRoomId, request.Name, request.IsDailyOperationsGroup), cancellationToken);
+        Audit("organization.teaching-group.created", request.SchoolId, new { contract.Id, request.Name, request.IsDailyOperationsGroup });
         return CreatedAtAction(nameof(CreateTeachingGroup), new { id = contract.Id }, contract);
     }
 
@@ -39,14 +47,14 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
         entity.OverrideForPlatformSupport(request.ClassRoomId, request.Name, request.IsDailyOperationsGroup);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("organization.teaching-group.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.ClassRoomId, request.Name, request.IsDailyOperationsGroup });
+        Audit("organization.teaching-group.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.ClassRoomId, request.Name, request.IsDailyOperationsGroup });
         return Ok(new TeachingGroupContract(entity.Id, entity.SchoolId, entity.ClassRoomId, entity.Name, entity.IsDailyOperationsGroup));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record CreateTeachingGroupRequest(Guid SchoolId, Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup);

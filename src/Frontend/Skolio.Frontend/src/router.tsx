@@ -458,7 +458,7 @@ function AcademicsPage({ api, administrationApi, schoolType, session }: { api: R
     void administrationApi.auditLogs({ actionCode: 'academics.daily-report.override' }).then(setOverrides).catch((e: Error) => setError(e.message));
   }, [administrationApi, session]);
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports('').then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
+  return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(selectedSchoolId(session)).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
 }
 
 function CommunicationPage({ api, session }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState }) {
@@ -467,7 +467,7 @@ function CommunicationPage({ api, session }: { api: ReturnType<typeof createComm
   const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'retrying'>('connected');
   const [retryCount, setRetryCount] = useState(0);
 
-  const load = () => void api.announcements('')
+  const load = () => void api.announcements(selectedSchoolId(session))
     .then(setAnnouncements)
     .catch(() => {
       setConnectionState('disconnected');
@@ -627,6 +627,14 @@ function LanguageSwitcher() {
   );
 }
 
+function isSchoolAdministrator(session: SessionState) {
+  return session.roles.includes('SchoolAdministrator');
+}
+
+function selectedSchoolId(session: SessionState) {
+  if (session.schoolIds.length > 0) return session.schoolIds[0];
+  return '00000000-0000-0000-0000-000000000000';
+}
 function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
   if (roles.includes('PlatformAdministrator')) {
     return ['/dashboard', '/organization', '/identity', '/administration', '/communication', '/academics'];
@@ -683,7 +691,8 @@ async function completeAuthorizationCodeFlow(config: SkolioBootstrapConfig, t: R
     expiresAtUtc: Date.now() + token.expires_in * 1000,
     subject: claims.sub ?? 'unknown',
     roles: normalizeRoles(claims.role),
-    schoolType: (claims['school_type'] as SchoolType) ?? 'ElementarySchool'
+    schoolType: (claims['school_type'] as SchoolType) ?? 'ElementarySchool',
+    schoolIds: Array.isArray(claims['school_id']) ? claims['school_id'] as string[] : claims['school_id'] ? [claims['school_id'] as string] : []
   };
 }
 
@@ -734,6 +743,7 @@ async function beginLogin(config: SkolioBootstrapConfig) {
 
   window.location.href = `${config.identityAuthority}/connect/authorize?${params.toString()}`;
 }
+
 
 
 

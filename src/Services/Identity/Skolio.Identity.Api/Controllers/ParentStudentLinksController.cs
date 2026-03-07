@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Identity.Api.Auth;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.ParentStudentLinks;
 using Skolio.Identity.Infrastructure.Persistence;
@@ -28,7 +29,13 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
             query = query.Where(x => x.StudentUserProfileId == studentUserProfileId.Value);
         }
 
-        return Ok(await query.Select(x => new ParentStudentLinkContract(x.Id, x.ParentUserProfileId, x.StudentUserProfileId, x.Relationship)).ToListAsync(cancellationToken));
+        var links = await query.ToListAsync(cancellationToken);
+        if (!SchoolScope.IsPlatformAdministrator(User))
+        {
+            links = await FilterBySchoolScope(links, cancellationToken);
+        }
+
+        return Ok(links.Select(x => new ParentStudentLinkContract(x.Id, x.ParentUserProfileId, x.StudentUserProfileId, x.Relationship)).ToList());
     }
 
     [HttpGet("{id:guid}")]
@@ -36,15 +43,20 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
     public async Task<ActionResult<ParentStudentLinkContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.ParentStudentLinks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return entity is null ? NotFound() : Ok(new ParentStudentLinkContract(entity.Id, entity.ParentUserProfileId, entity.StudentUserProfileId, entity.Relationship));
+        if (entity is null) return NotFound();
+        if (!await HasLinkAccess(entity, cancellationToken)) return Forbid();
+
+        return Ok(new ParentStudentLinkContract(entity.Id, entity.ParentUserProfileId, entity.StudentUserProfileId, entity.Relationship));
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<ParentStudentLinkContract>> Create([FromBody] CreateParentStudentLinkRequest request, CancellationToken cancellationToken)
     {
+        if (!await HasUserScopeAccess(request.ParentUserProfileId, cancellationToken) || !await HasUserScopeAccess(request.StudentUserProfileId, cancellationToken)) return Forbid();
+
         var result = await mediator.Send(new CreateParentStudentLinkCommand(request.ParentUserProfileId, request.StudentUserProfileId, request.Relationship), cancellationToken);
-        Audit("identity.parent-student-link.created", result.Id, new { request.ParentUserProfileId, request.StudentUserProfileId, request.Relationship });
+        Audit("identity.parent-student-link.changed", result.Id, new { request.ParentUserProfileId, request.StudentUserProfileId, request.Relationship, operation = "create" });
         return CreatedAtAction(nameof(Detail), new { id = result.Id }, result);
     }
 
@@ -65,16 +77,45 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.ParentStudentLinks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
+        if (!await HasLinkAccess(entity, cancellationToken)) return Forbid();
 
         dbContext.ParentStudentLinks.Remove(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
-        Audit("identity.parent-student-link.deleted", id, new { entity.ParentUserProfileId, entity.StudentUserProfileId });
+        Audit("identity.parent-student-link.changed", id, new { entity.ParentUserProfileId, entity.StudentUserProfileId, operation = "delete" });
         return NoContent();
+    }
+
+    private async Task<bool> HasLinkAccess(Skolio.Identity.Domain.Entities.ParentStudentLink link, CancellationToken cancellationToken)
+        => await HasUserScopeAccess(link.ParentUserProfileId, cancellationToken) || await HasUserScopeAccess(link.StudentUserProfileId, cancellationToken);
+
+    private async Task<bool> HasUserScopeAccess(Guid userProfileId, CancellationToken cancellationToken)
+    {
+        if (SchoolScope.IsPlatformAdministrator(User)) return true;
+
+        var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+        if (scopedSchoolIds.Count == 0) return false;
+
+        return await dbContext.SchoolRoleAssignments.AnyAsync(x => x.UserProfileId == userProfileId && scopedSchoolIds.Contains(x.SchoolId), cancellationToken);
+    }
+
+    private async Task<List<Skolio.Identity.Domain.Entities.ParentStudentLink>> FilterBySchoolScope(List<Skolio.Identity.Domain.Entities.ParentStudentLink> source, CancellationToken cancellationToken)
+    {
+        var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+        if (scopedSchoolIds.Count == 0) return [];
+
+        var userIds = source.SelectMany(x => new[] { x.ParentUserProfileId, x.StudentUserProfileId }).Distinct().ToList();
+        var allowedUserIds = await dbContext.SchoolRoleAssignments
+            .Where(x => scopedSchoolIds.Contains(x.SchoolId) && userIds.Contains(x.UserProfileId))
+            .Select(x => x.UserProfileId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return source.Where(x => allowedUserIds.Contains(x.ParentUserProfileId) || allowedUserIds.Contains(x.StudentUserProfileId)).ToList();
     }
 
     private void Audit(string actionCode, Guid targetId, object payload)

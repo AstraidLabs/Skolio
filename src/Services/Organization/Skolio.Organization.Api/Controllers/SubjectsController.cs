@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.Subjects;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -17,13 +18,10 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
 
     [HttpGet]
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<PagedResult<SubjectContract>>> List(
-        [FromQuery] Guid schoolId,
-        [FromQuery] string? search,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 50,
-        CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PagedResult<SubjectContract>>> List([FromQuery] Guid schoolId, [FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
         var normalizedPageNumber = Math.Max(pageNumber, 1);
         var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
@@ -49,7 +47,10 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     public async Task<ActionResult<SubjectContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Subjects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return entity is null ? NotFound() : Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
+        if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
     }
 
     [HttpPost]
@@ -57,7 +58,10 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     [ProducesResponseType(typeof(SubjectContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSubject([FromBody] CreateSubjectRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var contract = await mediator.Send(new CreateSubjectCommand(request.SchoolId, request.Code, request.Name), cancellationToken);
+        Audit("organization.subject.created", request.SchoolId, new { contract.Id, request.Code, request.Name });
         return CreatedAtAction(nameof(Detail), new { id = contract.Id }, contract);
     }
 
@@ -73,14 +77,14 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
         entity.OverrideForPlatformSupport(request.Code, request.Name);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("organization.subject.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.Code, request.Name });
+        Audit("organization.subject.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.Code, request.Name });
         return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record CreateSubjectRequest(Guid SchoolId, string Code, string Name);

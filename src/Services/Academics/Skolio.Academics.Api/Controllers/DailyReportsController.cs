@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Academics.Api.Auth;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.DailyReports;
 using Skolio.Academics.Infrastructure.Persistence;
@@ -16,12 +17,18 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
     [HttpGet]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<DailyReportContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.DailyReports.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.ReportDate).Select(x => new DailyReportContract(x.Id, x.SchoolId, x.AudienceId, x.ReportDate, x.Summary, x.Notes)).ToListAsync(cancellationToken));
+    {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
+        return Ok(await dbContext.DailyReports.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.ReportDate).Select(x => new DailyReportContract(x.Id, x.SchoolId, x.AudienceId, x.ReportDate, x.Summary, x.Notes)).ToListAsync(cancellationToken));
+    }
 
     [HttpPost]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<DailyReportContract>> Record([FromBody] RecordDailyReportRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var result = await mediator.Send(new RecordDailyReportCommand(request.SchoolId, request.AudienceId, request.ReportDate, request.Summary, request.Notes), cancellationToken);
         return CreatedAtAction(nameof(Record), new { id = result.Id }, result);
     }
@@ -38,14 +45,14 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
         entity.OverrideForPlatformSupport(request.AudienceId, request.ReportDate, request.Summary, request.Notes);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("academics.daily-report.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.ReportDate });
+        Audit("academics.daily-report.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.ReportDate });
         return Ok(new DailyReportContract(entity.Id, entity.SchoolId, entity.AudienceId, entity.ReportDate, entity.Summary, entity.Notes));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record RecordDailyReportRequest(Guid SchoolId, Guid AudienceId, DateOnly ReportDate, string Summary, string Notes);

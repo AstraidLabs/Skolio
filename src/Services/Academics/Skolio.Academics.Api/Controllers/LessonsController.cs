@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Academics.Api.Auth;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Lessons;
 using Skolio.Academics.Infrastructure.Persistence;
@@ -16,12 +17,20 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
     [HttpGet]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<LessonRecordContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.LessonRecords.Join(dbContext.TimetableEntries, lesson => lesson.TimetableEntryId, timetable => timetable.Id, (lesson, timetable) => new { lesson, timetable }).Where(x => x.timetable.SchoolId == schoolId).OrderByDescending(x => x.lesson.LessonDate).Select(x => new LessonRecordContract(x.lesson.Id, x.lesson.TimetableEntryId, x.lesson.LessonDate, x.lesson.Topic, x.lesson.Summary)).ToListAsync(cancellationToken));
+    {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
+        return Ok(await dbContext.LessonRecords.Join(dbContext.TimetableEntries, lesson => lesson.TimetableEntryId, timetable => timetable.Id, (lesson, timetable) => new { lesson, timetable }).Where(x => x.timetable.SchoolId == schoolId).OrderByDescending(x => x.lesson.LessonDate).Select(x => new LessonRecordContract(x.lesson.Id, x.lesson.TimetableEntryId, x.lesson.LessonDate, x.lesson.Topic, x.lesson.Summary)).ToListAsync(cancellationToken));
+    }
 
     [HttpPost]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<LessonRecordContract>> Record([FromBody] RecordLessonRequest request, CancellationToken cancellationToken)
     {
+        var timetable = await dbContext.TimetableEntries.FirstOrDefaultAsync(x => x.Id == request.TimetableEntryId, cancellationToken);
+        if (timetable is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, timetable.SchoolId)) return Forbid();
+
         var result = await mediator.Send(new RecordLessonCommand(request.TimetableEntryId, request.LessonDate, request.Topic, request.Summary), cancellationToken);
         return CreatedAtAction(nameof(Record), new { id = result.Id }, result);
     }
@@ -39,14 +48,14 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var schoolId = await dbContext.TimetableEntries.Where(x => x.Id == request.TimetableEntryId).Select(x => x.SchoolId).FirstOrDefaultAsync(cancellationToken);
-        Audit("academics.lesson.override", schoolId, request.OverrideReason, new { entity.Id, request.Topic });
+        Audit("academics.lesson.override", schoolId, new { request.OverrideReason, entity.Id, request.Topic });
         return Ok(new LessonRecordContract(entity.Id, entity.TimetableEntryId, entity.LessonDate, entity.Topic, entity.Summary));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record RecordLessonRequest(Guid TimetableEntryId, DateOnly LessonDate, string Topic, string Summary);

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Academics.Api.Auth;
 using Skolio.Academics.Application.Attendance;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Excuses;
@@ -18,12 +19,18 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     [HttpGet("records")]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<AttendanceRecordContract>>> Records([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.AttendanceRecords.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.AttendanceDate).Select(x => new AttendanceRecordContract(x.Id, x.SchoolId, x.AudienceId, x.StudentUserId, x.AttendanceDate, x.Status)).ToListAsync(cancellationToken));
+    {
+        if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
+
+        return Ok(await dbContext.AttendanceRecords.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.AttendanceDate).Select(x => new AttendanceRecordContract(x.Id, x.SchoolId, x.AudienceId, x.StudentUserId, x.AttendanceDate, x.Status)).ToListAsync(cancellationToken));
+    }
 
     [HttpPost("records")]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AttendanceRecordContract>> RecordAttendance([FromBody] RecordAttendanceRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
         var result = await mediator.Send(new RecordAttendanceCommand(request.SchoolId, request.AudienceId, request.StudentUserId, request.AttendanceDate, request.Status), cancellationToken);
         return CreatedAtAction(nameof(RecordAttendance), new { id = result.Id }, result);
     }
@@ -40,7 +47,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         entity.OverrideForPlatformSupport(request.AudienceId, request.StudentUserId, request.AttendanceDate, request.Status);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        Audit("academics.attendance.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.Status });
+        Audit("academics.attendance.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.Status });
         return Ok(new AttendanceRecordContract(entity.Id, entity.SchoolId, entity.AudienceId, entity.StudentUserId, entity.AttendanceDate, entity.Status));
     }
 
@@ -48,6 +55,10 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<ExcuseNoteContract>> SubmitExcuse([FromBody] SubmitExcuseNoteRequest request, CancellationToken cancellationToken)
     {
+        var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == request.AttendanceRecordId, cancellationToken);
+        if (attendance is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
+
         var result = await mediator.Send(new SubmitExcuseNoteCommand(request.AttendanceRecordId, request.ParentUserId, request.Reason), cancellationToken);
         return CreatedAtAction(nameof(SubmitExcuse), new { id = result.Id }, result);
     }
@@ -65,14 +76,14 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == entity.AttendanceRecordId, cancellationToken);
-        Audit("academics.excuse-note.override", attendance?.SchoolId ?? Guid.Empty, request.OverrideReason, new { entity.Id });
+        Audit("academics.excuse-note.override", attendance?.SchoolId ?? Guid.Empty, new { request.OverrideReason, entity.Id });
         return Ok(new ExcuseNoteContract(entity.Id, entity.AttendanceRecordId, entity.ParentUserId, entity.Reason, entity.SubmittedAtUtc));
     }
 
-    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    private void Audit(string actionCode, Guid schoolId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
-        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} payload={Payload}", actionCode, actor, schoolId, payload);
     }
 
     public sealed record RecordAttendanceRequest(Guid SchoolId, Guid AudienceId, Guid StudentUserId, DateOnly AttendanceDate, AttendanceStatus Status);

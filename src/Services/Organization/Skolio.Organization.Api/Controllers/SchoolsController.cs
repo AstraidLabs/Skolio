@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.Schools;
 using Skolio.Organization.Application.SchoolYears;
@@ -31,6 +32,11 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
         var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
         var query = dbContext.Schools.AsQueryable();
+        if (!SchoolScope.IsPlatformAdministrator(User))
+        {
+            var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+            query = query.Where(x => scopedSchoolIds.Contains(x.Id));
+        }
 
         if (schoolType.HasValue)
         {
@@ -62,6 +68,8 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, id)) return Forbid();
+
         var school = await dbContext.Schools.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         return school is null ? NotFound() : Ok(new SchoolContract(school.Id, school.Name, school.SchoolType, school.IsActive, school.SchoolAdministratorUserProfileId));
     }
@@ -77,9 +85,11 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolContract>> UpdateSchool(Guid id, [FromBody] UpdateSchoolRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, id)) return Forbid();
+
         var school = await dbContext.Schools.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (school is null) return NotFound();
 
@@ -120,9 +130,11 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPost("{id:guid}/initial-school-year")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolYearContract>> CreateInitialSchoolYear(Guid id, [FromBody] CreateInitialSchoolYearRequest request, CancellationToken cancellationToken)
     {
+        if (!SchoolScope.HasSchoolAccess(User, id)) return Forbid();
+
         var schoolExists = await dbContext.Schools.AnyAsync(x => x.Id == id, cancellationToken);
         if (!schoolExists) return NotFound();
 
