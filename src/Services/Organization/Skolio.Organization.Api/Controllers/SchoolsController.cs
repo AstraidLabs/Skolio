@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     private const int MaxPageSize = 200;
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<PagedResult<SchoolContract>>> List(
         [FromQuery] SchoolType? schoolType,
         [FromQuery] bool? isActive,
@@ -65,7 +65,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<SchoolContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, id)) return Forbid();

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,8 +15,8 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbContext, ILogger<LessonsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
-    public async Task<ActionResult<IReadOnlyCollection<LessonRecordContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? timetableEntryId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<LessonRecordContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? timetableEntryId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
@@ -28,7 +28,20 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
             query = query.Where(x => x.timetable.Id == timetableEntryId.Value);
         }
 
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        if (IsParentOnly())
+        {
+            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
+
+            var linkedAudienceIds = await dbContext.AttendanceRecords
+                .Where(x => x.SchoolId == schoolId && x.StudentUserId == studentUserId.Value)
+                .Select(x => x.AudienceId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => linkedAudienceIds.Contains(x.timetable.AudienceId));
+        }
+        else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
@@ -75,6 +88,9 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
         Audit("academics.lesson.override", schoolId, new { request.OverrideReason, entity.Id, request.Topic });
         return Ok(new LessonRecordContract(entity.Id, entity.TimetableEntryId, entity.LessonDate, entity.Topic, entity.Summary));
     }
+
+    private bool IsParentOnly()
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
 
     private Guid ResolveActorUserId()
     {

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<UserProfileContract>> Me(CancellationToken cancellationToken)
     {
-        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(cancellationToken);
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
         return profile is null ? NotFound() : Ok(new UserProfileContract(profile.Id, profile.FirstName, profile.LastName, profile.UserType, profile.Email, profile.IsActive));
     }
 
@@ -27,10 +30,39 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<UserProfileContract>> UpdateMe([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken)
     {
-        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(cancellationToken);
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
         if (profile is null) return NotFound();
 
         var result = await mediator.Send(new UpsertUserProfileCommand(profile.Id, request.FirstName, request.LastName, request.UserType, request.Email), cancellationToken);
+        Audit("identity.user-profile.self-updated", profile.Id, new { request.UserType, request.Email });
+        return Ok(result);
+    }
+
+    [HttpGet("linked-students")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<UserProfileContract>>> LinkedStudents(CancellationToken cancellationToken)
+    {
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var linkedStudentIds = await dbContext.ParentStudentLinks
+            .Where(x => x.ParentUserProfileId == actorUserId)
+            .Select(x => x.StudentUserProfileId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (linkedStudentIds.Count == 0) return Ok(Array.Empty<UserProfileContract>());
+
+        var result = await dbContext.UserProfiles
+            .Where(x => linkedStudentIds.Contains(x.Id))
+            .OrderBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            .Select(x => new UserProfileContract(x.Id, x.FirstName, x.LastName, x.UserType, x.Email, x.IsActive))
+            .ToListAsync(cancellationToken);
+
         return Ok(result);
     }
 

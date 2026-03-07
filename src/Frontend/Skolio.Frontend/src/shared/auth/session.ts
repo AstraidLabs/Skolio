@@ -1,4 +1,4 @@
-export type UserRole = 'PlatformAdministrator' | 'SchoolAdministrator' | 'Teacher' | 'Parent' | 'Student';
+﻿export type UserRole = 'PlatformAdministrator' | 'SchoolAdministrator' | 'Teacher' | 'Parent' | 'Student';
 export type SchoolType = 'Kindergarten' | 'ElementarySchool' | 'SecondarySchool';
 
 export type SessionState = {
@@ -8,6 +8,7 @@ export type SessionState = {
   roles: string[];
   schoolType: SchoolType;
   schoolIds: string[];
+  linkedStudentIds: string[];
 };
 
 const sessionStorageKey = 'skolio.auth.session';

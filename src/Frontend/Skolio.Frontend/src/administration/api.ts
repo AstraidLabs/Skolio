@@ -1,4 +1,4 @@
-import type { createHttpClient } from '../shared/http/httpClient';
+﻿import type { createHttpClient } from '../shared/http/httpClient';
 
 export type SystemSetting = { id: string; key: string; value: string; isSensitive: boolean };
 export type FeatureToggle = { id: string; featureCode: string; isEnabled: boolean };
@@ -6,6 +6,7 @@ export type AuditLog = { id: string; actorUserId: string; actionCode: string; pa
 export type SchoolYearPolicy = { id: string; schoolId: string; policyName: string; closureGraceDays: number; status: string };
 export type HousekeepingPolicy = { id: string; policyName: string; retentionDays: number; status: string };
 export type OperationalSummary = { recentAuditCount: number; enabledFeatureToggles: number; activeLifecyclePolicies: number; activeHousekeepingPolicies: number; latestAuditActions: string[] };
+export type ParentContext = { activeSchoolFeatureToggles: string[]; schoolLifecyclePolicySummaries: string[] };
 
 type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
 
@@ -26,6 +27,7 @@ export function createAdministrationApi(http: ReturnType<typeof createHttpClient
     updateSchoolYearPolicy: (id: string, payload: { closureGraceDays: number; status: string }) => http<SchoolYearPolicy>('administration', `/api/administration/school-year-policies/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     housekeepingPolicies: () => http<HousekeepingPolicy[]>('administration', '/api/administration/housekeeping-policies'),
     updateHousekeepingPolicy: (id: string, payload: { retentionDays: number; status: string }) => http<HousekeepingPolicy>('administration', `/api/administration/housekeeping-policies/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-    operationalSummary: () => http<OperationalSummary>('administration', '/api/administration/operational-summary')
+    operationalSummary: () => http<OperationalSummary>('administration', '/api/administration/operational-summary'),
+    parentContext: () => http<ParentContext>('administration', '/api/administration/parent-context')
   };
 }

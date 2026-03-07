@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { SkolioBootstrapConfig } from './bootstrap';
 import { localeLabels, supportedLocales, useI18n } from './i18n';
 import { createAdministrationApi } from './administration/api';
@@ -458,7 +458,7 @@ function AcademicsPage({ api, administrationApi, schoolType, session }: { api: R
     void administrationApi.auditLogs({ actionCode: 'academics.daily-report.override' }).then(setOverrides).catch((e: Error) => setError(e.message));
   }, [administrationApi, session]);
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(selectedSchoolId(session)).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
+  return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(selectedSchoolId(session), undefined, session.roles.includes('Parent') ? session.linkedStudentIds[0] : undefined).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
 }
 
 function CommunicationPage({ api, session }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState }) {
@@ -521,6 +521,7 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
   const [users, setUsers] = useState<any[]>([]);
   const [roleAssignments, setRoleAssignments] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
+  const [linkedStudents, setLinkedStudents] = useState<any[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -532,6 +533,24 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
           setLinks(linkResult);
         })
         .catch((e: unknown) => setError((e as Error).message));
+      return;
+    }
+
+    if (session.roles.includes('Parent')) {
+      void Promise.all([api.myProfile(), api.myParentStudentLinks(), api.linkedStudents()])
+        .then(([profileResult, linkResult, studentResult]) => {
+          setProfile(profileResult);
+          setLinks(linkResult);
+          setLinkedStudents(studentResult);
+        })
+        .catch((e: unknown) => {
+          if (e instanceof SkolioHttpError && e.status === 403) {
+            setError('Forbidden');
+            return;
+          }
+
+          setError((e as Error).message);
+        });
       return;
     }
 
@@ -559,6 +578,10 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
         </div>
       </section>
     );
+  }
+
+  if (session.roles.includes('Parent')) {
+    return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<div className="rounded border p-3 text-sm"><p className="font-semibold">Linked students</p><ul className="mt-2">{linkedStudents.map((x) => <li key={x.id}>{x.firstName} {x.lastName}</li>)}</ul></div><div className="rounded border p-3 text-sm"><p className="font-semibold">Parent-student links</p><ul className="mt-2">{links.map((x) => <li key={x.id}>{x.relationship}</li>)}</ul></div></section>;
   }
 
   return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}</section>;
@@ -640,6 +663,10 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
     return ['/dashboard', '/organization', '/identity', '/administration', '/communication', '/academics'];
   }
 
+  if (roles.includes('Parent')) {
+    return ['/dashboard', '/identity', '/organization', '/academics', '/communication'];
+  }
+
   const nav: AppRoute[] = ['/dashboard', '/identity', '/communication'];
   if (roles.some((x) => x === 'SchoolAdministrator' || x === 'Teacher')) nav.push('/organization', '/academics');
   if (roles.some((x) => x === 'SchoolAdministrator')) nav.push('/administration');
@@ -692,7 +719,8 @@ async function completeAuthorizationCodeFlow(config: SkolioBootstrapConfig, t: R
     subject: claims.sub ?? 'unknown',
     roles: normalizeRoles(claims.role),
     schoolType: (claims['school_type'] as SchoolType) ?? 'ElementarySchool',
-    schoolIds: Array.isArray(claims['school_id']) ? claims['school_id'] as string[] : claims['school_id'] ? [claims['school_id'] as string] : []
+    schoolIds: Array.isArray(claims['school_id']) ? claims['school_id'] as string[] : claims['school_id'] ? [claims['school_id'] as string] : [],
+    linkedStudentIds: Array.isArray(claims['linked_student_id']) ? claims['linked_student_id'] as string[] : claims['linked_student_id'] ? [claims['linked_student_id'] as string] : []
   };
 }
 
@@ -743,6 +771,12 @@ async function beginLogin(config: SkolioBootstrapConfig) {
 
   window.location.href = `${config.identityAuthority}/connect/authorize?${params.toString()}`;
 }
+
+
+
+
+
+
 
 
 

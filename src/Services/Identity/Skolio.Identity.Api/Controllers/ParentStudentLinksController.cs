@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,36 +15,78 @@ namespace Skolio.Identity.Api.Controllers;
 public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbContext dbContext, ILogger<ParentStudentLinksController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<ParentStudentLinkContract>>> List([FromQuery] Guid? parentUserProfileId, [FromQuery] Guid? studentUserProfileId, CancellationToken cancellationToken)
     {
         var query = dbContext.ParentStudentLinks.AsQueryable();
-        if (parentUserProfileId.HasValue)
-        {
-            query = query.Where(x => x.ParentUserProfileId == parentUserProfileId.Value);
-        }
 
-        if (studentUserProfileId.HasValue)
+        if (IsParentOnly())
         {
-            query = query.Where(x => x.StudentUserProfileId == studentUserProfileId.Value);
+            var actorUserId = SchoolScope.ResolveActorUserId(User);
+            if (actorUserId == Guid.Empty) return Forbid();
+            query = query.Where(x => x.ParentUserProfileId == actorUserId);
+        }
+        else
+        {
+            if (parentUserProfileId.HasValue)
+            {
+                query = query.Where(x => x.ParentUserProfileId == parentUserProfileId.Value);
+            }
+
+            if (studentUserProfileId.HasValue)
+            {
+                query = query.Where(x => x.StudentUserProfileId == studentUserProfileId.Value);
+            }
+
+            if (!SchoolScope.IsPlatformAdministrator(User))
+            {
+                var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+                if (scopedSchoolIds.Count == 0) return Ok(Array.Empty<ParentStudentLinkContract>());
+
+                var scopedProfileIds = await dbContext.SchoolRoleAssignments
+                    .Where(x => scopedSchoolIds.Contains(x.SchoolId))
+                    .Select(x => x.UserProfileId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                query = query.Where(x => scopedProfileIds.Contains(x.ParentUserProfileId) || scopedProfileIds.Contains(x.StudentUserProfileId));
+            }
         }
 
         var links = await query.ToListAsync(cancellationToken);
-        if (!SchoolScope.IsPlatformAdministrator(User))
-        {
-            links = await FilterBySchoolScope(links, cancellationToken);
-        }
+        return Ok(links.Select(x => new ParentStudentLinkContract(x.Id, x.ParentUserProfileId, x.StudentUserProfileId, x.Relationship)).ToList());
+    }
+
+    [HttpGet("me")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<ParentStudentLinkContract>>> MyLinks(CancellationToken cancellationToken)
+    {
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var links = await dbContext.ParentStudentLinks
+            .Where(x => x.ParentUserProfileId == actorUserId)
+            .ToListAsync(cancellationToken);
 
         return Ok(links.Select(x => new ParentStudentLinkContract(x.Id, x.ParentUserProfileId, x.StudentUserProfileId, x.Relationship)).ToList());
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ParentStudentLinkContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.ParentStudentLinks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
-        if (!await HasLinkAccess(entity, cancellationToken)) return Forbid();
+
+        if (IsParentOnly())
+        {
+            var actorUserId = SchoolScope.ResolveActorUserId(User);
+            if (actorUserId == Guid.Empty || entity.ParentUserProfileId != actorUserId) return Forbid();
+        }
+        else if (!await HasLinkAccess(entity, cancellationToken))
+        {
+            return Forbid();
+        }
 
         return Ok(new ParentStudentLinkContract(entity.Id, entity.ParentUserProfileId, entity.StudentUserProfileId, entity.Relationship));
     }
@@ -90,6 +132,9 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
         return NoContent();
     }
 
+    private bool IsParentOnly()
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator");
+
     private async Task<bool> HasLinkAccess(Skolio.Identity.Domain.Entities.ParentStudentLink link, CancellationToken cancellationToken)
         => await HasUserScopeAccess(link.ParentUserProfileId, cancellationToken) || await HasUserScopeAccess(link.StudentUserProfileId, cancellationToken);
 
@@ -101,21 +146,6 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
         if (scopedSchoolIds.Count == 0) return false;
 
         return await dbContext.SchoolRoleAssignments.AnyAsync(x => x.UserProfileId == userProfileId && scopedSchoolIds.Contains(x.SchoolId), cancellationToken);
-    }
-
-    private async Task<List<Skolio.Identity.Domain.Entities.ParentStudentLink>> FilterBySchoolScope(List<Skolio.Identity.Domain.Entities.ParentStudentLink> source, CancellationToken cancellationToken)
-    {
-        var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
-        if (scopedSchoolIds.Count == 0) return [];
-
-        var userIds = source.SelectMany(x => new[] { x.ParentUserProfileId, x.StudentUserProfileId }).Distinct().ToList();
-        var allowedUserIds = await dbContext.SchoolRoleAssignments
-            .Where(x => scopedSchoolIds.Contains(x.SchoolId) && userIds.Contains(x.UserProfileId))
-            .Select(x => x.UserProfileId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        return source.Where(x => allowedUserIds.Contains(x.ParentUserProfileId) || allowedUserIds.Contains(x.StudentUserProfileId)).ToList();
     }
 
     private void Audit(string actionCode, Guid targetId, object payload)

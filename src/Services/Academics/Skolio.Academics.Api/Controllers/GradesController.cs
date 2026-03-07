@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,12 +15,16 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class GradesController(IMediator mediator, AcademicsDbContext dbContext, ILogger<GradesController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<GradeEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid studentUserId, [FromQuery] Guid subjectId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        if (IsParentOnly())
+        {
+            if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId)) return Forbid();
+        }
+        else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
@@ -72,11 +76,10 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
         return Ok(new GradeEntryContract(entity.Id, entity.StudentUserId, entity.SubjectId, entity.GradeValue, entity.Note, entity.GradedOn));
     }
 
-    private Guid ResolveActorUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
-    }
+    private bool IsParentOnly()
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
+
+    private Guid ResolveActorUserId() => SchoolScope.ResolveActorUserId(User);
 
     private void Audit(string actionCode, Guid schoolId, object payload)
     {

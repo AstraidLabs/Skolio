@@ -1,8 +1,9 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIddict.Extensions;
 using OpenIddict.Server.AspNetCore;
@@ -51,6 +52,17 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ClaimTypes.Role, assignment.RoleCode));
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("school_id", assignment.SchoolId.ToString()));
             }
+
+            var linkedStudentIds = await dbContext.ParentStudentLinks
+                .Where(x => x.ParentUserProfileId == userProfileId)
+                .Select(x => x.StudentUserProfileId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            foreach (var linkedStudentId in linkedStudentIds)
+            {
+                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("linked_student_id", linkedStudentId.ToString()));
+            }
         }
 
         principal.SetScopes(request.GetScopes());
@@ -93,7 +105,8 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
             sub = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Subject),
             email = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Email),
             role = claimsPrincipal.FindAll(ClaimTypes.Role).Select(roleClaim => roleClaim.Value).ToArray(),
-            school_id = claimsPrincipal.FindAll("school_id").Select(x => x.Value).ToArray()
+            school_id = claimsPrincipal.FindAll("school_id").Select(x => x.Value).ToArray(),
+            linked_student_id = claimsPrincipal.FindAll("linked_student_id").Select(x => x.Value).ToArray()
         });
     }
 

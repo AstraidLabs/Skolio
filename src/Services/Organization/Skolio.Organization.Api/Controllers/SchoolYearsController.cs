@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +15,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class SchoolYearsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<SchoolYearsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -63,3 +63,4 @@ public sealed class SchoolYearsController(IMediator mediator, OrganizationDbCont
     public sealed record CreateSchoolYearRequest(Guid SchoolId, string Label, DateOnly StartDate, DateOnly EndDate);
     public sealed record UpdateSchoolYearRequest(DateOnly StartDate, DateOnly EndDate);
 }
+

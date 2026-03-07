@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,8 +15,8 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class DailyReportsController(IMediator mediator, AcademicsDbContext dbContext, ILogger<DailyReportsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
-    public async Task<ActionResult<IReadOnlyCollection<DailyReportContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<DailyReportContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
@@ -26,7 +26,20 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
             query = query.Where(x => x.AudienceId == audienceId.Value);
         }
 
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        if (IsParentOnly())
+        {
+            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
+
+            var linkedAudienceIds = await dbContext.AttendanceRecords
+                .Where(x => x.SchoolId == schoolId && x.StudentUserId == studentUserId.Value)
+                .Select(x => x.AudienceId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => linkedAudienceIds.Contains(x.AudienceId));
+        }
+        else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
@@ -75,11 +88,10 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
         return Ok(new DailyReportContract(entity.Id, entity.SchoolId, entity.AudienceId, entity.ReportDate, entity.Summary, entity.Notes));
     }
 
-    private Guid ResolveActorUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
-    }
+    private bool IsParentOnly()
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
+
+    private Guid ResolveActorUserId() => SchoolScope.ResolveActorUserId(User);
 
     private void Audit(string actionCode, Guid schoolId, object payload)
     {

@@ -1,4 +1,4 @@
-using Skolio.Academics.Domain.Exceptions;
+﻿using Skolio.Academics.Domain.Exceptions;
 
 namespace Skolio.Academics.Domain.Entities;
 
@@ -27,6 +27,15 @@ public sealed class ExcuseNote
             throw new AcademicsDomainException("Excuse reason is required.");
 
         return new ExcuseNote(id, attendanceRecordId, parentUserId, reason, submittedAtUtc);
+    }
+
+    public void UpdateByParent(string reason, DateTimeOffset submittedAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new AcademicsDomainException("Excuse reason is required.");
+
+        Reason = reason.Trim();
+        SubmittedAtUtc = submittedAtUtc;
     }
 
     public void OverrideForPlatformSupport(string reason, DateTimeOffset submittedAtUtc)

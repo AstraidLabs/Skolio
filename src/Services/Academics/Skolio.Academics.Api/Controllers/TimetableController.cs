@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,13 +16,27 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class TimetableController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
-    public async Task<ActionResult<IReadOnlyCollection<TimetableEntryContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<TimetableEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
         var query = dbContext.TimetableEntries.Where(x => x.SchoolId == schoolId);
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+
+        if (IsParentOnly())
+        {
+            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
+
+            var linkedAudienceIds = await dbContext.AttendanceRecords
+                .Where(x => x.SchoolId == schoolId && x.StudentUserId == studentUserId.Value)
+                .Select(x => x.AudienceId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => linkedAudienceIds.Contains(x.AudienceId));
+        }
+        else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
@@ -41,6 +55,9 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
         var result = await mediator.Send(new CreateTimetableEntryCommand(request.SchoolId, request.SchoolYearId, request.DayOfWeek, request.StartTime, request.EndTime, request.AudienceType, request.AudienceId, request.SubjectId, request.TeacherUserId), cancellationToken);
         return CreatedAtAction(nameof(Create), new { id = result.Id }, result);
     }
+
+    private bool IsParentOnly()
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
 
     private Guid ResolveActorUserId()
     {

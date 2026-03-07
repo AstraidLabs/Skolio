@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,11 +20,7 @@ public sealed class NotificationsController(IMediator mediator, CommunicationDbC
     [HttpGet]
     public async Task<ActionResult<PagedResult<NotificationContract>>> List([FromQuery] Guid recipientUserId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator"))
-        {
-            var actorUserId = ResolveActorUserId();
-            if (actorUserId == Guid.Empty || actorUserId != recipientUserId) return Forbid();
-        }
+        if (!CanAccessRecipient(recipientUserId)) return Forbid();
 
         var normalizedPageNumber = Math.Max(pageNumber, 1);
         var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
@@ -47,20 +43,25 @@ public sealed class NotificationsController(IMediator mediator, CommunicationDbC
         var entity = await dbContext.Notifications.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
 
-        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator"))
-        {
-            var actorUserId = ResolveActorUserId();
-            if (actorUserId == Guid.Empty || actorUserId != entity.RecipientUserId) return Forbid();
-        }
+        if (!CanAccessRecipient(entity.RecipientUserId)) return Forbid();
 
         return Ok(new NotificationContract(entity.Id, entity.RecipientUserId, entity.Title, entity.Body, entity.Channel));
     }
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<NotificationContract>> Create([FromBody] CreateNotificationRequest request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new CreateNotificationCommand(request.RecipientUserId, request.Title, request.Body, request.Channel), cancellationToken);
         return CreatedAtAction(nameof(Detail), new { id = result.Id }, result);
+    }
+
+    private bool CanAccessRecipient(Guid recipientUserId)
+    {
+        if (User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator")) return true;
+
+        var actorUserId = ResolveActorUserId();
+        return actorUserId != Guid.Empty && actorUserId == recipientUserId;
     }
 
     private Guid ResolveActorUserId()
@@ -72,3 +73,4 @@ public sealed class NotificationsController(IMediator mediator, CommunicationDbC
     public sealed record CreateNotificationRequest(Guid RecipientUserId, string Title, string Body, NotificationChannel Channel);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
 }
+

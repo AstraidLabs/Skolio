@@ -1,4 +1,4 @@
-import type { createHttpClient } from '../shared/http/httpClient';
+﻿import type { createHttpClient } from '../shared/http/httpClient';
 
 export type TimetableEntry = { id: string; schoolId: string; schoolYearId: string; dayOfWeek: string; startTime: string; endTime: string; audienceType: string; audienceId: string; subjectId: string; teacherUserId: string };
 export type LessonRecord = { id: string; timetableEntryId: string; lessonDate: string; topic: string; summary: string };
@@ -10,23 +10,26 @@ export type DailyReport = { id: string; schoolId: string; audienceId: string; re
 
 export function createAcademicsApi(http: ReturnType<typeof createHttpClient>) {
   return {
-    timetable: (schoolId: string) => http<TimetableEntry[]>('academics', `/api/academics/timetable?schoolId=${schoolId}`),
+    timetable: (schoolId: string, studentUserId?: string) => http<TimetableEntry[]>('academics', `/api/academics/timetable?schoolId=${schoolId}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createTimetableEntry: (payload: Omit<TimetableEntry, 'id'>) => http<TimetableEntry>('academics', '/api/academics/timetable', { method: 'POST', body: JSON.stringify(payload) }),
-    lessons: (schoolId: string, timetableEntryId?: string) => http<LessonRecord[]>('academics', `/api/academics/lessons?schoolId=${schoolId}${timetableEntryId ? `&timetableEntryId=${timetableEntryId}` : ''}`),
+    lessons: (schoolId: string, timetableEntryId?: string, studentUserId?: string) => http<LessonRecord[]>('academics', `/api/academics/lessons?schoolId=${schoolId}${timetableEntryId ? `&timetableEntryId=${timetableEntryId}` : ''}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createLesson: (payload: Omit<LessonRecord, 'id'>) => http<LessonRecord>('academics', '/api/academics/lessons', { method: 'POST', body: JSON.stringify(payload) }),
     overrideLesson: (id: string, payload: Omit<LessonRecord, 'id'> & { overrideReason: string }) => http<LessonRecord>('academics', `/api/academics/lessons/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
-    attendance: (schoolId: string, audienceId?: string) => http<Attendance[]>('academics', `/api/academics/attendance/records?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}`),
+    attendance: (schoolId: string, audienceId?: string, studentUserId?: string) => http<Attendance[]>('academics', `/api/academics/attendance/records?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createAttendance: (payload: Omit<Attendance, 'id'>) => http<Attendance>('academics', '/api/academics/attendance/records', { method: 'POST', body: JSON.stringify(payload) }),
     overrideAttendance: (id: string, payload: Omit<Attendance, 'id' | 'schoolId'> & { overrideReason: string }) => http<Attendance>('academics', `/api/academics/attendance/records/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
+    excuses: (schoolId: string, studentUserId?: string) => http<ExcuseNote[]>('academics', `/api/academics/attendance/excuse-notes?schoolId=${schoolId}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createExcuse: (payload: Omit<ExcuseNote, 'id' | 'submittedAtUtc'>) => http<ExcuseNote>('academics', '/api/academics/attendance/excuse-notes', { method: 'POST', body: JSON.stringify(payload) }),
+    updateExcuse: (id: string, payload: { reason: string }) => http<ExcuseNote>('academics', `/api/academics/attendance/excuse-notes/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    cancelExcuse: (id: string) => http<void>('academics', `/api/academics/attendance/excuse-notes/${id}`, { method: 'DELETE' }),
     overrideExcuse: (id: string, payload: { reason: string; submittedAtUtc: string; overrideReason: string }) => http<ExcuseNote>('academics', `/api/academics/attendance/excuse-notes/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
     grades: (schoolId: string, studentUserId: string, subjectId: string) => http<Grade[]>('academics', `/api/academics/grades?schoolId=${schoolId}&studentUserId=${studentUserId}&subjectId=${subjectId}`),
     createGrade: (payload: Omit<Grade, 'id'> & { schoolId: string }) => http<Grade>('academics', '/api/academics/grades', { method: 'POST', body: JSON.stringify(payload) }),
     overrideGrade: (id: string, payload: Omit<Grade, 'id'> & { schoolId: string; overrideReason: string }) => http<Grade>('academics', `/api/academics/grades/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
-    homework: (schoolId: string, audienceId?: string) => http<Homework[]>('academics', `/api/academics/homework?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}`),
+    homework: (schoolId: string, audienceId?: string, studentUserId?: string) => http<Homework[]>('academics', `/api/academics/homework?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createHomework: (payload: Omit<Homework, 'id'>) => http<Homework>('academics', '/api/academics/homework', { method: 'POST', body: JSON.stringify(payload) }),
     overrideHomework: (id: string, payload: Omit<Homework, 'id' | 'schoolId'> & { overrideReason: string }) => http<Homework>('academics', `/api/academics/homework/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
-    dailyReports: (schoolId: string, audienceId?: string) => http<DailyReport[]>('academics', `/api/academics/daily-reports?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}`),
+    dailyReports: (schoolId: string, audienceId?: string, studentUserId?: string) => http<DailyReport[]>('academics', `/api/academics/daily-reports?schoolId=${schoolId}${audienceId ? `&audienceId=${audienceId}` : ''}${studentUserId ? `&studentUserId=${studentUserId}` : ''}`),
     createDailyReport: (payload: Omit<DailyReport, 'id'>) => http<DailyReport>('academics', '/api/academics/daily-reports', { method: 'POST', body: JSON.stringify(payload) }),
     overrideDailyReport: (id: string, payload: Omit<DailyReport, 'id' | 'schoolId'> & { overrideReason: string }) => http<DailyReport>('academics', `/api/academics/daily-reports/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) })
   };

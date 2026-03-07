@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +15,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<TeachingGroupsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<TeachingGroupContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -82,3 +82,4 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
     public sealed record CreateTeachingGroupRequest(Guid SchoolId, Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup);
     public sealed record OverrideTeachingGroupRequest(Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup, string OverrideReason);
 }
+

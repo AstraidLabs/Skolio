@@ -1,4 +1,4 @@
-import type { createHttpClient } from '../shared/http/httpClient';
+﻿import type { createHttpClient } from '../shared/http/httpClient';
 
 export type UserProfile = { id: string; firstName: string; lastName: string; userType: string; email: string; isActive: boolean };
 export type RoleAssignment = { id: string; userProfileId: string; schoolId: string; roleCode: string };
@@ -8,6 +8,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
   return {
     myProfile: () => http<UserProfile>('identity', '/api/identity/user-profiles/me'),
     updateMyProfile: (payload: Omit<UserProfile, 'id' | 'isActive'>) => http<UserProfile>('identity', '/api/identity/user-profiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
+    linkedStudents: () => http<UserProfile[]>('identity', '/api/identity/user-profiles/linked-students'),
     userProfiles: (query?: { search?: string; userType?: string; isActive?: boolean }) => {
       const params = new URLSearchParams();
       if (query?.search) params.set('search', query.search);
@@ -27,6 +28,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     },
     assignRole: (payload: { userProfileId: string; schoolId: string; roleCode: string }) => http<RoleAssignment>('identity', '/api/identity/school-roles', { method: 'POST', body: JSON.stringify(payload) }),
     deleteRoleAssignment: (id: string) => http<void>('identity', `/api/identity/school-roles/${id}`, { method: 'DELETE' }),
+    myParentStudentLinks: () => http<ParentStudentLink[]>('identity', '/api/identity/parent-student-links/me'),
     parentStudentLinks: (query?: { parentUserProfileId?: string; studentUserProfileId?: string }) => {
       const params = new URLSearchParams();
       if (query?.parentUserProfileId) params.set('parentUserProfileId', query.parentUserProfileId);
