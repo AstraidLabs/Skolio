@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,21 +8,47 @@ using Skolio.Academics.Application.Grades;
 using Skolio.Academics.Infrastructure.Persistence;
 
 namespace Skolio.Academics.Api.Controllers;
+
 [ApiController]
-[Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/academics/grades")]
-public sealed class GradesController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
+public sealed class GradesController(IMediator mediator, AcademicsDbContext dbContext, ILogger<GradesController> logger) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<GradeEntryContract>>> List([FromQuery] Guid studentUserId, CancellationToken cancellationToken)
         => Ok(await dbContext.GradeEntries.Where(x => x.StudentUserId == studentUserId).OrderByDescending(x => x.GradedOn).Select(x => new GradeEntryContract(x.Id, x.StudentUserId, x.SubjectId, x.GradeValue, x.Note, x.GradedOn)).ToListAsync(cancellationToken));
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<GradeEntryContract>> RecordGrade([FromBody] RecordGradeRequest request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new RecordGradeEntryCommand(request.StudentUserId, request.SubjectId, request.GradeValue, request.Note, request.GradedOn), cancellationToken);
         return CreatedAtAction(nameof(RecordGrade), new { id = result.Id }, result);
     }
 
+    [HttpPut("{id:guid}/override")]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    public async Task<ActionResult<GradeEntryContract>> OverrideGrade(Guid id, [FromBody] OverrideGradeRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+
+        var entity = await dbContext.GradeEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        entity.OverrideForPlatformSupport(request.StudentUserId, request.SubjectId, request.GradeValue, request.Note, request.GradedOn);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var schoolId = await dbContext.AttendanceRecords.Where(x => x.StudentUserId == request.StudentUserId).Select(x => x.SchoolId).FirstOrDefaultAsync(cancellationToken);
+        Audit("academics.grade.override", schoolId, request.OverrideReason, new { entity.Id, request.GradeValue });
+        return Ok(new GradeEntryContract(entity.Id, entity.StudentUserId, entity.SubjectId, entity.GradeValue, entity.Note, entity.GradedOn));
+    }
+
+    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    {
+        var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+    }
+
     public sealed record RecordGradeRequest(Guid StudentUserId, Guid SubjectId, string GradeValue, string Note, DateOnly GradedOn);
+    public sealed record OverrideGradeRequest(Guid StudentUserId, Guid SubjectId, string GradeValue, string Note, DateOnly GradedOn, string OverrideReason);
 }

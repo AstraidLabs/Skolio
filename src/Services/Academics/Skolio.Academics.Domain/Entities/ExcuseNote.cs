@@ -16,8 +16,8 @@ public sealed class ExcuseNote
     public Guid Id { get; }
     public Guid AttendanceRecordId { get; }
     public Guid ParentUserId { get; }
-    public string Reason { get; }
-    public DateTimeOffset SubmittedAtUtc { get; }
+    public string Reason { get; private set; }
+    public DateTimeOffset SubmittedAtUtc { get; private set; }
 
     public static ExcuseNote Create(Guid id, Guid attendanceRecordId, Guid parentUserId, string reason, DateTimeOffset submittedAtUtc)
     {
@@ -27,5 +27,14 @@ public sealed class ExcuseNote
             throw new AcademicsDomainException("Excuse reason is required.");
 
         return new ExcuseNote(id, attendanceRecordId, parentUserId, reason, submittedAtUtc);
+    }
+
+    public void OverrideForPlatformSupport(string reason, DateTimeOffset submittedAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new AcademicsDomainException("Excuse reason is required.");
+
+        Reason = reason.Trim();
+        SubmittedAtUtc = submittedAtUtc;
     }
 }

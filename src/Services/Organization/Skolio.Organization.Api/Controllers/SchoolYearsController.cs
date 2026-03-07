@@ -9,11 +9,11 @@ using Skolio.Organization.Infrastructure.Persistence;
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/organization/school-years")]
 public sealed class SchoolYearsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List(
         [FromQuery] Guid schoolId,
         CancellationToken cancellationToken)
@@ -29,6 +29,7 @@ public sealed class SchoolYearsController(IMediator mediator, OrganizationDbCont
             .ToListAsync(cancellationToken));
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(SchoolYearContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSchoolYear(
         [FromBody] CreateSchoolYearRequest request,

@@ -3,7 +3,9 @@ namespace Skolio.Academics.Api.Auth;
 public static class SkolioPolicies
 {
     public const string PlatformAdministration = "platform-administration";
-    public const string SchoolAdministration = "school-administration";
-    public const string TeacherOrSchoolAdministration = "teacher-or-school-administration";
+    public const string PlatformAdminOverride = "platform-admin-override";
+    public const string SharedAdministration = "shared-administration";
+    public const string SchoolAdministrationOnly = "school-administration-only";
+    public const string TeacherOrSchoolAdministrationOnly = "teacher-or-school-administration-only";
     public const string ParentStudentTeacherRead = "parent-student-teacher-read";
 }

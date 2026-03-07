@@ -17,9 +17,9 @@ public sealed class AttendanceRecord
 
     public Guid Id { get; }
     public Guid SchoolId { get; }
-    public Guid AudienceId { get; }
-    public Guid StudentUserId { get; }
-    public DateOnly AttendanceDate { get; }
+    public Guid AudienceId { get; private set; }
+    public Guid StudentUserId { get; private set; }
+    public DateOnly AttendanceDate { get; private set; }
     public AttendanceStatus Status { get; private set; }
 
     public static AttendanceRecord Create(Guid id, Guid schoolId, Guid audienceId, Guid studentUserId, DateOnly attendanceDate, AttendanceStatus status)
@@ -31,4 +31,15 @@ public sealed class AttendanceRecord
     }
 
     public void MarkExcused() => Status = AttendanceStatus.Excused;
+
+    public void OverrideForPlatformSupport(Guid audienceId, Guid studentUserId, DateOnly attendanceDate, AttendanceStatus status)
+    {
+        if (audienceId == Guid.Empty || studentUserId == Guid.Empty)
+            throw new AcademicsDomainException("Attendance ids are required.");
+
+        AudienceId = audienceId;
+        StudentUserId = studentUserId;
+        AttendanceDate = attendanceDate;
+        Status = status;
+    }
 }

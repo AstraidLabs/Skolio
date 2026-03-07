@@ -27,6 +27,12 @@ public sealed class Subject
         return new Subject(id, schoolId, code, name);
     }
 
+    public void OverrideForPlatformSupport(string code, string name)
+    {
+        SetCode(code);
+        SetName(name);
+    }
+
     private void SetCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

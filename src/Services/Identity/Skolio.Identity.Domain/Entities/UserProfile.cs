@@ -12,6 +12,7 @@ public sealed class UserProfile
         LastName = lastName.Trim();
         UserType = userType;
         Email = email.Trim();
+        IsActive = true;
     }
 
     public Guid Id { get; }
@@ -19,6 +20,7 @@ public sealed class UserProfile
     public string LastName { get; private set; }
     public UserType UserType { get; private set; }
     public string Email { get; private set; }
+    public bool IsActive { get; private set; }
 
     public static UserProfile Create(Guid id, string firstName, string lastName, UserType userType, string email)
     {
@@ -40,4 +42,8 @@ public sealed class UserProfile
         UserType = userType;
         Email = email.Trim();
     }
+
+    public void Activate() => IsActive = true;
+
+    public void Deactivate() => IsActive = false;
 }

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,15 +10,16 @@ using Skolio.Organization.Infrastructure.Persistence;
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministration)]
 [Route("api/organization/teaching-groups")]
-public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
+public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<TeachingGroupsController> logger) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<TeachingGroupContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
         => Ok(await dbContext.TeachingGroups.Where(x => x.SchoolId == schoolId).OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     [ProducesResponseType(typeof(TeachingGroupContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateTeachingGroup([FromBody] CreateTeachingGroupRequest request, CancellationToken cancellationToken)
     {
@@ -25,5 +27,28 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
         return CreatedAtAction(nameof(CreateTeachingGroup), new { id = contract.Id }, contract);
     }
 
+    [HttpPut("{id:guid}/override")]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    public async Task<ActionResult<TeachingGroupContract>> Override(Guid id, [FromBody] OverrideTeachingGroupRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+
+        var entity = await dbContext.TeachingGroups.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        entity.OverrideForPlatformSupport(request.ClassRoomId, request.Name, request.IsDailyOperationsGroup);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Audit("organization.teaching-group.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.ClassRoomId, request.Name, request.IsDailyOperationsGroup });
+        return Ok(new TeachingGroupContract(entity.Id, entity.SchoolId, entity.ClassRoomId, entity.Name, entity.IsDailyOperationsGroup));
+    }
+
+    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    {
+        var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+    }
+
     public sealed record CreateTeachingGroupRequest(Guid SchoolId, Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup);
+    public sealed record OverrideTeachingGroupRequest(Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup, string OverrideReason);
 }

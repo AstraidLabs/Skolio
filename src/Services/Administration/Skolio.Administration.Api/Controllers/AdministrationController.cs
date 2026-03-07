@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,10 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     {
         var current = await dbContext.SystemSettings.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (current is null) return NotFound();
-        return Ok(await mediator.Send(new ChangeSystemSettingCommand(current.Key, request.Value, request.IsSensitive), cancellationToken));
+
+        var result = await mediator.Send(new ChangeSystemSettingCommand(current.Key, request.Value, request.IsSensitive), cancellationToken);
+        await WriteAudit("administration.system-setting.changed", new { id, current.Key, request.IsSensitive, request.Value }, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("feature-toggles")]
@@ -40,7 +44,10 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     {
         var current = await dbContext.FeatureToggles.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (current is null) return NotFound();
-        return Ok(await mediator.Send(new ChangeFeatureToggleCommand(current.FeatureCode, request.IsEnabled), cancellationToken));
+
+        var result = await mediator.Send(new ChangeFeatureToggleCommand(current.FeatureCode, request.IsEnabled), cancellationToken);
+        await WriteAudit("administration.feature-toggle.changed", new { id, current.FeatureCode, request.IsEnabled }, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("audit-log")]
@@ -105,7 +112,10 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     {
         var current = await dbContext.SchoolYearLifecyclePolicies.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (current is null) return NotFound();
-        return Ok(await mediator.Send(new ManageSchoolYearLifecyclePolicyCommand(current.SchoolId, current.PolicyName, request.ClosureGraceDays, request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)), cancellationToken));
+
+        var result = await mediator.Send(new ManageSchoolYearLifecyclePolicyCommand(current.SchoolId, current.PolicyName, request.ClosureGraceDays, request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)), cancellationToken);
+        await WriteAudit("administration.school-year-policy.changed", new { id, current.PolicyName, request.ClosureGraceDays, request.Status }, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("housekeeping-policies")]
@@ -117,7 +127,33 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     {
         var current = await dbContext.HousekeepingPolicies.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (current is null) return NotFound();
-        return Ok(await mediator.Send(new ManageHousekeepingPolicyCommand(current.PolicyName, request.RetentionDays, request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)), cancellationToken));
+
+        var result = await mediator.Send(new ManageHousekeepingPolicyCommand(current.PolicyName, request.RetentionDays, request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)), cancellationToken);
+        await WriteAudit("administration.housekeeping-policy.changed", new { id, current.PolicyName, request.RetentionDays, request.Status }, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("operational-summary")]
+    public async Task<ActionResult<OperationalSummaryResponse>> OperationalSummary(CancellationToken cancellationToken)
+    {
+        var recentAuditCount = await dbContext.AuditLogEntries.CountAsync(x => x.CreatedAtUtc >= DateTimeOffset.UtcNow.AddDays(-7), cancellationToken);
+        var enabledFeatureToggles = await dbContext.FeatureToggles.CountAsync(x => x.IsEnabled, cancellationToken);
+        var activeLifecyclePolicies = await dbContext.SchoolYearLifecyclePolicies.CountAsync(x => x.Status == Skolio.Administration.Domain.Enums.PolicyStatus.Active, cancellationToken);
+        var activeHousekeepingPolicies = await dbContext.HousekeepingPolicies.CountAsync(x => x.Status == Skolio.Administration.Domain.Enums.PolicyStatus.Active, cancellationToken);
+        var latestAudit = await dbContext.AuditLogEntries.OrderByDescending(x => x.CreatedAtUtc).Take(5).Select(x => x.ActionCode).ToListAsync(cancellationToken);
+
+        return Ok(new OperationalSummaryResponse(recentAuditCount, enabledFeatureToggles, activeLifecyclePolicies, activeHousekeepingPolicies, latestAudit));
+    }
+
+    private async Task WriteAudit(string actionCode, object payload, CancellationToken cancellationToken)
+    {
+        var actorClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (!Guid.TryParse(actorClaim, out var actorUserId))
+        {
+            actorUserId = Guid.Empty;
+        }
+
+        await mediator.Send(new WriteAuditLogEntryCommand(actorUserId, actionCode, System.Text.Json.JsonSerializer.Serialize(payload)), cancellationToken);
     }
 
     public sealed record UpdateSettingRequest(string Value, bool IsSensitive);
@@ -125,6 +161,5 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     public sealed record UpdateSchoolYearPolicyRequest(int ClosureGraceDays, string Status);
     public sealed record UpdateHousekeepingPolicyRequest(int RetentionDays, string Status);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
-
-    public sealed record WriteAuditLogRequest(Guid ActorUserId, string ActionCode, string Payload);
+    public sealed record OperationalSummaryResponse(int RecentAuditCount, int EnabledFeatureToggles, int ActiveLifecyclePolicies, int ActiveHousekeepingPolicies, IReadOnlyCollection<string> LatestAuditActions);
 }

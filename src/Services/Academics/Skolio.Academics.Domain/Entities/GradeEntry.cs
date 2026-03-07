@@ -15,11 +15,11 @@ public sealed class GradeEntry
     }
 
     public Guid Id { get; }
-    public Guid StudentUserId { get; }
-    public Guid SubjectId { get; }
-    public string GradeValue { get; }
-    public string Note { get; }
-    public DateOnly GradedOn { get; }
+    public Guid StudentUserId { get; private set; }
+    public Guid SubjectId { get; private set; }
+    public string GradeValue { get; private set; }
+    public string Note { get; private set; }
+    public DateOnly GradedOn { get; private set; }
 
     public static GradeEntry Create(Guid id, Guid studentUserId, Guid subjectId, string gradeValue, string note, DateOnly gradedOn)
     {
@@ -29,5 +29,19 @@ public sealed class GradeEntry
             throw new AcademicsDomainException("Grade value is required.");
 
         return new GradeEntry(id, studentUserId, subjectId, gradeValue, note, gradedOn);
+    }
+
+    public void OverrideForPlatformSupport(Guid studentUserId, Guid subjectId, string gradeValue, string note, DateOnly gradedOn)
+    {
+        if (studentUserId == Guid.Empty || subjectId == Guid.Empty)
+            throw new AcademicsDomainException("Grade entry ids are required.");
+        if (string.IsNullOrWhiteSpace(gradeValue))
+            throw new AcademicsDomainException("Grade value is required.");
+
+        StudentUserId = studentUserId;
+        SubjectId = subjectId;
+        GradeValue = gradeValue.Trim();
+        Note = note.Trim();
+        GradedOn = gradedOn;
     }
 }

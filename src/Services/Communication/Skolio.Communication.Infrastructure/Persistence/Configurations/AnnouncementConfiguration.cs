@@ -15,5 +15,7 @@ public sealed class AnnouncementConfiguration : IEntityTypeConfiguration<Announc
         builder.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
         builder.Property(x => x.Message).HasColumnName("message").HasMaxLength(3000).IsRequired();
         builder.Property(x => x.PublishAtUtc).HasColumnName("publish_at_utc").IsRequired();
+        builder.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true).IsRequired();
+        builder.HasIndex(x => x.IsActive);
     }
 }

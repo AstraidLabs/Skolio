@@ -15,7 +15,7 @@ public sealed class ParentStudentLink
     public Guid Id { get; }
     public Guid ParentUserProfileId { get; }
     public Guid StudentUserProfileId { get; }
-    public string Relationship { get; }
+    public string Relationship { get; private set; }
 
     public static ParentStudentLink Create(Guid id, Guid parentUserProfileId, Guid studentUserProfileId, string relationship)
     {
@@ -27,5 +27,13 @@ public sealed class ParentStudentLink
             throw new IdentityDomainException("Parent-student relationship is required.");
 
         return new ParentStudentLink(id, parentUserProfileId, studentUserProfileId, relationship);
+    }
+
+    public void UpdateRelationship(string relationship)
+    {
+        if (string.IsNullOrWhiteSpace(relationship))
+            throw new IdentityDomainException("Parent-student relationship is required.");
+
+        Relationship = relationship.Trim();
     }
 }

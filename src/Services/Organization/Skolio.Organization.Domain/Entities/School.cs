@@ -12,11 +12,14 @@ public sealed class School
         Id = id;
         SetName(name);
         SchoolType = schoolType;
+        IsActive = true;
     }
 
     public Guid Id { get; }
     public string Name { get; private set; } = string.Empty;
-    public SchoolType SchoolType { get; }
+    public SchoolType SchoolType { get; private set; }
+    public bool IsActive { get; private set; }
+    public Guid? SchoolAdministratorUserProfileId { get; private set; }
     public IReadOnlyCollection<SchoolYear> SchoolYears => _schoolYears;
 
     public static School Create(Guid id, string name, SchoolType schoolType)
@@ -30,6 +33,22 @@ public sealed class School
     }
 
     public void Rename(string name) => SetName(name);
+
+    public void ChangeSchoolType(SchoolType schoolType) => SchoolType = schoolType;
+
+    public void Activate() => IsActive = true;
+
+    public void Deactivate() => IsActive = false;
+
+    public void AssignSchoolAdministrator(Guid userProfileId)
+    {
+        if (userProfileId == Guid.Empty)
+        {
+            throw new OrganizationDomainException("School administrator user profile id is required.");
+        }
+
+        SchoolAdministratorUserProfileId = userProfileId;
+    }
 
     public SchoolYear AddSchoolYear(Guid schoolYearId, string label, DateOnly startDate, DateOnly endDate)
     {

@@ -10,15 +10,16 @@ using Skolio.Academics.Infrastructure.Persistence;
 namespace Skolio.Academics.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/academics/timetable")]
 public sealed class TimetableController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<TimetableEntryContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
         => Ok(await dbContext.TimetableEntries.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime).Select(x => new TimetableEntryContract(x.Id, x.SchoolId, x.SchoolYearId, x.DayOfWeek, x.StartTime, x.EndTime, x.AudienceType, x.AudienceId, x.SubjectId, x.TeacherUserId)).ToListAsync(cancellationToken));
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<TimetableEntryContract>> Create([FromBody] CreateTimetableEntryRequest request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new CreateTimetableEntryCommand(request.SchoolId, request.SchoolYearId, request.DayOfWeek, request.StartTime, request.EndTime, request.AudienceType, request.AudienceId, request.SubjectId, request.TeacherUserId), cancellationToken);

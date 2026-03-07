@@ -35,6 +35,12 @@ public sealed class ClassRoom
         return new ClassRoom(id, schoolId, gradeLevelId, code, displayName);
     }
 
+    public void OverrideForPlatformSupport(string code, string displayName)
+    {
+        SetCode(code);
+        SetDisplayName(displayName);
+    }
+
     private void SetCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { loadBootstrapConfig } from './bootstrap';
+import { I18nProvider } from './i18n';
 import './styles.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -10,7 +11,9 @@ loadBootstrapConfig()
   .then((config) => {
     root.render(
       <React.StrictMode>
-        <App config={config} />
+        <I18nProvider>
+          <App config={config} />
+        </I18nProvider>
       </React.StrictMode>
     );
   })

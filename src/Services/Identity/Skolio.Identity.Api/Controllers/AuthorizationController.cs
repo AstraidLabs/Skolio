@@ -18,7 +18,14 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
     {
         var request = HttpContext.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("OpenIddict request missing.");
         var returnUrl = $"{Request.Path}{Request.QueryString}";
-        var loginUrl = $"/account/login?returnUrl={Uri.EscapeDataString(returnUrl)}";
+
+        var loginBaseUrl = "/account/login";
+        if (Uri.TryCreate(request.RedirectUri, UriKind.Absolute, out var redirectUri))
+        {
+            loginBaseUrl = $"{redirectUri.GetLeftPart(UriPartial.Authority)}/login";
+        }
+
+        var loginUrl = $"{loginBaseUrl}?returnUrl={Uri.EscapeDataString(returnUrl)}";
 
         if (!User.Identity?.IsAuthenticated ?? true)
         {
@@ -32,6 +39,8 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
         }
 
         var principal = await signInManager.CreateUserPrincipalAsync(user);
+        principal.SetClaim(OpenIddictConstants.Claims.Subject, user.Id);
+        principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email ?? string.Empty);
         principal.SetScopes(request.GetScopes());
         principal.SetResources("skolio_api");
 

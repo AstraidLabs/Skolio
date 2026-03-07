@@ -14,10 +14,10 @@ public sealed class LessonRecord
     }
 
     public Guid Id { get; }
-    public Guid TimetableEntryId { get; }
-    public DateOnly LessonDate { get; }
-    public string Topic { get; }
-    public string Summary { get; }
+    public Guid TimetableEntryId { get; private set; }
+    public DateOnly LessonDate { get; private set; }
+    public string Topic { get; private set; }
+    public string Summary { get; private set; }
 
     public static LessonRecord Create(Guid id, Guid timetableEntryId, DateOnly lessonDate, string topic, string summary)
     {
@@ -27,5 +27,18 @@ public sealed class LessonRecord
             throw new AcademicsDomainException("Lesson topic is required.");
 
         return new LessonRecord(id, timetableEntryId, lessonDate, topic, summary);
+    }
+
+    public void OverrideForPlatformSupport(Guid timetableEntryId, DateOnly lessonDate, string topic, string summary)
+    {
+        if (timetableEntryId == Guid.Empty)
+            throw new AcademicsDomainException("Lesson record ids are required.");
+        if (string.IsNullOrWhiteSpace(topic))
+            throw new AcademicsDomainException("Lesson topic is required.");
+
+        TimetableEntryId = timetableEntryId;
+        LessonDate = lessonDate;
+        Topic = topic.Trim();
+        Summary = summary.Trim();
     }
 }

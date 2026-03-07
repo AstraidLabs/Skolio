@@ -16,10 +16,10 @@ public sealed class DailyReport
 
     public Guid Id { get; }
     public Guid SchoolId { get; }
-    public Guid AudienceId { get; }
-    public DateOnly ReportDate { get; }
-    public string Summary { get; }
-    public string Notes { get; }
+    public Guid AudienceId { get; private set; }
+    public DateOnly ReportDate { get; private set; }
+    public string Summary { get; private set; }
+    public string Notes { get; private set; }
 
     public static DailyReport Create(Guid id, Guid schoolId, Guid audienceId, DateOnly reportDate, string summary, string notes)
     {
@@ -29,5 +29,18 @@ public sealed class DailyReport
             throw new AcademicsDomainException("Daily report summary is required.");
 
         return new DailyReport(id, schoolId, audienceId, reportDate, summary, notes);
+    }
+
+    public void OverrideForPlatformSupport(Guid audienceId, DateOnly reportDate, string summary, string notes)
+    {
+        if (audienceId == Guid.Empty)
+            throw new AcademicsDomainException("Daily report ids are required.");
+        if (string.IsNullOrWhiteSpace(summary))
+            throw new AcademicsDomainException("Daily report summary is required.");
+
+        AudienceId = audienceId;
+        ReportDate = reportDate;
+        Summary = summary.Trim();
+        Notes = notes.Trim();
     }
 }

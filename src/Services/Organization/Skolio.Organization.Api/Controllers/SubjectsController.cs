@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,13 +10,13 @@ using Skolio.Organization.Infrastructure.Persistence;
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministration)]
 [Route("api/organization/subjects")]
-public sealed class SubjectsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
+public sealed class SubjectsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<SubjectsController> logger) : ControllerBase
 {
     private const int MaxPageSize = 200;
 
     [HttpGet]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<PagedResult<SubjectContract>>> List(
         [FromQuery] Guid schoolId,
         [FromQuery] string? search,
@@ -44,6 +45,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SubjectContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Subjects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -51,6 +53,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpPost]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(SubjectContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSubject([FromBody] CreateSubjectRequest request, CancellationToken cancellationToken)
     {
@@ -58,6 +61,29 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
         return CreatedAtAction(nameof(Detail), new { id = contract.Id }, contract);
     }
 
+    [HttpPut("{id:guid}/override")]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    public async Task<ActionResult<SubjectContract>> OverrideSubject(Guid id, [FromBody] OverrideSubjectRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+
+        var entity = await dbContext.Subjects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        entity.OverrideForPlatformSupport(request.Code, request.Name);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Audit("organization.subject.override", entity.SchoolId, request.OverrideReason, new { entity.Id, request.Code, request.Name });
+        return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
+    }
+
+    private void Audit(string actionCode, Guid schoolId, string overrideReason, object payload)
+    {
+        var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} school={SchoolId} overrideReason={OverrideReason} payload={Payload}", actionCode, actor, schoolId, overrideReason, payload);
+    }
+
     public sealed record CreateSubjectRequest(Guid SchoolId, string Code, string Name);
+    public sealed record OverrideSubjectRequest(string Code, string Name, string OverrideReason);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
 }
