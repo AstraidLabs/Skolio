@@ -8,7 +8,6 @@
     <ProjectReference Include="../Skolio.Organization.Application/Skolio.Organization.Application.csproj" />
     <ProjectReference Include="../Skolio.Organization.Infrastructure/Skolio.Organization.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
   <ItemGroup>
