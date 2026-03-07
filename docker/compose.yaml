@@ -9,8 +9,8 @@ services:
       Frontend__UseViteDevServer: true
       ServiceEndpoints__IdentityApi: http://localhost:8081
       ServiceEndpoints__OidcClientId: skolio-frontend
-      ServiceEndpoints__OidcRedirectUri: http://localhost:5173/auth/callback
-      ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:5173/
+      ServiceEndpoints__OidcRedirectUri: http://localhost:8080/auth/callback
+      ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:8080/
       ServiceEndpoints__OidcScope: openid profile skolio_api
       ServiceEndpoints__OrganizationApi: http://localhost:8082
       ServiceEndpoints__AcademicsApi: http://localhost:8083
@@ -55,8 +55,8 @@ services:
       Identity__Signing__KeyId: skolio-identity-signing-k1
       Identity__OpenIddict__FrontendClient__ClientId: skolio-frontend
       Identity__OpenIddict__FrontendClient__DisplayName: Skolio Frontend
-      Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:5173/auth/callback
-      Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:5173/
+      Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:8080/auth/callback
+      Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:8080/
       
     ports:
       - "8081:8080"
