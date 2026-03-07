@@ -35,7 +35,7 @@ public static class DependencyInjection
         services.AddDbContext<IdentityDbContext>(options =>
         {
             options.UseNpgsql(databaseOptions.ConnectionString, npgsql => npgsql.MigrationsAssembly(typeof(AssemblyMarker).Assembly.FullName));
-            options.UseOpenIddict<string>();
+            options.UseOpenIddict();
         });
 
         services.AddIdentityCore<SkolioIdentityUser>(identityOptions =>
@@ -78,6 +78,7 @@ public static class DependencyInjection
                 if (signingOptions.UseDevelopmentCertificate)
                 {
                     options.AddDevelopmentSigningCertificate();
+                    options.AddDevelopmentEncryptionCertificate();
                 }
                 else
                 {

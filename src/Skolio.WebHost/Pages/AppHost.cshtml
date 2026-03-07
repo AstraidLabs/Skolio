@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skolio</title>
-    @if (!Model.IsDevelopment)
+    @if (!Model.UseViteDevServer)
     {
         <link rel="stylesheet" href="/@(Model.SpaAssetsPath)/assets/index.css" />
     }
@@ -17,7 +17,7 @@
 <body>
     <div id="root"></div>
 
-    @if (Model.IsDevelopment)
+    @if (Model.UseViteDevServer)
     {
         <script type="module" src="@(Model.ViteDevServer)/@@vite/client"></script>
         <script type="module" src="@(Model.ViteDevServer)/src/main.tsx"></script>

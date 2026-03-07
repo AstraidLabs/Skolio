@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
-const webHostUrl = process.env.SKOLIO_WEBHOST_URL ?? 'http://localhost:62820';
+const webHostUrl = process.env.SKOLIO_WEBHOST_URL ?? 'http://localhost:8080';
 
 export default defineConfig({
   server: {
@@ -26,3 +26,4 @@ export default defineConfig({
     }
   }
 });
+

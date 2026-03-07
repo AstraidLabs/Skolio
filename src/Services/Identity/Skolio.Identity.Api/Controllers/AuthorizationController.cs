@@ -1,12 +1,12 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Abstractions;
-using OpenIddict.Server.AspNetCore;
 using OpenIddict.Extensions;
+using OpenIddict.Server.AspNetCore;
 using Skolio.Identity.Infrastructure.Auth;
-using Microsoft.AspNetCore;
 
 namespace Skolio.Identity.Api.Controllers;
 
@@ -17,16 +17,18 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
     public async Task<IActionResult> Authorize(CancellationToken cancellationToken)
     {
         var request = HttpContext.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("OpenIddict request missing.");
+        var returnUrl = $"{Request.Path}{Request.QueryString}";
+        var loginUrl = $"/account/login?returnUrl={Uri.EscapeDataString(returnUrl)}";
 
         if (!User.Identity?.IsAuthenticated ?? true)
         {
-            return Challenge(IdentityConstants.ApplicationScheme);
+            return Redirect(loginUrl);
         }
 
         var user = await userManager.GetUserAsync(User);
         if (user is null)
         {
-            return Challenge(IdentityConstants.ApplicationScheme);
+            return Redirect(loginUrl);
         }
 
         var principal = await signInManager.CreateUserPrincipalAsync(user);

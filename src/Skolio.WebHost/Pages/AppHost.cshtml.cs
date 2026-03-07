@@ -17,11 +17,12 @@ public class AppHostModel : PageModel
 
     public string SpaAssetsPath { get; private set; } = string.Empty;
 
-    public bool IsDevelopment { get; private set; }
+    public bool UseViteDevServer { get; private set; }
 
     public void OnGet()
     {
-        IsDevelopment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
+        var environment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+        UseViteDevServer = environment.IsDevelopment() && _frontend.UseViteDevServer;
         ViteDevServer = _frontend.ViteDevServer.TrimEnd('/');
         SpaAssetsPath = _frontend.SpaAssetsPath.Trim('/');
     }

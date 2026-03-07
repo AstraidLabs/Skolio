@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,7 +20,16 @@ public static class MigrationExtensions
         {
             logger.LogInformation("Starting database migration for {ServiceName}.", serviceName);
             var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-            await dbContext.Database.MigrateAsync();
+
+            if (dbContext.Database.GetMigrations().Any())
+            {
+                await dbContext.Database.MigrateAsync();
+            }
+            else
+            {
+                await dbContext.Database.EnsureDeletedAsync();
+                await dbContext.Database.EnsureCreatedAsync();
+            }
 
             logger.LogInformation("Database migration completed for {ServiceName}.", serviceName);
 

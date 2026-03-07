@@ -6,15 +6,16 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ASPNETCORE_ENVIRONMENT: Development
+      Frontend__UseViteDevServer: true
       ServiceEndpoints__IdentityApi: http://localhost:8081
       ServiceEndpoints__OidcClientId: skolio-frontend
-      ServiceEndpoints__OidcRedirectUri: http://localhost:8080/auth/callback
-      ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:8080/
+      ServiceEndpoints__OidcRedirectUri: http://localhost:5173/auth/callback
+      ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:5173/
       ServiceEndpoints__OidcScope: openid profile skolio_api
-      ServiceEndpoints__OrganizationApi: http://organization-api:8080
-      ServiceEndpoints__AcademicsApi: http://academics-api:8080
-      ServiceEndpoints__CommunicationApi: http://communication-api:8080
-      ServiceEndpoints__AdministrationApi: http://administration-api:8080
+      ServiceEndpoints__OrganizationApi: http://localhost:8082
+      ServiceEndpoints__AcademicsApi: http://localhost:8083
+      ServiceEndpoints__CommunicationApi: http://localhost:8084
+      ServiceEndpoints__AdministrationApi: http://localhost:8085
     ports:
       - "8080:8080"
     depends_on:
@@ -28,8 +29,6 @@ services:
         condition: service_healthy
       administration-api:
         condition: service_healthy
-      frontend:
-        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health/ready"]
       interval: 20s
@@ -56,8 +55,8 @@ services:
       Identity__Signing__KeyId: skolio-identity-signing-k1
       Identity__OpenIddict__FrontendClient__ClientId: skolio-frontend
       Identity__OpenIddict__FrontendClient__DisplayName: Skolio Frontend
-      Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:8080/auth/callback
-      Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:8080/
+      Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:5173/auth/callback
+      Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:5173/
       
     ports:
       - "8081:8080"
@@ -191,7 +190,7 @@ services:
       context: ..
       dockerfile: src/Frontend/Skolio.Frontend/Dockerfile
     ports:
-      - "5173:80"
+      - "5174:80"
 
   postgresql:
     image: postgres:17
@@ -226,3 +225,4 @@ services:
 volumes:
   postgresql_data:
   redis_data:
+

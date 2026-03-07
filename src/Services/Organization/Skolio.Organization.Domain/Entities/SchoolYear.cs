@@ -5,6 +5,10 @@ namespace Skolio.Organization.Domain.Entities;
 
 public sealed class SchoolYear
 {
+    private SchoolYear()
+    {
+    }
+
     private SchoolYear(Guid id, Guid schoolId, string label, SchoolYearPeriod period)
     {
         Id = id;
@@ -13,10 +17,10 @@ public sealed class SchoolYear
         Period = period;
     }
 
-    public Guid Id { get; }
-    public Guid SchoolId { get; }
+    public Guid Id { get; private set; }
+    public Guid SchoolId { get; private set; }
     public string Label { get; private set; } = string.Empty;
-    public SchoolYearPeriod Period { get; private set; }
+    public SchoolYearPeriod Period { get; private set; } = default!;
 
     public static SchoolYear Create(Guid id, Guid schoolId, string label, DateOnly startDate, DateOnly endDate)
     {

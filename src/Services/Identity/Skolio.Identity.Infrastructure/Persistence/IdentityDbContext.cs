@@ -17,7 +17,9 @@ public sealed class IdentityDbContext : IdentityDbContext<SkolioIdentityUser, Sk
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.UseOpenIddict<OpenIddictEntityFrameworkCoreApplication, OpenIddictEntityFrameworkCoreAuthorization, OpenIddictEntityFrameworkCoreScope, OpenIddictEntityFrameworkCoreToken, string>();
+        modelBuilder.UseOpenIddict();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
     }
 }
+
+

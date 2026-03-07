@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { SkolioBootstrapConfig } from './bootstrap';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
 import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
@@ -36,7 +36,7 @@ export function RouterShell({ config }: RouterProps) {
 
   if (Date.now() > session.expiresAtUtc) {
     clearSession();
-    return <UnauthorizedPage message="Session expired. Please sign in again." />;
+    return <LoginPage config={config} />;
   }
 
   const nav = navigationFor(session.roles, session.schoolType);
@@ -167,3 +167,4 @@ function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionSt
 
 function randomString() { const bytes = crypto.getRandomValues(new Uint8Array(32)); return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join(''); }
 async function sha256ToBase64Url(value: string) { const encoded = new TextEncoder().encode(value); const digest = await crypto.subtle.digest('SHA-256', encoded); const b64 = btoa(String.fromCharCode(...new Uint8Array(digest))); return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+
