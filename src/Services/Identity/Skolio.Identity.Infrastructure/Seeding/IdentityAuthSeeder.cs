@@ -77,7 +77,7 @@ public sealed class IdentityAuthSeeder(
                 OpenIddictConstants.Permissions.Endpoints.EndSession,
                 OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
                 OpenIddictConstants.Permissions.ResponseTypes.Code,
-                OpenIddictConstants.Permissions.Scopes.Openid,
+                OpenIddictConstants.Permissions.Scopes.OpenId,
                 OpenIddictConstants.Permissions.Scopes.Profile,
                 OpenIddictConstants.Permissions.Prefixes.Scope + "skolio_api"
             });
