@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY . .
 RUN dotnet tool install --global dotnet-ef
@@ -11,7 +11,7 @@ RUN dotnet ef migrations bundle \
     --self-contained false \
     --output /out/skolio-identity-migrator
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /out/skolio-identity-migrator ./skolio-identity-migrator
 ENTRYPOINT ["/app/skolio-identity-migrator"]
