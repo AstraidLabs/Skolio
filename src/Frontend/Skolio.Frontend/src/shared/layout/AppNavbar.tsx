@@ -26,18 +26,21 @@ export function AppNavbar({
 }) {
   return (
     <header className="sk-navbar">
-      <div className="sk-navbar-main">
-        <div className="sk-navbar-brand">{brand}</div>
-        <NavbarMenu items={menuItems} />
-      </div>
-      <div className="sk-navbar-right">
-        {rightSlot}
-        <NavbarProfileMenu
-          displayName={profileName}
-          context={profileContext}
-          onProfile={onProfile}
-          onLogout={onLogout}
-        />
+      <div className="sk-navbar-inner">
+        <div className="sk-navbar-main">
+          <div className="sk-navbar-brand">{brand}</div>
+          <NavbarMenu items={menuItems} />
+        </div>
+        <div className="sk-navbar-right">
+          <button className="sk-pill" type="button">Notifications</button>
+          {rightSlot ? <div>{rightSlot}</div> : null}
+          <NavbarProfileMenu
+            displayName={profileName}
+            context={profileContext}
+            onProfile={onProfile}
+            onLogout={onLogout}
+          />
+        </div>
       </div>
     </header>
   );

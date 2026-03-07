@@ -8,9 +8,9 @@ import { createIdentityApi } from './identity/api';
 import { createOrganizationApi } from './organization/api';
 import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
-import { AppNavbar } from './shared/layout/AppNavbar';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
+import { AppShell as AppLayoutShell } from './shared/layout/AppShell';
 
 type RouterProps = { config: SkolioBootstrapConfig };
 type AppRoute = '/dashboard' | '/organization' | '/academics' | '/communication' | '/administration' | '/identity' | '/login';
@@ -61,20 +61,25 @@ export function RouterShell({ config }: RouterProps) {
   const nav = navigationFor(session.roles, session.schoolType);
   const active = nav.includes(route as AppRoute) ? (route as AppRoute) : '/dashboard';
 
-    return (
-    <div className="sk-layout">
-      <div className="sk-panel">
-        <AppShell session={session} nav={nav} active={active} onNavigate={setRoute} onLogout={() => beginLogout(config, setSession)}>
-          {active === '/dashboard' && <DashboardPage session={session} apis={apis} />}
-          {active === '/organization' && <OrganizationPage api={apis.organization} session={session} />}
-          {active === '/academics' && <AcademicsPage api={apis.academics} administrationApi={apis.administration} schoolType={session.schoolType} session={session} />}
-          {active === '/communication' && <CommunicationPage api={apis.communication} session={session} />}
-          {active === '/administration' && <AdministrationPage api={apis.administration} session={session} />}
-          {active === '/identity' && <IdentityPage api={apis.identity} session={session} />}
-          {!nav.includes(active) && <p className="text-sm text-red-700">{t('authFailed')}</p>}
-        </AppShell>
-      </div>
-    </div>
+  return (
+    <AppLayoutShell
+      session={session}
+      nav={nav}
+      active={active}
+      onNavigate={setRoute}
+      onLogout={() => beginLogout(config, setSession)}
+      pageTitle={labelForRoute(active, t)}
+      pageSubtitle="Role-based navigation and school-type-aware application shell."
+      footerLanguageSwitcher={<LanguageSwitcher />}
+    >
+      {active === '/dashboard' && <DashboardPage session={session} apis={apis} />}
+      {active === '/organization' && <OrganizationPage api={apis.organization} session={session} />}
+      {active === '/academics' && <AcademicsPage api={apis.academics} administrationApi={apis.administration} schoolType={session.schoolType} session={session} />}
+      {active === '/communication' && <CommunicationPage api={apis.communication} session={session} />}
+      {active === '/administration' && <AdministrationPage api={apis.administration} session={session} />}
+      {active === '/identity' && <IdentityPage api={apis.identity} session={session} />}
+      {!nav.includes(active) && <p className="text-sm text-red-700">{t('authFailed')}</p>}
+    </AppLayoutShell>
   );
 }
 
@@ -284,34 +289,6 @@ function AuditIcon() { return <IconBase><path d="M5 5h14v14H5z" /><path d="M8 9h
 
 function UnauthorizedPage({ message }: { message: string }) {
   return <section className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{message}</section>;
-}
-
-function AppShell({ session, nav, active, onNavigate, onLogout, children }: { session: SessionState; nav: AppRoute[]; active: AppRoute; onNavigate: (r: AppRoute) => void; onLogout: () => void; children: ReactNode }) {
-  const { t } = useI18n();
-  const roleText = session.roles.length > 0 ? session.roles.join(', ') : t('roleUser');
-  const schoolContext = `${session.schoolType} | ${session.schoolIds.length > 0 ? session.schoolIds[0] : 'global'}`;
-  const menuItems = nav.map((item) => ({
-    key: item,
-    label: labelForRoute(item, t),
-    active: active === item,
-    onSelect: () => navigateTo(item, onNavigate)
-  }));
-
-  return (
-    <section className="space-y-5">
-      <AppNavbar
-        brand="Skolio"
-        menuItems={menuItems}
-        profileName={session.subject}
-        profileContext={`${roleText} | ${schoolContext}`}
-        onProfile={() => navigateTo('/identity', onNavigate)}
-        onLogout={onLogout}
-        rightSlot={<LanguageSwitcher />}
-      />
-      <SectionHeader title={labelForRoute(active, t)} description="Role-based navigation and school-aware operational context." />
-      <div>{children}</div>
-    </section>
-  );
 }
 
 function isPlatformAdministrator(session: SessionState) {

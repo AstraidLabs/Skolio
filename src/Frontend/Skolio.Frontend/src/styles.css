@@ -63,12 +63,132 @@
     @apply p-5 md:p-6;
   }
 
-  .sk-navbar {
+  .sk-app-root {
+    @apply min-h-screen w-full bg-slate-50;
+  }
+
+  .sk-shell-content-frame {
+    @apply mx-auto w-full max-w-7xl px-4 py-3 md:px-6;
+  }
+
+  .sk-shell-content {
+    @apply grid flex-1 gap-3 md:grid-cols-[280px_minmax(0,1fr)];
+  }
+
+  .sk-sidebar {
     background: var(--sk-surface);
     border: 1px solid var(--sk-border);
     border-radius: var(--sk-radius-md);
     box-shadow: var(--sk-shadow-1);
-    @apply flex flex-wrap items-center justify-between gap-3 p-3;
+    @apply z-40 h-full overflow-y-auto p-3;
+  }
+
+  .sk-sidebar-section + .sk-sidebar-section {
+    @apply mt-4;
+  }
+
+  .sk-sidebar-title {
+    color: var(--sk-text-muted);
+    @apply mb-2 text-xs font-semibold uppercase tracking-wide;
+  }
+
+  .sk-sidebar-items {
+    @apply grid gap-1;
+  }
+
+  .sk-sidebar-link {
+    border: 1px solid transparent;
+    border-radius: var(--sk-radius-sm);
+    color: var(--sk-text);
+    @apply flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium transition;
+  }
+
+  .sk-sidebar-link:hover {
+    background: var(--sk-surface-muted);
+    border-color: var(--sk-border);
+  }
+
+  .sk-sidebar-link.is-active {
+    background: var(--sk-primary-soft);
+    border-color: #bfdbfe;
+    color: #1e40af;
+  }
+
+  .sk-page-region {
+    @apply flex min-h-0 flex-col gap-3;
+  }
+
+  .sk-page-header {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    box-shadow: var(--sk-shadow-1);
+    @apply flex flex-wrap items-start justify-between gap-3 p-4;
+  }
+
+  .sk-page-title {
+    @apply text-xl font-semibold text-slate-900;
+  }
+
+  .sk-page-subtitle {
+    color: var(--sk-text-muted);
+    @apply mt-1 text-sm;
+  }
+
+  .sk-page-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .sk-page-body {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    box-shadow: var(--sk-shadow-1);
+    @apply min-h-0 flex-1 overflow-auto p-4;
+  }
+
+  .sk-app-footer {
+    color: var(--sk-text-muted);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    background: var(--sk-surface);
+    @apply flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs;
+  }
+
+  .sk-app-footer-meta {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .sk-footer-language {
+    @apply ml-auto;
+  }
+
+  .sk-footer-language-switch {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .sk-footer-language-label {
+    color: var(--sk-text-muted);
+    @apply text-xs;
+  }
+
+  .sk-footer-language-select {
+    border: 1px solid var(--sk-border);
+    border-radius: 8px;
+    background: var(--sk-surface-muted);
+    color: var(--sk-text);
+    @apply px-2 py-1 text-xs;
+  }
+
+  .sk-navbar {
+    background: var(--sk-surface);
+    border-bottom: 1px solid var(--sk-border);
+    box-shadow: var(--sk-shadow-1);
+    @apply w-full;
+  }
+
+  .sk-navbar-inner {
+    @apply mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6;
   }
 
   .sk-navbar-main {
@@ -77,6 +197,18 @@
 
   .sk-navbar-brand {
     @apply shrink-0 text-base font-semibold text-slate-900;
+  }
+
+  .sk-sidebar-open {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    @apply mb-2 inline-flex px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 md:hidden;
+  }
+
+  .sk-sidebar-close {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    @apply mb-3 inline-flex px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 md:hidden;
   }
 
   .sk-navbar-menu {
@@ -344,6 +476,30 @@
     border-radius: var(--sk-radius-lg);
     box-shadow: var(--sk-shadow-2);
     @apply p-5 md:p-6;
+  }
+
+  @media (max-width: 767px) {
+    .sk-shell-content {
+      @apply block;
+    }
+
+    .sk-sidebar {
+      @apply fixed bottom-0 left-0 top-[57px] w-72 -translate-x-full transition-transform;
+    }
+
+    .sk-sidebar.open {
+      @apply translate-x-0;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .sk-sidebar {
+      @apply static w-auto translate-x-0;
+    }
+
+    .sk-sidebar-close {
+      @apply hidden;
+    }
   }
 }
 
