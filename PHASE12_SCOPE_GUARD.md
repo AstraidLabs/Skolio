@@ -1,7 +1,23 @@
-# PHASE 12 SCOPE GUARD
+ï»¿# PHASE 12 SCOPE GUARD
 
-Fáze 12 (Teacher) explicitnì NEVRACÍ následující scope:
+FÃ¡ze 12 uzamykÃ¡ roli `Teacher` jako pedagogickou a provoznÃ­ roli v rÃ¡mci:
+- teacher assignments
+- school-boundary scope
+- school year lifecycle omezenÃ­
 
+Teacher nenÃ­:
+- PlatformAdministrator
+- SchoolAdministrator
+- Parent
+- Student
+
+Teacher nesmÃ­:
+- mÄ›nit platform/system settings
+- mÄ›nit feature toggles
+- spravovat global role assignments
+- dÄ›lat platformovÃ© override zÃ¡sahy
+
+FÃ¡ze 12 explicitnÄ› NEVRACÃ nÃ¡sledujÃ­cÃ­ scope:
 - tests
 - quizzes
 - assessment
@@ -17,5 +33,3 @@ Fáze 12 (Teacher) explicitnì NEVRACÍ následující scope:
 - credits
 - semesters
 - subject enrollment
-
-Role Teacher zùstává pedagogická role v rámci teacher assignments a školního kontextu.

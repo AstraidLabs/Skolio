@@ -7,6 +7,7 @@ export type SchoolYearPolicy = { id: string; schoolId: string; policyName: strin
 export type HousekeepingPolicy = { id: string; policyName: string; retentionDays: number; status: string };
 export type OperationalSummary = { recentAuditCount: number; enabledFeatureToggles: number; activeLifecyclePolicies: number; activeHousekeepingPolicies: number; latestAuditActions: string[] };
 export type ParentContext = { activeSchoolFeatureToggles: string[]; schoolLifecyclePolicySummaries: string[] };
+export type TeacherContext = { recentTeacherAuditActions: string[]; activeLifecycleHints: string[] };
 
 type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
 
@@ -28,6 +29,7 @@ export function createAdministrationApi(http: ReturnType<typeof createHttpClient
     housekeepingPolicies: () => http<HousekeepingPolicy[]>('administration', '/api/administration/housekeeping-policies'),
     updateHousekeepingPolicy: (id: string, payload: { retentionDays: number; status: string }) => http<HousekeepingPolicy>('administration', `/api/administration/housekeeping-policies/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     operationalSummary: () => http<OperationalSummary>('administration', '/api/administration/operational-summary'),
-    parentContext: () => http<ParentContext>('administration', '/api/administration/parent-context')
+    parentContext: () => http<ParentContext>('administration', '/api/administration/parent-context'),
+    teacherContext: () => http<TeacherContext>('administration', '/api/administration/teacher-context')
   };
 }

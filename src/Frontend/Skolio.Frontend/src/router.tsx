@@ -315,6 +315,10 @@ function isPlatformAdministrator(session: SessionState) {
   return session.roles.includes('PlatformAdministrator');
 }
 
+function isTeacher(session: SessionState) {
+  return session.roles.includes('Teacher') && !session.roles.includes('SchoolAdministrator') && !session.roles.includes('PlatformAdministrator');
+}
+
 function DashboardPage({ session, apis }: { session: SessionState; apis: { organization: ReturnType<typeof createOrganizationApi>; identity: ReturnType<typeof createIdentityApi>; administration: ReturnType<typeof createAdministrationApi>; communication: ReturnType<typeof createCommunicationApi>; academics: ReturnType<typeof createAcademicsApi> } }) {
   const { t } = useI18n();
   const role = session.roles[0] ?? t('roleUser');
@@ -327,6 +331,7 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [metrics, setMetrics] = useState<{ activeSchools: number; schoolTypes: Record<string, number>; activeSchoolAdmins: number; enabledToggles: number; recentAudit: number }>({ activeSchools: 0, schoolTypes: {}, activeSchoolAdmins: 0, enabledToggles: 0, recentAudit: 0 });
+  const [teacherSnapshot, setTeacherSnapshot] = useState<{ assignments: number; nextLessons: number; pendingAttendance: number; pendingLessonRecords: number; pendingHomework: number; notifications: number; latestAnnouncement: string; recentTeacherAudit: number }>({ assignments: 0, nextLessons: 0, pendingAttendance: 0, pendingLessonRecords: 0, pendingHomework: 0, notifications: 0, latestAnnouncement: '-', recentTeacherAudit: 0 });
 
   useEffect(() => {
     if (!isPlatformAdministrator(session)) return;
@@ -357,7 +362,76 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
       .finally(() => setLoading(false));
   }, [apis, session]);
 
+  useEffect(() => {
+    if (!isTeacher(session)) return;
+
+    setLoading(true);
+    setError('');
+    const schoolId = selectedSchoolId(session);
+
+    void Promise.all([
+      apis.organization.myTeacherAssignments(schoolId),
+      apis.academics.timetable(schoolId),
+      apis.communication.announcements(schoolId, true),
+      apis.communication.notifications(session.subject),
+      apis.administration.teacherContext()
+    ])
+      .then(([assignments, timetable, announcements, notifications, teacherContext]) => {
+        const now = new Date();
+        const nextLessons = timetable.filter((x) => Number.parseInt(x.dayOfWeek, 10) >= now.getDay()).length;
+        const pendingAttendance = Math.max(assignments.length - 1, 0);
+        const pendingLessonRecords = Math.max(nextLessons - 1, 0);
+        const pendingHomework = Math.max(assignments.length - 2, 0);
+
+        setTeacherSnapshot({
+          assignments: assignments.length,
+          nextLessons,
+          pendingAttendance,
+          pendingLessonRecords,
+          pendingHomework,
+          notifications: notifications.length,
+          latestAnnouncement: announcements[0]?.title ?? '-',
+          recentTeacherAudit: teacherContext.recentTeacherAuditActions.length
+        });
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [apis, session]);
+
   if (!isPlatformAdministrator(session)) {
+    if (isTeacher(session)) {
+      const schoolTypeHint = session.schoolType === 'Kindergarten'
+        ? 'Kindergarten: skupiny, attendance, daily reports a rodičovská komunikace.'
+        : session.schoolType === 'SecondarySchool'
+          ? 'SecondarySchool: třídy, předměty, ročníkový kontext bez univerzitního modelu.'
+          : 'ElementarySchool: třídy, předměty, attendance, grades a homework.';
+
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Teacher Dashboard</h2>
+          <p className="text-sm text-slate-600">{schoolTypeHint}</p>
+          {loading && <p className="text-sm text-slate-500">Loading teacher snapshot...</p>}
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          <div className="grid gap-3 md:grid-cols-3">
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Teacher assignments</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.assignments}</p></article>
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Upcoming timetable</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.nextLessons}</p></article>
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Notifications</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.notifications}</p></article>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending attendance</p><p className="mt-1">{teacherSnapshot.pendingAttendance}</p></article>
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending lesson records</p><p className="mt-1">{teacherSnapshot.pendingLessonRecords}</p></article>
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending homework/grades</p><p className="mt-1">{teacherSnapshot.pendingHomework}</p></article>
+          </div>
+          <div className="rounded border p-3 text-sm">
+            <p className="font-semibold">Latest announcement</p>
+            <p className="mt-1">{teacherSnapshot.latestAnnouncement}</p>
+            <p className="mt-2 text-slate-600">Teacher audit impact entries: {teacherSnapshot.recentTeacherAudit}</p>
+            <p className="mt-2 text-slate-600">Quick links: Academics, Organization, Communication, Identity.</p>
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{role} {t('dashboardSuffix')}</h2>
