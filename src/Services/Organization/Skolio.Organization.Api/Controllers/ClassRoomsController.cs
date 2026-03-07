@@ -15,12 +15,28 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class ClassRoomsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<ClassRoomsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<ClassRoomContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.ClassRooms.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DisplayName).Select(x => new ClassRoomContract(x.Id, x.SchoolId, x.GradeLevelId, x.Code, x.DisplayName)).ToListAsync(cancellationToken));
+        var query = dbContext.ClassRooms.Where(x => x.SchoolId == schoolId);
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var assignedClassIds = await dbContext.TeacherAssignments
+                .Where(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId)
+                .Where(x => x.ClassRoomId.HasValue)
+                .Select(x => x.ClassRoomId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => assignedClassIds.Contains(x.Id));
+        }
+
+        return Ok(await query.OrderBy(x => x.DisplayName).Select(x => new ClassRoomContract(x.Id, x.SchoolId, x.GradeLevelId, x.Code, x.DisplayName)).ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -50,6 +66,14 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
         Audit("organization.class-room.override", classRoom.SchoolId, new { request.OverrideReason, classRoom.Id, request.Code, request.DisplayName });
         return Ok(new ClassRoomContract(classRoom.Id, classRoom.SchoolId, classRoom.GradeLevelId, classRoom.Code, classRoom.DisplayName));
     }
+
+    private static Guid ResolveActorUserId(ClaimsPrincipal user)
+    {
+        var raw = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
+    }
+
+    private Guid ResolveActorUserId() => ResolveActorUserId(User);
 
     private void Audit(string actionCode, Guid schoolId, object payload)
     {

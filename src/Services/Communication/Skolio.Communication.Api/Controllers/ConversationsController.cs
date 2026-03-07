@@ -59,6 +59,7 @@ public sealed class ConversationsController(IMediator mediator, IHubContext<Comm
         var conversation = await dbContext.Conversations.FirstOrDefaultAsync(x => x.Id == request.ConversationId, cancellationToken);
         if (conversation is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, conversation.SchoolId)) return Forbid();
+        if (!conversation.ParticipantUserIds.Contains(request.SenderUserId)) return Forbid();
 
         var result = await mediator.Send(new AddConversationMessageCommand(request.ConversationId, request.SenderUserId, request.Message, request.SentAtUtc), cancellationToken);
         await hubContext.Clients.Group(request.ConversationId.ToString()).SendAsync("messageAdded", result, cancellationToken);

@@ -15,7 +15,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class SchoolYearsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<SchoolYearsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();

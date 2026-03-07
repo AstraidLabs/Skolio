@@ -15,12 +15,29 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbContext, ILogger<LessonsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<IReadOnlyCollection<LessonRecordContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<LessonRecordContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? timetableEntryId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.LessonRecords.Join(dbContext.TimetableEntries, lesson => lesson.TimetableEntryId, timetable => timetable.Id, (lesson, timetable) => new { lesson, timetable }).Where(x => x.timetable.SchoolId == schoolId).OrderByDescending(x => x.lesson.LessonDate).Select(x => new LessonRecordContract(x.lesson.Id, x.lesson.TimetableEntryId, x.lesson.LessonDate, x.lesson.Topic, x.lesson.Summary)).ToListAsync(cancellationToken));
+        var query = dbContext.LessonRecords.Join(dbContext.TimetableEntries, lesson => lesson.TimetableEntryId, timetable => timetable.Id, (lesson, timetable) => new { lesson, timetable })
+            .Where(x => x.timetable.SchoolId == schoolId);
+
+        if (timetableEntryId.HasValue)
+        {
+            query = query.Where(x => x.timetable.Id == timetableEntryId.Value);
+        }
+
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            query = query.Where(x => x.timetable.TeacherUserId == actorUserId);
+        }
+
+        return Ok(await query.OrderByDescending(x => x.lesson.LessonDate)
+            .Select(x => new LessonRecordContract(x.lesson.Id, x.lesson.TimetableEntryId, x.lesson.LessonDate, x.lesson.Topic, x.lesson.Summary))
+            .ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -31,7 +48,14 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
         if (timetable is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, timetable.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty || timetable.TeacherUserId != actorUserId) return Forbid();
+        }
+
         var result = await mediator.Send(new RecordLessonCommand(request.TimetableEntryId, request.LessonDate, request.Topic, request.Summary), cancellationToken);
+        Audit("academics.lesson-record.changed", timetable.SchoolId, new { operation = "create", result.Id, request.TimetableEntryId, request.LessonDate, request.Topic });
         return CreatedAtAction(nameof(Record), new { id = result.Id }, result);
     }
 
@@ -50,6 +74,12 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
         var schoolId = await dbContext.TimetableEntries.Where(x => x.Id == request.TimetableEntryId).Select(x => x.SchoolId).FirstOrDefaultAsync(cancellationToken);
         Audit("academics.lesson.override", schoolId, new { request.OverrideReason, entity.Id, request.Topic });
         return Ok(new LessonRecordContract(entity.Id, entity.TimetableEntryId, entity.LessonDate, entity.Topic, entity.Summary));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

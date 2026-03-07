@@ -15,12 +15,28 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class HomeworkController(IMediator mediator, AcademicsDbContext dbContext, ILogger<HomeworkController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<IReadOnlyCollection<HomeworkAssignmentContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<HomeworkAssignmentContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.HomeworkAssignments.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DueDate).Select(x => new HomeworkAssignmentContract(x.Id, x.SchoolId, x.AudienceId, x.SubjectId, x.Title, x.Instructions, x.DueDate)).ToListAsync(cancellationToken));
+        var query = dbContext.HomeworkAssignments.Where(x => x.SchoolId == schoolId);
+        if (audienceId.HasValue)
+        {
+            query = query.Where(x => x.AudienceId == audienceId.Value);
+        }
+
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (!audienceId.HasValue) return BadRequest("Teacher read scope requires audienceId.");
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.AudienceId == audienceId.Value, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
+        return Ok(await query.OrderBy(x => x.DueDate).Select(x => new HomeworkAssignmentContract(x.Id, x.SchoolId, x.AudienceId, x.SubjectId, x.Title, x.Instructions, x.DueDate)).ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -29,7 +45,17 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == request.SchoolId && x.TeacherUserId == actorUserId && x.AudienceId == request.AudienceId && x.SubjectId == request.SubjectId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
         var result = await mediator.Send(new AssignHomeworkCommand(request.SchoolId, request.AudienceId, request.SubjectId, request.Title, request.Instructions, request.DueDate), cancellationToken);
+        Audit("academics.homework.changed", request.SchoolId, new { operation = "create", result.Id, request.AudienceId, request.SubjectId, request.DueDate });
         return CreatedAtAction(nameof(Assign), new { id = result.Id }, result);
     }
 
@@ -47,6 +73,12 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
 
         Audit("academics.homework.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.Title });
         return Ok(new HomeworkAssignmentContract(entity.Id, entity.SchoolId, entity.AudienceId, entity.SubjectId, entity.Title, entity.Instructions, entity.DueDate));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

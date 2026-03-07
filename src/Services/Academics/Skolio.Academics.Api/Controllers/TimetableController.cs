@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,12 +16,20 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class TimetableController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<TimetableEntryContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.TimetableEntries.Where(x => x.SchoolId == schoolId).OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime).Select(x => new TimetableEntryContract(x.Id, x.SchoolId, x.SchoolYearId, x.DayOfWeek, x.StartTime, x.EndTime, x.AudienceType, x.AudienceId, x.SubjectId, x.TeacherUserId)).ToListAsync(cancellationToken));
+        var query = dbContext.TimetableEntries.Where(x => x.SchoolId == schoolId);
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            query = query.Where(x => x.TeacherUserId == actorUserId);
+        }
+
+        return Ok(await query.OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime).Select(x => new TimetableEntryContract(x.Id, x.SchoolId, x.SchoolYearId, x.DayOfWeek, x.StartTime, x.EndTime, x.AudienceType, x.AudienceId, x.SubjectId, x.TeacherUserId)).ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -31,6 +40,12 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
 
         var result = await mediator.Send(new CreateTimetableEntryCommand(request.SchoolId, request.SchoolYearId, request.DayOfWeek, request.StartTime, request.EndTime, request.AudienceType, request.AudienceId, request.SubjectId, request.TeacherUserId), cancellationToken);
         return CreatedAtAction(nameof(Create), new { id = result.Id }, result);
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     public sealed record CreateTimetableEntryRequest(Guid SchoolId, Guid SchoolYearId, DayOfWeek DayOfWeek, TimeOnly StartTime, TimeOnly EndTime, LessonAudienceType AudienceType, Guid AudienceId, Guid SubjectId, Guid TeacherUserId);

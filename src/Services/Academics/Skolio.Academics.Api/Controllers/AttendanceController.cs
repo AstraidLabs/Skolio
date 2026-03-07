@@ -17,12 +17,30 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class AttendanceController(IMediator mediator, AcademicsDbContext dbContext, ILogger<AttendanceController> logger) : ControllerBase
 {
     [HttpGet("records")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<IReadOnlyCollection<AttendanceRecordContract>>> Records([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<AttendanceRecordContract>>> Records([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.AttendanceRecords.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.AttendanceDate).Select(x => new AttendanceRecordContract(x.Id, x.SchoolId, x.AudienceId, x.StudentUserId, x.AttendanceDate, x.Status)).ToListAsync(cancellationToken));
+        var query = dbContext.AttendanceRecords.Where(x => x.SchoolId == schoolId);
+        if (audienceId.HasValue)
+        {
+            query = query.Where(x => x.AudienceId == audienceId.Value);
+        }
+
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (!audienceId.HasValue) return BadRequest("Teacher read scope requires audienceId.");
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.AudienceId == audienceId.Value, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
+        return Ok(await query.OrderByDescending(x => x.AttendanceDate)
+            .Select(x => new AttendanceRecordContract(x.Id, x.SchoolId, x.AudienceId, x.StudentUserId, x.AttendanceDate, x.Status))
+            .ToListAsync(cancellationToken));
     }
 
     [HttpPost("records")]
@@ -31,7 +49,17 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == request.SchoolId && x.TeacherUserId == actorUserId && x.AudienceId == request.AudienceId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
         var result = await mediator.Send(new RecordAttendanceCommand(request.SchoolId, request.AudienceId, request.StudentUserId, request.AttendanceDate, request.Status), cancellationToken);
+        Audit("academics.attendance.changed", request.SchoolId, new { operation = "create", result.Id, request.AudienceId, request.StudentUserId, request.AttendanceDate, request.Status });
         return CreatedAtAction(nameof(RecordAttendance), new { id = result.Id }, result);
     }
 
@@ -59,7 +87,17 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         if (attendance is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == attendance.SchoolId && x.TeacherUserId == actorUserId && x.AudienceId == attendance.AudienceId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
         var result = await mediator.Send(new SubmitExcuseNoteCommand(request.AttendanceRecordId, request.ParentUserId, request.Reason), cancellationToken);
+        Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "create", result.Id, request.AttendanceRecordId, request.ParentUserId });
         return CreatedAtAction(nameof(SubmitExcuse), new { id = result.Id }, result);
     }
 
@@ -78,6 +116,12 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == entity.AttendanceRecordId, cancellationToken);
         Audit("academics.excuse-note.override", attendance?.SchoolId ?? Guid.Empty, new { request.OverrideReason, entity.Id });
         return Ok(new ExcuseNoteContract(entity.Id, entity.AttendanceRecordId, entity.ParentUserId, entity.Reason, entity.SubmittedAtUtc));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

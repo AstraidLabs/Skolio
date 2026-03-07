@@ -15,15 +15,25 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class GradesController(IMediator mediator, AcademicsDbContext dbContext, ILogger<GradesController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<IReadOnlyCollection<GradeEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid studentUserId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<GradeEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid studentUserId, [FromQuery] Guid subjectId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        var studentInSchool = await dbContext.AttendanceRecords.AnyAsync(x => x.SchoolId == schoolId && x.StudentUserId == studentUserId, cancellationToken);
-        if (!studentInSchool) return Ok(Array.Empty<GradeEntryContract>());
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
 
-        return Ok(await dbContext.GradeEntries.Where(x => x.StudentUserId == studentUserId).OrderByDescending(x => x.GradedOn).Select(x => new GradeEntryContract(x.Id, x.StudentUserId, x.SubjectId, x.GradeValue, x.Note, x.GradedOn)).ToListAsync(cancellationToken));
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.SubjectId == subjectId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
+        return Ok(await dbContext.GradeEntries
+            .Where(x => x.StudentUserId == studentUserId && x.SubjectId == subjectId)
+            .OrderByDescending(x => x.GradedOn)
+            .Select(x => new GradeEntryContract(x.Id, x.StudentUserId, x.SubjectId, x.GradeValue, x.Note, x.GradedOn))
+            .ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -32,7 +42,17 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == request.SchoolId && x.TeacherUserId == actorUserId && x.SubjectId == request.SubjectId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
         var result = await mediator.Send(new RecordGradeEntryCommand(request.StudentUserId, request.SubjectId, request.GradeValue, request.Note, request.GradedOn), cancellationToken);
+        Audit("academics.grade.changed", request.SchoolId, new { operation = "create", result.Id, request.StudentUserId, request.SubjectId, request.GradeValue });
         return CreatedAtAction(nameof(RecordGrade), new { id = result.Id }, result);
     }
 
@@ -50,6 +70,12 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
 
         Audit("academics.grade.override", request.SchoolId, new { request.OverrideReason, entity.Id, request.GradeValue });
         return Ok(new GradeEntryContract(entity.Id, entity.StudentUserId, entity.SubjectId, entity.GradeValue, entity.Note, entity.GradedOn));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

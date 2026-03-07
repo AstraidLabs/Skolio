@@ -15,12 +15,28 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class DailyReportsController(IMediator mediator, AcademicsDbContext dbContext, ILogger<DailyReportsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SharedAdministration)]
-    public async Task<ActionResult<IReadOnlyCollection<DailyReportContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<DailyReportContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.DailyReports.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.ReportDate).Select(x => new DailyReportContract(x.Id, x.SchoolId, x.AudienceId, x.ReportDate, x.Summary, x.Notes)).ToListAsync(cancellationToken));
+        var query = dbContext.DailyReports.Where(x => x.SchoolId == schoolId);
+        if (audienceId.HasValue)
+        {
+            query = query.Where(x => x.AudienceId == audienceId.Value);
+        }
+
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (!audienceId.HasValue) return BadRequest("Teacher read scope requires audienceId.");
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.AudienceId == audienceId.Value, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
+        return Ok(await query.OrderByDescending(x => x.ReportDate).Select(x => new DailyReportContract(x.Id, x.SchoolId, x.AudienceId, x.ReportDate, x.Summary, x.Notes)).ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -29,7 +45,17 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
 
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == request.SchoolId && x.TeacherUserId == actorUserId && x.AudienceId == request.AudienceId, cancellationToken);
+            if (!hasTeachingContext) return Forbid();
+        }
+
         var result = await mediator.Send(new RecordDailyReportCommand(request.SchoolId, request.AudienceId, request.ReportDate, request.Summary, request.Notes), cancellationToken);
+        Audit("academics.daily-report.changed", request.SchoolId, new { operation = "create", result.Id, request.AudienceId, request.ReportDate });
         return CreatedAtAction(nameof(Record), new { id = result.Id }, result);
     }
 
@@ -47,6 +73,12 @@ public sealed class DailyReportsController(IMediator mediator, AcademicsDbContex
 
         Audit("academics.daily-report.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.ReportDate });
         return Ok(new DailyReportContract(entity.Id, entity.SchoolId, entity.AudienceId, entity.ReportDate, entity.Summary, entity.Notes));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

@@ -17,7 +17,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     private const int MaxPageSize = 200;
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<PagedResult<SubjectContract>>> List([FromQuery] Guid schoolId, [FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -26,6 +26,21 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
         var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
         var query = dbContext.Subjects.Where(x => x.SchoolId == schoolId);
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var assignedSubjectIds = await dbContext.TeacherAssignments
+                .Where(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId)
+                .Where(x => x.SubjectId.HasValue)
+                .Select(x => x.SubjectId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => assignedSubjectIds.Contains(x.Id));
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -43,12 +58,21 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<SubjectContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Subjects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var isAssigned = await dbContext.TeacherAssignments.AnyAsync(x => x.SchoolId == entity.SchoolId && x.TeacherUserId == actorUserId && x.SubjectId == entity.Id, cancellationToken);
+            if (!isAssigned) return Forbid();
+        }
 
         return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
     }
@@ -79,6 +103,12 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
 
         Audit("organization.subject.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.Code, request.Name });
         return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

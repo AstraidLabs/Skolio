@@ -15,12 +15,28 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<TeachingGroupsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<TeachingGroupContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.TeachingGroups.Where(x => x.SchoolId == schoolId).OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
+        var query = dbContext.TeachingGroups.Where(x => x.SchoolId == schoolId);
+        if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+
+            var assignments = await dbContext.TeacherAssignments
+                .Where(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId)
+                .ToListAsync(cancellationToken);
+
+            var groupIds = assignments.Where(x => x.TeachingGroupId.HasValue).Select(x => x.TeachingGroupId!.Value).ToHashSet();
+            var classIds = assignments.Where(x => x.ClassRoomId.HasValue).Select(x => x.ClassRoomId!.Value).ToHashSet();
+
+            query = query.Where(x => groupIds.Contains(x.Id) || (x.ClassRoomId.HasValue && classIds.Contains(x.ClassRoomId.Value)));
+        }
+
+        return Ok(await query.OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
     }
 
     [HttpPost]
@@ -49,6 +65,12 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
 
         Audit("organization.teaching-group.override", entity.SchoolId, new { request.OverrideReason, entity.Id, request.ClassRoomId, request.Name, request.IsDailyOperationsGroup });
         return Ok(new TeachingGroupContract(entity.Id, entity.SchoolId, entity.ClassRoomId, entity.Name, entity.IsDailyOperationsGroup));
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid schoolId, object payload)

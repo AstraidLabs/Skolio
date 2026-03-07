@@ -18,6 +18,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     userProfile: (id: string) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}`),
     updateUserProfile: (id: string, payload: Omit<UserProfile, 'id' | 'isActive'>) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     setUserProfileActivation: (id: string, isActive: boolean) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}/activation`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
+    myRoleAssignments: (schoolId?: string) => http<RoleAssignment[]>('identity', `/api/identity/school-roles/me${schoolId ? `?schoolId=${schoolId}` : ''}`),
     roleAssignments: (query?: { schoolId?: string; roleCode?: string }) => {
       const params = new URLSearchParams();
       if (query?.schoolId) params.set('schoolId', query.schoolId);

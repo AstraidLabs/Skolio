@@ -17,6 +17,31 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     private static readonly HashSet<string> SupportedRoleCodes = ["PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"];
     private static readonly HashSet<string> SchoolAdministratorManageableRoleCodes = ["Teacher", "Parent", "Student"];
 
+    [HttpGet("me")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> MyAssignments([FromQuery] Guid? schoolId, CancellationToken cancellationToken)
+    {
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var query = dbContext.SchoolRoleAssignments.Where(x => x.UserProfileId == actorUserId);
+        if (schoolId.HasValue)
+        {
+            if (!SchoolScope.HasSchoolAccess(User, schoolId.Value)) return Forbid();
+            query = query.Where(x => x.SchoolId == schoolId.Value);
+        }
+        else if (!SchoolScope.IsPlatformAdministrator(User))
+        {
+            var scopedSchoolIds = SchoolScope.GetScopedSchoolIds(User);
+            query = query.Where(x => scopedSchoolIds.Contains(x.SchoolId));
+        }
+
+        return Ok(await query
+            .OrderBy(x => x.RoleCode)
+            .Select(x => new SchoolRoleAssignmentContract(x.Id, x.UserProfileId, x.SchoolId, x.RoleCode))
+            .ToListAsync(cancellationToken));
+    }
+
     [HttpGet]
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> List([FromQuery] Guid? schoolId, [FromQuery] string? roleCode, CancellationToken cancellationToken)
@@ -90,6 +115,12 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
 
         Audit("identity.role-assignment.changed", id, new { entity.UserProfileId, entity.SchoolId, entity.RoleCode, operation = "delete" });
         return NoContent();
+    }
+
+    private Guid ResolveActorUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(raw, out var actorUserId) ? actorUserId : Guid.Empty;
     }
 
     private void Audit(string actionCode, Guid targetId, object payload)

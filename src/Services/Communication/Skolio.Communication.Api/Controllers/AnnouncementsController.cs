@@ -17,7 +17,7 @@ namespace Skolio.Communication.Api.Controllers;
 public sealed class AnnouncementsController(IMediator mediator, IHubContext<CommunicationHub> hubContext, CommunicationDbContext dbContext, ILogger<AnnouncementsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<AnnouncementContract>>> List([FromQuery] Guid schoolId, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -31,7 +31,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<AnnouncementContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -80,7 +80,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPut("{id:guid}/deactivation")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AnnouncementContract>> SetActivation(Guid id, [FromBody] SetAnnouncementActivationRequest request, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -104,3 +104,6 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     public sealed record OverrideAnnouncementRequest(string Title, string Message, DateTimeOffset PublishAtUtc, string OverrideReason);
     public sealed record SetAnnouncementActivationRequest(bool IsActive);
 }
+
+
+

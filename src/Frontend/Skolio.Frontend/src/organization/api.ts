@@ -48,7 +48,8 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     secondaryFieldsOfStudy: (schoolId: string) => http<SecondaryFieldOfStudy[]>('organization', `/api/organization/secondary-fields-of-study?schoolId=${schoolId}`),
     createSecondaryFieldOfStudy: (payload: Omit<SecondaryFieldOfStudy, 'id'>) => http<SecondaryFieldOfStudy>('organization', '/api/organization/secondary-fields-of-study', { method: 'POST', body: JSON.stringify(payload) }),
     updateSecondaryFieldOfStudy: (id: string, payload: { code: string; name: string }) => http<SecondaryFieldOfStudy>('organization', `/api/organization/secondary-fields-of-study/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-    teacherAssignments: (schoolId: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments?schoolId=${schoolId}`),
+    teacherAssignments: (schoolId: string, teacherUserId?: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments?schoolId=${schoolId}${teacherUserId ? `&teacherUserId=${teacherUserId}` : ''}`),
+    myTeacherAssignments: (schoolId: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments/me?schoolId=${schoolId}`),
     createTeacherAssignment: (payload: Omit<TeacherAssignment, 'id'>) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments', { method: 'POST', body: JSON.stringify(payload) }),
     overrideTeacherAssignment: (payload: { existingAssignmentId?: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string; overrideReason: string }) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments/override/reassign', { method: 'POST', body: JSON.stringify(payload) })
   };
