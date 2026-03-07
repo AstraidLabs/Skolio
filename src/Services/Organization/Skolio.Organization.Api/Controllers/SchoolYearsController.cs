@@ -14,14 +14,30 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class SchoolYearsController(IMediator mediator, OrganizationDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
-        => Ok(await dbContext.SchoolYears.Where(x => x.SchoolId == schoolId).OrderByDescending(x => x.StartDate).Select(x => new SchoolYearContract(x.Id, x.SchoolId, x.Label, x.StartDate, x.EndDate)).ToListAsync(cancellationToken));
+    public async Task<ActionResult<IReadOnlyCollection<SchoolYearContract>>> List(
+        [FromQuery] Guid schoolId,
+        CancellationToken cancellationToken)
+        => Ok(await dbContext.SchoolYears
+            .Where(x => x.SchoolId == schoolId)
+            .OrderByDescending(x => x.Period.StartDate)
+            .Select(x => new SchoolYearContract(
+                x.Id,
+                x.SchoolId,
+                x.Label,
+                x.Period.StartDate,
+                x.Period.EndDate))
+            .ToListAsync(cancellationToken));
 
     [HttpPost]
     [ProducesResponseType(typeof(SchoolYearContract), StatusCodes.Status201Created)]
-    public async Task<IActionResult> CreateSchoolYear([FromBody] CreateSchoolYearRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateSchoolYear(
+        [FromBody] CreateSchoolYearRequest request,
+        CancellationToken cancellationToken)
     {
-        var contract = await mediator.Send(new CreateSchoolYearCommand(request.SchoolId, request.Label, request.StartDate, request.EndDate), cancellationToken);
+        var contract = await mediator.Send(
+            new CreateSchoolYearCommand(request.SchoolId, request.Label, request.StartDate, request.EndDate),
+            cancellationToken);
+
         return CreatedAtAction(nameof(CreateSchoolYear), new { id = contract.Id }, contract);
     }
 

@@ -6,6 +6,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Extensions;
 using Skolio.Identity.Infrastructure.Auth;
+using Microsoft.AspNetCore;
 
 namespace Skolio.Identity.Api.Controllers;
 
