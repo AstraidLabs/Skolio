@@ -63,6 +63,96 @@
     @apply p-5 md:p-6;
   }
 
+  .sk-navbar {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    box-shadow: var(--sk-shadow-1);
+    @apply flex flex-wrap items-center justify-between gap-3 p-3;
+  }
+
+  .sk-navbar-main {
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-3;
+  }
+
+  .sk-navbar-brand {
+    @apply shrink-0 text-base font-semibold text-slate-900;
+  }
+
+  .sk-navbar-menu {
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
+  }
+
+  .sk-navbar-link {
+    border: 1px solid transparent;
+    color: var(--sk-text-muted);
+    border-radius: var(--sk-radius-sm);
+    @apply px-3 py-1.5 text-sm font-medium transition;
+  }
+
+  .sk-navbar-link:hover {
+    background: var(--sk-surface-muted);
+    border-color: var(--sk-border);
+    color: var(--sk-text);
+  }
+
+  .sk-navbar-link.is-active {
+    background: var(--sk-primary-soft);
+    border-color: #bfdbfe;
+    color: #1e40af;
+  }
+
+  .sk-navbar-right {
+    @apply ml-auto flex shrink-0 items-center gap-2;
+  }
+
+  .sk-profile {
+    @apply relative;
+  }
+
+  .sk-profile-trigger {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    background: var(--sk-surface-muted);
+    @apply inline-flex items-center gap-2 px-2 py-1.5 text-left;
+  }
+
+  .sk-profile-avatar {
+    background: var(--sk-primary-soft);
+    color: #1e40af;
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold;
+  }
+
+  .sk-profile-meta {
+    @apply hidden md:flex md:flex-col;
+  }
+
+  .sk-profile-name {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .sk-profile-context {
+    color: var(--sk-text-muted);
+    @apply text-xs;
+  }
+
+  .sk-profile-menu {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    box-shadow: var(--sk-shadow-2);
+    @apply absolute right-0 z-30 mt-2 w-48 p-1;
+  }
+
+  .sk-profile-menu-item {
+    border-radius: 8px;
+    @apply block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100;
+  }
+
+  .sk-profile-menu-item.danger {
+    @apply text-red-700 hover:bg-red-50;
+  }
+
   .sk-topbar {
     @apply mb-4 flex flex-wrap items-start justify-between gap-4;
   }

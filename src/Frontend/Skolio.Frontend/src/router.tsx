@@ -8,7 +8,8 @@ import { createIdentityApi } from './identity/api';
 import { createOrganizationApi } from './organization/api';
 import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
-import { AppHeader, Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
+import { AppNavbar } from './shared/layout/AppNavbar';
+import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
 
 type RouterProps = { config: SkolioBootstrapConfig };
@@ -289,25 +290,25 @@ function AppShell({ session, nav, active, onNavigate, onLogout, children }: { se
   const { t } = useI18n();
   const roleText = session.roles.length > 0 ? session.roles.join(', ') : t('roleUser');
   const schoolContext = `${session.schoolType} | ${session.schoolIds.length > 0 ? session.schoolIds[0] : 'global'}`;
+  const menuItems = nav.map((item) => ({
+    key: item,
+    label: labelForRoute(item, t),
+    active: active === item,
+    onSelect: () => navigateTo(item, onNavigate)
+  }));
 
   return (
     <section className="space-y-5">
-      <AppHeader
-        title={t('appTitle')}
-        subtitle={`${roleText} • ${schoolContext}`}
-        notifications="Notifications"
-        profileLabel={session.subject}
+      <AppNavbar
+        brand="Skolio"
+        menuItems={menuItems}
+        profileName={session.subject}
+        profileContext={`${roleText} | ${schoolContext}`}
+        onProfile={() => navigateTo('/identity', onNavigate)}
         onLogout={onLogout}
         rightSlot={<LanguageSwitcher />}
       />
       <SectionHeader title={labelForRoute(active, t)} description="Role-based navigation and school-aware operational context." />
-      <nav className="flex flex-wrap gap-2">
-        {nav.map((item) => (
-          <button key={item} className={`sk-btn ${active === item ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => navigateTo(item, onNavigate)}>
-            {labelForRoute(item, t)}
-          </button>
-        ))}
-      </nav>
       <div>{children}</div>
     </section>
   );
