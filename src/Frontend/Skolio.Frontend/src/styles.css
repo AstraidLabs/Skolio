@@ -1,6 +1,261 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --sk-bg: #f3f6fb;
+  --sk-surface: #ffffff;
+  --sk-surface-muted: #f8fafc;
+  --sk-text: #0f172a;
+  --sk-text-muted: #475569;
+  --sk-border: #dbe3ef;
+  --sk-border-strong: #c9d5e7;
+  --sk-primary: #1d4ed8;
+  --sk-primary-soft: #dbeafe;
+  --sk-success: #16a34a;
+  --sk-warning: #d97706;
+  --sk-info: #0ea5e9;
+  --sk-danger: #dc2626;
+
+  --sk-radius-sm: 10px;
+  --sk-radius-md: 14px;
+  --sk-radius-lg: 18px;
+
+  --sk-space-1: 0.25rem;
+  --sk-space-2: 0.5rem;
+  --sk-space-3: 0.75rem;
+  --sk-space-4: 1rem;
+  --sk-space-5: 1.25rem;
+  --sk-space-6: 1.5rem;
+  --sk-space-7: 1.75rem;
+  --sk-space-8: 2rem;
+
+  --sk-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --sk-shadow-2: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+@layer base {
+  body {
+    background: var(--sk-bg);
+    color: var(--sk-text);
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--sk-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .sk-layout {
+    @apply mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8;
+  }
+
+  .sk-panel {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-lg);
+    box-shadow: var(--sk-shadow-1);
+    @apply p-5 md:p-6;
+  }
+
+  .sk-topbar {
+    @apply mb-4 flex flex-wrap items-start justify-between gap-4;
+  }
+
+  .sk-topbar-title {
+    @apply text-2xl font-semibold;
+  }
+
+  .sk-topbar-subtitle {
+    color: var(--sk-text-muted);
+    @apply mt-1 text-sm;
+  }
+
+  .sk-topbar-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .sk-pill {
+    background: var(--sk-surface-muted);
+    border: 1px solid var(--sk-border);
+    border-radius: 9999px;
+    color: var(--sk-text-muted);
+    @apply px-3 py-1 text-xs font-medium;
+  }
+
+  .sk-btn {
+    border-radius: var(--sk-radius-sm);
+    @apply inline-flex items-center justify-center px-3 py-2 text-sm font-semibold transition;
+  }
+
+  .sk-btn-primary {
+    background: var(--sk-primary);
+    color: white;
+  }
+
+  .sk-btn-primary:hover {
+    filter: brightness(1.05);
+  }
+
+  .sk-btn-secondary {
+    background: var(--sk-surface-muted);
+    border: 1px solid var(--sk-border);
+    color: var(--sk-text);
+  }
+
+  .sk-section-header {
+    @apply mb-3 flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .sk-section-title {
+    @apply text-lg font-semibold;
+  }
+
+  .sk-section-desc {
+    color: var(--sk-text-muted);
+    @apply mt-1 text-sm;
+  }
+
+  .sk-widget-grid {
+    @apply grid gap-3 md:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .sk-card {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    box-shadow: var(--sk-shadow-1);
+    @apply p-4;
+  }
+
+  .sk-card-muted {
+    background: var(--sk-surface-muted);
+  }
+
+  .sk-metric-label {
+    color: var(--sk-text-muted);
+    @apply text-xs uppercase tracking-wide;
+  }
+
+  .sk-metric-value {
+    @apply mt-1 text-2xl font-semibold;
+  }
+
+  .sk-badge {
+    border-radius: 9999px;
+    @apply inline-flex items-center px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .sk-badge-neutral {
+    background: #eef2ff;
+    color: #3730a3;
+  }
+
+  .sk-badge-good {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .sk-badge-warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .sk-badge-info {
+    background: #e0f2fe;
+    color: #0c4a6e;
+  }
+
+  .sk-list {
+    @apply mt-2 space-y-2 text-sm;
+  }
+
+  .sk-list-item {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    @apply flex items-center justify-between gap-3 px-3 py-2;
+  }
+
+  .sk-table-wrap {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-md);
+    @apply overflow-hidden;
+  }
+
+  .sk-table {
+    @apply min-w-full divide-y text-sm;
+  }
+
+  .sk-table thead {
+    background: var(--sk-surface-muted);
+    color: var(--sk-text-muted);
+  }
+
+  .sk-table th,
+  .sk-table td {
+    @apply px-3 py-2 text-left;
+  }
+
+  .sk-form {
+    @apply space-y-4;
+  }
+
+  .sk-field {
+    @apply space-y-1;
+  }
+
+  .sk-label {
+    color: var(--sk-text-muted);
+    @apply text-sm font-medium;
+  }
+
+  .sk-input {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border-strong);
+    border-radius: var(--sk-radius-sm);
+    @apply w-full px-3 py-2 text-sm;
+  }
+
+  .sk-input:focus {
+    border-color: var(--sk-primary);
+  }
+
+  .sk-state {
+    border-radius: var(--sk-radius-sm);
+    @apply border px-3 py-2 text-sm;
+  }
+
+  .sk-state-loading {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1e40af;
+  }
+
+  .sk-state-empty {
+    background: #f8fafc;
+    border-color: #dbe3ef;
+    color: #334155;
+  }
+
+  .sk-state-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+  }
+
+  .sk-hero {
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+    color: white;
+    border-radius: var(--sk-radius-lg);
+    box-shadow: var(--sk-shadow-2);
+    @apply p-5 md:p-6;
+  }
+}
 
 @keyframes landingReveal {
   from {

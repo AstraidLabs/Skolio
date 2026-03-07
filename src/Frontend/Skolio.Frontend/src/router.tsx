@@ -8,6 +8,8 @@ import { createIdentityApi } from './identity/api';
 import { createOrganizationApi } from './organization/api';
 import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
+import { AppHeader, Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
+import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
 
 type RouterProps = { config: SkolioBootstrapConfig };
 type AppRoute = '/dashboard' | '/organization' | '/academics' | '/communication' | '/administration' | '/identity' | '/login';
@@ -59,8 +61,8 @@ export function RouterShell({ config }: RouterProps) {
   const active = nav.includes(route as AppRoute) ? (route as AppRoute) : '/dashboard';
 
     return (
-    <div className="mx-auto max-w-6xl px-6 py-8 md:px-8 md:py-10">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="sk-layout">
+      <div className="sk-panel">
         <AppShell session={session} nav={nav} active={active} onNavigate={setRoute} onLogout={() => beginLogout(config, setSession)}>
           {active === '/dashboard' && <DashboardPage session={session} apis={apis} />}
           {active === '/organization' && <OrganizationPage api={apis.organization} session={session} />}
@@ -286,22 +288,22 @@ function UnauthorizedPage({ message }: { message: string }) {
 function AppShell({ session, nav, active, onNavigate, onLogout, children }: { session: SessionState; nav: AppRoute[]; active: AppRoute; onNavigate: (r: AppRoute) => void; onLogout: () => void; children: ReactNode }) {
   const { t } = useI18n();
   const roleText = session.roles.length > 0 ? session.roles.join(', ') : t('roleUser');
+  const schoolContext = `${session.schoolType} | ${session.schoolIds.length > 0 ? session.schoolIds[0] : 'global'}`;
 
   return (
-    <section className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-        <div>
-          <h1 className="text-xl font-semibold">{t('appTitle')}</h1>
-          <p className="text-xs text-slate-600">{roleText} | {session.schoolType}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher />
-          <button className="rounded bg-slate-700 px-3 py-2 text-white" onClick={onLogout}>{t('signOut')}</button>
-        </div>
-      </header>
+    <section className="space-y-5">
+      <AppHeader
+        title={t('appTitle')}
+        subtitle={`${roleText} • ${schoolContext}`}
+        notifications="Notifications"
+        profileLabel={session.subject}
+        onLogout={onLogout}
+        rightSlot={<LanguageSwitcher />}
+      />
+      <SectionHeader title={labelForRoute(active, t)} description="Role-based navigation and school-aware operational context." />
       <nav className="flex flex-wrap gap-2">
         {nav.map((item) => (
-          <button key={item} className={`rounded px-3 py-1 ${active === item ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`} onClick={() => navigateTo(item, onNavigate)}>
+          <button key={item} className={`sk-btn ${active === item ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => navigateTo(item, onNavigate)}>
             {labelForRoute(item, t)}
           </button>
         ))}
@@ -450,25 +452,21 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
 
       return (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Teacher Dashboard</h2>
-          <p className="text-sm text-slate-600">{schoolTypeHint}</p>
-          {loading && <p className="text-sm text-slate-500">Loading teacher snapshot...</p>}
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Teacher assignments</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.assignments}</p></article>
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Upcoming timetable</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.nextLessons}</p></article>
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Notifications</h3><p className="mt-1 text-2xl font-semibold">{teacherSnapshot.notifications}</p></article>
+          <div className="sk-hero">
+            <h2 className="text-xl font-semibold">Teacher Dashboard</h2>
+            <p className="mt-2 text-sm text-blue-100">{schoolTypeHint}</p>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending attendance</p><p className="mt-1">{teacherSnapshot.pendingAttendance}</p></article>
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending lesson records</p><p className="mt-1">{teacherSnapshot.pendingLessonRecords}</p></article>
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Pending homework/grades</p><p className="mt-1">{teacherSnapshot.pendingHomework}</p></article>
-          </div>
-          <div className="rounded border p-3 text-sm">
-            <p className="font-semibold">Latest announcement</p>
-            <p className="mt-1">{teacherSnapshot.latestAnnouncement}</p>
-            <p className="mt-2 text-slate-600">Teacher audit impact entries: {teacherSnapshot.recentTeacherAudit}</p>
-            <p className="mt-2 text-slate-600">Quick links: Academics, Organization, Communication, Identity.</p>
+          {loading && <LoadingState text="Loading teacher snapshot..." />}
+          {error && <ErrorState text={error} />}
+          <WidgetGrid>
+            <Card><p className="sk-metric-label">Teacher assignments</p><p className="sk-metric-value">{teacherSnapshot.assignments}</p></Card>
+            <Card><p className="sk-metric-label">Upcoming timetable</p><p className="sk-metric-value">{teacherSnapshot.nextLessons}</p></Card>
+            <Card><p className="sk-metric-label">Pending attendance</p><p className="sk-metric-value">{teacherSnapshot.pendingAttendance}</p></Card>
+            <Card><p className="sk-metric-label">Pending lesson records</p><p className="sk-metric-value">{teacherSnapshot.pendingLessonRecords}</p></Card>
+          </WidgetGrid>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="sk-card-muted"><p className="font-semibold text-sm">Quick actions</p><div className="mt-3 flex flex-wrap gap-2"><StatusBadge label="Attendance" tone="info" /><StatusBadge label="Lesson records" tone="info" /><StatusBadge label="Grades" tone="good" /><StatusBadge label="Homework" tone="warn" /><StatusBadge label="Daily reports" tone="neutral" /></div></Card>
+            <Card><p className="font-semibold text-sm">Latest announcement</p><p className="mt-2 text-sm">{teacherSnapshot.latestAnnouncement}</p><p className="mt-3 text-xs text-slate-500">Teacher audit impact entries: {teacherSnapshot.recentTeacherAudit}</p></Card>
           </div>
         </section>
       );
@@ -477,25 +475,60 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
     if (isStudent(session)) {
       return (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Student Dashboard</h2>
-          <p className="text-sm text-slate-600">{studentSnapshot.kindergartenLimited ? 'Kindergarten student self-service je omezený; primární model zůstává Parent.' : summary}</p>
-          {loading && <p className="text-sm text-slate-500">Loading student snapshot...</p>}
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Nearest timetable</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.nearestSchedule}</p></article>
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Attendance records</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.attendanceRecords}</p></article>
-            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">New grades</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.grades}</p></article>
+          <div className="sk-hero">
+            <h2 className="text-xl font-semibold">Student Dashboard</h2>
+            <p className="mt-2 text-sm text-blue-100">{studentSnapshot.kindergartenLimited ? 'Kindergarten student self-service je konzervativně omezený.' : summary}</p>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Homework</p><p className="mt-1">{studentSnapshot.homework}</p></article>
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Daily reports</p><p className="mt-1">{studentSnapshot.dailyReports}</p></article>
-            <article className="rounded border p-3 text-sm"><p className="font-semibold">Notifications</p><p className="mt-1">{studentSnapshot.notifications}</p></article>
+          {loading && <LoadingState text="Loading student snapshot..." />}
+          {error && <ErrorState text={error} />}
+          <WidgetGrid>
+            <Card><p className="sk-metric-label">Nearest timetable</p><p className="sk-metric-value">{studentSnapshot.nearestSchedule}</p></Card>
+            <Card><p className="sk-metric-label">Attendance summary</p><p className="sk-metric-value">{studentSnapshot.attendanceRecords}</p></Card>
+            <Card><p className="sk-metric-label">Grades summary</p><p className="sk-metric-value">{studentSnapshot.grades}</p></Card>
+            <Card><p className="sk-metric-label">Homework summary</p><p className="sk-metric-value">{studentSnapshot.homework}</p></Card>
+          </WidgetGrid>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card><p className="font-semibold text-sm">Announcements</p><p className="mt-2 text-sm">{studentSnapshot.latestAnnouncement}</p><p className="mt-2 text-xs text-slate-500">Notifications: {studentSnapshot.notifications}</p></Card>
+            <Card className="sk-card-muted"><p className="font-semibold text-sm">Quick links</p><div className="mt-3 flex flex-wrap gap-2"><StatusBadge label="Timetable" tone="info" /><StatusBadge label="Grades" tone="good" /><StatusBadge label="Homework" tone="warn" /><StatusBadge label="Communication" tone="neutral" /></div></Card>
           </div>
-          <div className="rounded border p-3 text-sm">
-            <p className="font-semibold">Latest announcement</p>
-            <p className="mt-1">{studentSnapshot.latestAnnouncement}</p>
-            <p className="mt-2 text-slate-600">Lifecycle summaries: {studentSnapshot.lifecycleHints}</p>
-            <p className="mt-2 text-slate-600">Quick links: Academics, Organization, Communication, Identity.</p>
+        </section>
+      );
+    }
+
+    if (session.roles.includes('Parent')) {
+      return (
+        <section className="space-y-4">
+          <div className="sk-hero">
+            <h2 className="text-xl font-semibold">Parent Dashboard</h2>
+            <p className="mt-2 text-sm text-blue-100">{session.schoolType === 'Kindergarten' ? 'Skupina, attendance, daily reports a provozní komunikace.' : session.schoolType === 'SecondarySchool' ? 'Širší studijní přehled navázaného studenta bez university modelu.' : 'Attendance, grades, homework a školní oznámení.'}</p>
+          </div>
+          <WidgetGrid>
+            <Card><p className="sk-metric-label">Linked students</p><p className="sk-metric-value">{session.linkedStudentIds.length}</p></Card>
+            <Card><p className="sk-metric-label">Attendance summary</p><p className="sk-metric-value">{session.linkedStudentIds.length > 0 ? 'Ready' : 'No links'}</p></Card>
+            <Card><p className="sk-metric-label">Excuse status</p><p className="sk-metric-value">Active</p></Card>
+            <Card><p className="sk-metric-label">Parent communication</p><p className="sk-metric-value">Enabled</p></Card>
+          </WidgetGrid>
+          <Card><p className="font-semibold text-sm">Quick actions</p><div className="mt-3 flex flex-wrap gap-2"><StatusBadge label="Create excuse" tone="warn" /><StatusBadge label="Check communication" tone="info" /><StatusBadge label="Announcements" tone="good" /></div></Card>
+        </section>
+      );
+    }
+
+    if (session.roles.includes('SchoolAdministrator')) {
+      return (
+        <section className="space-y-4">
+          <div className="sk-hero">
+            <h2 className="text-xl font-semibold">SchoolAdministrator Dashboard</h2>
+            <p className="mt-2 text-sm text-blue-100">{session.schoolType === 'Kindergarten' ? 'Skupiny a daily reports mají prioritu.' : session.schoolType === 'SecondarySchool' ? 'Obory a ročníky jsou zvýrazněné v přehledech.' : 'Třídy, předměty, attendance a grades jsou hlavní provozní osa.'}</p>
+          </div>
+          <WidgetGrid>
+            <Card><p className="sk-metric-label">School year status</p><p className="sk-metric-value">Open</p></Card>
+            <Card><p className="sk-metric-label">{session.schoolType === 'Kindergarten' ? 'Groups' : 'Classes'}</p><p className="sk-metric-value">Operational</p></Card>
+            <Card><p className="sk-metric-label">Active teachers</p><p className="sk-metric-value">Managed</p></Card>
+            <Card><p className="sk-metric-label">Active students/children</p><p className="sk-metric-value">Tracked</p></Card>
+          </WidgetGrid>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card><p className="font-semibold text-sm">Quick actions</p><div className="mt-3 flex flex-wrap gap-2"><StatusBadge label="School years" tone="info" /><StatusBadge label="Classes/Groups" tone="good" /><StatusBadge label="Subjects" tone="neutral" /><StatusBadge label="Teacher assignments" tone="warn" /></div></Card>
+            <Card><p className="font-semibold text-sm">Pending operational tasks</p><ul className="sk-list"><li className="sk-list-item"><span>School announcement review</span><StatusBadge label="Pending" tone="warn" /></li><li className="sk-list-item"><span>Role assignment check</span><StatusBadge label="Open" tone="info" /></li></ul></Card>
           </div>
         </section>
       );
@@ -503,43 +536,44 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
 
     return (
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{role} {t('dashboardSuffix')}</h2>
-        <div className="rounded border p-3">{summary}</div>
+        <Card><h2 className="text-lg font-semibold">{role} {t('dashboardSuffix')}</h2><p className="mt-2 text-sm text-slate-600">{summary}</p></Card>
       </section>
     );
   }
 
   return (
     <section className="space-y-5">
-      <h2 className="text-lg font-semibold">PlatformAdministrator Dashboard</h2>
-      {loading && <p className="text-sm text-slate-500">Loading platform metrics...</p>}
-      {error && <p className="text-sm text-red-700">{error}</p>}
-      <div className="grid gap-3 md:grid-cols-3">
-        <article className="rounded border p-3">
-          <h3 className="text-xs uppercase tracking-wide text-slate-500">Active schools</h3>
-          <p className="mt-1 text-2xl font-semibold">{metrics.activeSchools}</p>
-        </article>
-        <article className="rounded border p-3">
-          <h3 className="text-xs uppercase tracking-wide text-slate-500">Active school administrators</h3>
-          <p className="mt-1 text-2xl font-semibold">{metrics.activeSchoolAdmins}</p>
-        </article>
-        <article className="rounded border p-3">
-          <h3 className="text-xs uppercase tracking-wide text-slate-500">Enabled feature toggles</h3>
-          <p className="mt-1 text-2xl font-semibold">{metrics.enabledToggles}</p>
-        </article>
+      <div className="sk-hero">
+        <h2 className="text-xl font-semibold">PlatformAdministrator Dashboard</h2>
+        <p className="mt-2 text-sm text-blue-100">Globální governance, audit a provozní platformové summary.</p>
       </div>
-      <div className="rounded border p-3">
-        <h3 className="font-semibold">School type distribution</h3>
-        <ul className="mt-2 space-y-1 text-sm">
+      {loading && <LoadingState text="Loading platform metrics..." />}
+      {error && <ErrorState text={error} />}
+      <WidgetGrid>
+        <Card><p className="sk-metric-label">Active schools</p><p className="sk-metric-value">{metrics.activeSchools}</p></Card>
+        <Card><p className="sk-metric-label">Active school administrators</p><p className="sk-metric-value">{metrics.activeSchoolAdmins}</p></Card>
+        <Card><p className="sk-metric-label">Enabled feature toggles</p><p className="sk-metric-value">{metrics.enabledToggles}</p></Card>
+        <Card><p className="sk-metric-label">Recent audit (7d)</p><p className="sk-metric-value">{metrics.recentAudit}</p></Card>
+      </WidgetGrid>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card>
+          <h3 className="font-semibold">School type distribution</h3>
+          <ul className="sk-list">
           {Object.entries(metrics.schoolTypes).map(([schoolType, count]) => (
-            <li key={schoolType}>{schoolType}: {count}</li>
+            <li className="sk-list-item" key={schoolType}><span>{schoolType}</span><StatusBadge label={`${count}`} tone="info" /></li>
           ))}
-        </ul>
-      </div>
-      <div className="rounded border p-3 text-sm">
-        <h3 className="font-semibold">Operational summary</h3>
-        <p className="mt-1">Recent audit entries (7 days): {metrics.recentAudit}</p>
-        <p className="mt-1 text-slate-600">Quick links: Organization, Identity, Administration, Communication, Academics.</p>
+          </ul>
+        </Card>
+        <Card className="sk-card-muted">
+          <h3 className="font-semibold">Quick links</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <StatusBadge label="Schools" tone="neutral" />
+            <StatusBadge label="Settings" tone="info" />
+            <StatusBadge label="Feature toggles" tone="good" />
+            <StatusBadge label="Audit" tone="warn" />
+            <StatusBadge label="Lifecycle policies" tone="info" />
+          </div>
+        </Card>
       </div>
     </section>
   );
@@ -580,22 +614,22 @@ function OrganizationPage({ api, session }: { api: ReturnType<typeof createOrgan
     void api.setSchoolStatus(schoolId, !isActive).then(load).catch((e: Error) => setErr(e.message));
   };
 
-  if (state === 'loading') return <p className="text-sm text-slate-600">{t('loadingOrganization')}</p>;
-  if (state === 'error') return <p className="text-sm text-red-700">{err}</p>;
+  if (state === 'loading') return <LoadingState text={t('loadingOrganization')} />;
+  if (state === 'error') return <ErrorState text={err} />;
 
   if (isStudent(session) && studentContext) {
-    return <section className="space-y-3"><h2 className="font-semibold">Student Organization Context</h2><div className="rounded border p-3 text-sm"><p>{studentContext.school.name} ({studentContext.school.schoolType})</p></div><div className="grid gap-3 md:grid-cols-2"><article className="rounded border p-3 text-sm"><p className="font-semibold">School years</p><ul className="mt-2">{studentContext.schoolYears.map((x: any) => <li key={x.id}>{x.label}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Classes</p><ul className="mt-2">{studentContext.classRooms.map((x: any) => <li key={x.id}>{x.displayName}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Groups</p><ul className="mt-2">{studentContext.teachingGroups.map((x: any) => <li key={x.id}>{x.name}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Subjects</p><ul className="mt-2">{studentContext.subjects.map((x: any) => <li key={x.id}>{x.name}</li>)}</ul></article>{session.schoolType === 'SecondarySchool' && <article className="rounded border p-3 text-sm md:col-span-2"><p className="font-semibold">Secondary context</p><ul className="mt-2">{studentContext.secondaryFieldsOfStudy.map((x: any) => <li key={x.id}>{x.code} - {x.name}</li>)}</ul></article>}</div></section>;
+    return <section className="space-y-3"><SectionHeader title="Student Organization Context" /><Card><p className="text-sm">{studentContext.school.name} ({studentContext.school.schoolType})</p></Card><div className="grid gap-3 md:grid-cols-2"><Card><p className="font-semibold text-sm">School years</p><ul className="sk-list">{studentContext.schoolYears.map((x: any) => <li className="sk-list-item" key={x.id}>{x.label}</li>)}</ul></Card><Card><p className="font-semibold text-sm">Classes</p><ul className="sk-list">{studentContext.classRooms.map((x: any) => <li className="sk-list-item" key={x.id}>{x.displayName}</li>)}</ul></Card><Card><p className="font-semibold text-sm">Groups</p><ul className="sk-list">{studentContext.teachingGroups.map((x: any) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card><Card><p className="font-semibold text-sm">Subjects</p><ul className="sk-list">{studentContext.subjects.map((x: any) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>{session.schoolType === 'SecondarySchool' && <Card className="md:col-span-2"><p className="font-semibold text-sm">Secondary context</p><ul className="sk-list">{studentContext.secondaryFieldsOfStudy.map((x: any) => <li className="sk-list-item" key={x.id}>{x.code} - {x.name}</li>)}</ul></Card>}</div></section>;
   }
 
   return (
     <section className="space-y-3">
-      <h2 className="font-semibold">{isPlatformAdministrator(session) ? 'Platform School Governance' : t('organizationTitle')}</h2>
-      <ul className="space-y-2 text-sm">
+      <SectionHeader title={isPlatformAdministrator(session) ? 'Platform School Governance' : t('organizationTitle')} />
+      <ul className="sk-list">
         {schools.map((s) => (
-          <li key={s.id} className="flex items-center justify-between rounded border p-2">
+          <li key={s.id} className="sk-list-item">
             <span>{s.name} ({s.schoolType}) {s.isActive ? 'Active' : 'Inactive'}</span>
             {isPlatformAdministrator(session) && (
-              <button className="rounded bg-slate-700 px-2 py-1 text-xs text-white" onClick={() => toggleSchoolStatus(s.id, s.isActive)}>
+              <button className="sk-btn sk-btn-secondary" onClick={() => toggleSchoolStatus(s.id, s.isActive)}>
                 {s.isActive ? 'Deactivate' : 'Activate'}
               </button>
             )}
@@ -634,10 +668,10 @@ function AcademicsPage({ api, administrationApi, schoolType, session }: { api: R
   }, [api, session]);
 
   if (isStudent(session)) {
-    return <section className="space-y-3"><h2 className="font-semibold">Student Academics</h2><p className="text-sm text-slate-600">{schoolType === 'Kindergarten' ? 'Kindergarten student view je omezený na konzervativní read-only přehled.' : t('academicsDefaultHint')}</p>{error && <p className="text-sm text-red-700">{error}</p>}<div className="grid gap-3 md:grid-cols-3"><article className="rounded border p-3 text-sm"><p className="font-semibold">Attendance records</p><p className="mt-1">{attendance.length}</p></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Homework</p><p className="mt-1">{homework.length}</p></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Daily reports</p><p className="mt-1">{dailyReports.length}</p></article></div></section>;
+    return <section className="space-y-3"><SectionHeader title="Student Academics" description={schoolType === 'Kindergarten' ? 'Kindergarten student view je omezený na konzervativní read-only přehled.' : t('academicsDefaultHint')} />{error && <ErrorState text={error} />}<WidgetGrid><Card><p className="sk-metric-label">Attendance records</p><p className="sk-metric-value">{attendance.length}</p></Card><Card><p className="sk-metric-label">Homework</p><p className="sk-metric-value">{homework.length}</p></Card><Card><p className="sk-metric-label">Daily reports</p><p className="sk-metric-value">{dailyReports.length}</p></Card></WidgetGrid></section>;
   }
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(selectedSchoolId(session), undefined, session.roles.includes('Parent') ? session.linkedStudentIds[0] : undefined).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
+  return <section className="space-y-3"><SectionHeader title={t('academicsTitle')} description={isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')} action={<button className="sk-btn sk-btn-primary" onClick={() => void api.dailyReports(selectedSchoolId(session), undefined, session.roles.includes('Parent') ? session.linkedStudentIds[0] : undefined).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>} />{error && <ErrorState text={error} />}{dailyReports.length === 0 ? <EmptyState text="No daily reports in current scope." /> : <Card><ul className="sk-list">{dailyReports.map((r) => <li className="sk-list-item" key={r.id}>{r.title ?? r.id}</li>)}</ul></Card>}{isPlatformAdministrator(session) && <Card><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="sk-list">{overrides.slice(0, 8).map((x) => <li className="sk-list-item" key={x.id}>{x.actionCode}</li>)}</ul></Card>}</section>;
 }
 
 function CommunicationPage({ api, session }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState }) {
@@ -665,7 +699,7 @@ function CommunicationPage({ api, session }: { api: ReturnType<typeof createComm
 
   useEffect(load, [retryCount]);
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('communicationTitle')}</h2><p className="text-xs text-slate-500">{t('connectionState')}: {t(connectionState)}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={load}>{t('reload')}</button><ul>{announcements.map((a) => <li key={a.id}>{a.title} {a.isActive ? '(active)' : '(inactive)'}</li>)}</ul><div className="rounded border p-3 text-sm"><p className="font-semibold">Notifications panel</p><p className="mt-1">{notifications.length}</p></div>{isPlatformAdministrator(session) && <p className="text-xs text-slate-600">Platform announcements and support overrides are available through this module. PlatformAdministrator is not a daily school chat role.</p>}</section>;
+  return <section className="space-y-3"><SectionHeader title={t('communicationTitle')} description={`${t('connectionState')}: ${t(connectionState)}`} action={<button className="sk-btn sk-btn-secondary" onClick={load}>{t('reload')}</button>} />{announcements.length === 0 ? <EmptyState text="No announcements in current scope." /> : <Card><ul className="sk-list">{announcements.map((a) => <li className="sk-list-item" key={a.id}><span>{a.title}</span><StatusBadge label={a.isActive ? 'Active' : 'Inactive'} tone={a.isActive ? 'good' : 'warn'} /></li>)}</ul></Card>}<Card className="sk-card-muted"><p className="font-semibold text-sm">Notifications panel</p><p className="mt-1 text-sm">Total notifications: {notifications.length}</p></Card>{isPlatformAdministrator(session) && <Card><p className="text-xs text-slate-600">Platform announcements and support overrides are available through this module. PlatformAdministrator is not a daily school chat role.</p></Card>}</section>;
 }
 
 function AdministrationPage({ api, session }: { api: ReturnType<typeof createAdministrationApi>; session: SessionState }) {
@@ -698,7 +732,7 @@ function AdministrationPage({ api, session }: { api: ReturnType<typeof createAdm
 
   if (error.includes('Forbidden')) return <UnauthorizedPage message={t('unauthorizedAdministration')} />;
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('administrationTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}<h3 className="font-medium">{t('systemSettings')}</h3><ul>{settings.map((s) => <li key={s.id}>{s.key}</li>)}</ul><h3 className="font-medium">Feature toggles</h3><ul>{toggles.map((f) => <li key={f.id}>{f.featureCode}: {f.isEnabled ? 'ON' : 'OFF'}</li>)}</ul><h3 className="font-medium">Lifecycle policies</h3><ul>{lifecycle.map((p) => <li key={p.id}>{p.policyName} ({p.status})</li>)}</ul><h3 className="font-medium">Housekeeping policies</h3><ul>{housekeeping.map((p) => <li key={p.id}>{p.policyName} ({p.status})</li>)}</ul><h3 className="font-medium">{t('auditLog')}</h3><ul>{audit.slice(0, 10).map((a) => <li key={a.id}>{a.actionCode}</li>)}</ul>{summary && isPlatformAdministrator(session) && <div className="rounded border p-3 text-sm"><p>Recent audit (7d): {summary.recentAuditCount}</p><p>Enabled toggles: {summary.enabledFeatureToggles}</p></div>}</section>;
+  return <section className="space-y-3"><SectionHeader title={t('administrationTitle')} />{error && <ErrorState text={error} />}<div className="grid gap-3 lg:grid-cols-2"><Card><p className="font-semibold text-sm">{t('systemSettings')}</p><ul className="sk-list">{settings.map((s) => <li className="sk-list-item" key={s.id}>{s.key}</li>)}</ul></Card><Card><p className="font-semibold text-sm">Feature toggles</p><ul className="sk-list">{toggles.map((f) => <li className="sk-list-item" key={f.id}><span>{f.featureCode}</span><StatusBadge label={f.isEnabled ? 'ON' : 'OFF'} tone={f.isEnabled ? 'good' : 'warn'} /></li>)}</ul></Card><Card><p className="font-semibold text-sm">Lifecycle policies</p><ul className="sk-list">{lifecycle.map((p) => <li className="sk-list-item" key={p.id}>{p.policyName} ({p.status})</li>)}</ul></Card><Card><p className="font-semibold text-sm">Housekeeping policies</p><ul className="sk-list">{housekeeping.map((p) => <li className="sk-list-item" key={p.id}>{p.policyName} ({p.status})</li>)}</ul></Card></div><Card><p className="font-semibold text-sm">{t('auditLog')}</p><ul className="sk-list">{audit.slice(0, 10).map((a) => <li className="sk-list-item" key={a.id}>{a.actionCode}</li>)}</ul></Card>{summary && isPlatformAdministrator(session) && <Card className="sk-card-muted"><p className="text-sm">Recent audit (7d): {summary.recentAuditCount}</p><p className="text-sm">Enabled toggles: {summary.enabledFeatureToggles}</p></Card>}</section>;
 }
 
 function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityApi>; session: SessionState }) {
@@ -772,26 +806,26 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
   if (isPlatformAdministrator(session)) {
     return (
       <section className="space-y-3">
-        <h2 className="font-semibold">Identity Administration</h2>
-        {error && <p className="text-sm text-red-700">{error}</p>}
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded border p-3 text-sm"><p className="font-semibold">User profiles</p><p className="mt-1">{users.length}</p></div>
-          <div className="rounded border p-3 text-sm"><p className="font-semibold">Role assignments</p><p className="mt-1">{roleAssignments.length}</p></div>
-          <div className="rounded border p-3 text-sm"><p className="font-semibold">Parent-student links</p><p className="mt-1">{links.length}</p></div>
-        </div>
+        <SectionHeader title="Identity Administration" />
+        {error && <ErrorState text={error} />}
+        <WidgetGrid>
+          <Card><p className="sk-metric-label">User profiles</p><p className="sk-metric-value">{users.length}</p></Card>
+          <Card><p className="sk-metric-label">Role assignments</p><p className="sk-metric-value">{roleAssignments.length}</p></Card>
+          <Card><p className="sk-metric-label">Parent-student links</p><p className="sk-metric-value">{links.length}</p></Card>
+        </WidgetGrid>
       </section>
     );
   }
 
   if (session.roles.includes('Parent')) {
-    return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<div className="rounded border p-3 text-sm"><p className="font-semibold">Linked students</p><ul className="mt-2">{linkedStudents.map((x) => <li key={x.id}>{x.firstName} {x.lastName}</li>)}</ul></div><div className="rounded border p-3 text-sm"><p className="font-semibold">Parent-student links</p><ul className="mt-2">{links.map((x) => <li key={x.id}>{x.relationship}</li>)}</ul></div></section>;
+    return <section className="space-y-3"><SectionHeader title={t('identityTitle')} />{error && <ErrorState text={error} />}{profile && <Card><p className="text-sm">{profile.firstName} {profile.lastName} ({profile.email})</p></Card>}<Card><p className="font-semibold text-sm">Linked students</p><ul className="sk-list">{linkedStudents.map((x) => <li className="sk-list-item" key={x.id}>{x.firstName} {x.lastName}</li>)}</ul></Card><Card><p className="font-semibold text-sm">Parent-student links</p><ul className="sk-list">{links.map((x) => <li className="sk-list-item" key={x.id}>{x.relationship}</li>)}</ul></Card></section>;
   }
 
   if (isStudent(session)) {
-    return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<div className="rounded border p-3 text-sm"><p className="font-semibold">Student roles</p><ul className="mt-2">{roleAssignments.map((x) => <li key={x.id}>{x.roleCode}</li>)}</ul></div></section>;
+    return <section className="space-y-3"><SectionHeader title={t('identityTitle')} />{error && <ErrorState text={error} />}{profile && <Card><p className="text-sm">{profile.firstName} {profile.lastName} ({profile.email})</p></Card>}<Card><p className="font-semibold text-sm">Student roles</p><ul className="sk-list">{roleAssignments.map((x) => <li className="sk-list-item" key={x.id}>{x.roleCode}</li>)}</ul></Card></section>;
   }
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}</section>;
+  return <section className="space-y-3"><SectionHeader title={t('identityTitle')} />{error && <ErrorState text={error} />}{profile ? <Card><p className="text-sm">{profile.firstName} {profile.lastName} ({profile.email})</p></Card> : <EmptyState text="No identity profile available in current scope." />}</section>;
 }
 
 function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
@@ -813,7 +847,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
     );
   }
 
-  return <section className="min-h-[70vh] grid place-items-center px-4"><div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl"><div className="flex items-center justify-between gap-3"><h1 className="text-2xl font-bold text-slate-900">{t('loginTitle')}</h1><LanguageSwitcher /></div><p className="mt-2 text-sm text-slate-600">{t('loginSubtitle')}</p><form className="mt-6 space-y-4" method="post" action={`${config.identityAuthority}/account/login`}><input type="hidden" name="returnUrl" value={returnUrl} /><label className="block text-sm font-medium text-slate-700" htmlFor="username">{t('email')}</label><input id="username" name="username" type="text" autoComplete="username" required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200" /><label className="block text-sm font-medium text-slate-700" htmlFor="password">{t('password')}</label><input id="password" name="password" type="password" autoComplete="current-password" required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200" /><button type="submit" className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition hover:bg-indigo-700">{t('signIn')}</button></form></div></section>;
+  return <section className="min-h-[70vh] grid place-items-center px-4"><div className="w-full max-w-md sk-panel"><div className="flex items-center justify-between gap-3"><h1 className="text-2xl font-bold text-slate-900">{t('loginTitle')}</h1><LanguageSwitcher /></div><p className="mt-2 text-sm text-slate-600">{t('loginSubtitle')}</p><form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login`}><input type="hidden" name="returnUrl" value={returnUrl} /><div className="sk-field"><label className="sk-label" htmlFor="username">{t('email')}</label><input id="username" name="username" type="text" autoComplete="username" required className="sk-input" /></div><div className="sk-field"><label className="sk-label" htmlFor="password">{t('password')}</label><input id="password" name="password" type="password" autoComplete="current-password" required className="sk-input" /></div><button type="submit" className="sk-btn sk-btn-primary w-full">{t('signIn')}</button></form></div></section>;
 }
 
 function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig; onSession: (state: SessionState | null) => void }) {
