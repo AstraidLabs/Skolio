@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Data;
 using Skolio.Organization.Infrastructure.Persistence;
 using Skolio.Organization.Infrastructure.Seeding;
 
@@ -20,8 +21,25 @@ public static class MigrationExtensions
         {
             logger.LogInformation("Starting database migration for {ServiceName}.", serviceName);
             var dbContext = scope.ServiceProvider.GetRequiredService<OrganizationDbContext>();
-            await dbContext.Database.MigrateAsync();
-            logger.LogInformation("Database migration completed for {ServiceName}.", serviceName);
+            var hasMigrations = dbContext.Database.GetMigrations().Any();
+            if (hasMigrations)
+            {
+                await dbContext.Database.MigrateAsync();
+                logger.LogInformation("Database migration completed for {ServiceName}.", serviceName);
+            }
+            else
+            {
+                await dbContext.Database.EnsureCreatedAsync();
+                var schoolsTableExists = await TableExistsAsync(dbContext, "schools", CancellationToken.None);
+                if (!schoolsTableExists)
+                {
+                    logger.LogWarning("Schema bootstrap found no 'schools' table for {ServiceName}; repairing __EFMigrationsHistory and retrying EnsureCreated.", serviceName);
+                    await dbContext.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS \"__EFMigrationsHistory\";");
+                    await dbContext.Database.EnsureCreatedAsync();
+                }
+
+                logger.LogInformation("Database schema ensured via EnsureCreated for {ServiceName}.", serviceName);
+            }
 
             var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
@@ -42,6 +60,38 @@ public static class MigrationExtensions
         {
             logger.LogError(exception, "Database migration failed for {ServiceName}.", serviceName);
             throw new InvalidOperationException($"Startup aborted because database migration failed for {serviceName}.", exception);
+        }
+    }
+
+    private static async Task<bool> TableExistsAsync(OrganizationDbContext dbContext, string tableName, CancellationToken cancellationToken)
+    {
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+
+        try
+        {
+            if (shouldCloseConnection)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = @tableName);";
+
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "@tableName";
+            parameter.Value = tableName;
+            command.Parameters.Add(parameter);
+
+            var scalarResult = await command.ExecuteScalarAsync(cancellationToken);
+            return scalarResult is bool exists && exists;
+        }
+        finally
+        {
+            if (shouldCloseConnection)
+            {
+                await connection.CloseAsync();
+            }
         }
     }
 }
