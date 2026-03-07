@@ -1,0 +1,35 @@
+[
+  {
+    "Name": "Nový profil",
+    "Projects": [
+      {
+        "Path": "src\\Skolio.WebHost\\Skolio.WebHost.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Skolio.Identity.Application\\Skolio.Identity.Application.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Skolio.Identity.Infrastructure\\Skolio.Identity.Infrastructure.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Skolio.Identity.Api\\Skolio.Identity.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Organization\\Skolio.Organization.Application\\Skolio.Organization.Application.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Organization\\Skolio.Organization.Infrastructure\\Skolio.Organization.Infrastructure.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\Organization\\Skolio.Organization.Api\\Skolio.Organization.Api.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
