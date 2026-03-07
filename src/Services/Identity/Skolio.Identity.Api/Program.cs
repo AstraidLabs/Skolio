@@ -53,7 +53,9 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 var logger = app.Logger;
 logger.LogInformation("Starting {ServiceName} in {Environment}.", "Skolio.Identity.Api", app.Environment.EnvironmentName);
-if (app.Environment.IsDevelopment()) { await app.ApplyIdentityMigrationsAsync(); app.MapOpenApi(); }
+var enableLocalSeedMode = builder.Configuration.GetValue("Identity:Seed:EnableLocalMode", false);
+if (app.Environment.IsDevelopment() || enableLocalSeedMode) { await app.ApplyIdentityMigrationsAsync(); }
+if (app.Environment.IsDevelopment()) { app.MapOpenApi(); }
 
 app.Use(async (context, next) =>
 {

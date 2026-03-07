@@ -72,9 +72,14 @@ var logger = app.Logger;
 
 logger.LogInformation("Starting {ServiceName} in {Environment}.", "Skolio.Organization.Api", app.Environment.EnvironmentName);
 
-if (app.Environment.IsDevelopment())
+var enableLocalSeedMode = builder.Configuration.GetValue("Organization:Seed:EnableLocalMode", false);
+if (app.Environment.IsDevelopment() || enableLocalSeedMode)
 {
     await app.ApplyOrganizationMigrationsAsync();
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
 }
 

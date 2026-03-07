@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Skolio.Organization.Application.Abstractions;
 using Skolio.Organization.Infrastructure.Configuration;
 using Skolio.Organization.Infrastructure.Persistence;
+using Skolio.Organization.Infrastructure.Seeding;
 using StackExchange.Redis;
 
 namespace Skolio.Organization.Infrastructure;
@@ -50,6 +51,8 @@ public static class DependencyInjection
             options.Configuration = redisOptions.ConnectionString;
             options.InstanceName = redisOptions.InstanceName;
         });
+
+        services.AddScoped<OrganizationDevelopmentSeeder>();
 
         return services;
     }

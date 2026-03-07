@@ -57,6 +57,9 @@ services:
       Identity__OpenIddict__FrontendClient__DisplayName: Skolio Frontend
       Identity__OpenIddict__FrontendClient__RedirectUris__0: http://localhost:8080/auth/callback
       Identity__OpenIddict__FrontendClient__PostLogoutRedirectUris__0: http://localhost:8080/
+      Identity__Seed__Enabled: true
+      Identity__Seed__EnableLocalMode: true
+      Identity__Seed__Password: SkolioDev!2026
       
     ports:
       - "8081:8080"
@@ -85,6 +88,8 @@ services:
       Organization__Auth__Authority: http://identity-api:8080
       Organization__Auth__Audience: skolio_api
       Organization__Auth__RequireHttpsMetadata: false
+      Organization__Seed__Enabled: true
+      Organization__Seed__EnableLocalMode: true
       
     ports:
       - "8082:8080"
