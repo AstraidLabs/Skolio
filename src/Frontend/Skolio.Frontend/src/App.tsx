@@ -1,3 +1,4 @@
+import React from 'react';
 import type { SkolioBootstrapConfig } from './bootstrap';
 import { RouterShell } from './router';
 
