@@ -11,6 +11,11 @@ import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
 import { AppShell as AppLayoutShell } from './shared/layout/AppShell';
+import { IdentityParityPage } from './identity/IdentityParityPage';
+import { OrganizationParityPage } from './organization/OrganizationParityPage';
+import { AcademicsParityPage } from './academics/AcademicsParityPage';
+import { CommunicationParityPage } from './communication/CommunicationParityPage';
+import { AdministrationParityPage } from './administration/AdministrationParityPage';
 
 type RouterProps = { config: SkolioBootstrapConfig };
 type AppRoute = '/dashboard' | '/organization' | '/academics' | '/communication' | '/administration' | '/identity' | '/login';
@@ -73,11 +78,11 @@ export function RouterShell({ config }: RouterProps) {
       footerLanguageSwitcher={<LanguageSwitcher />}
     >
       {active === '/dashboard' && <DashboardPage session={session} apis={apis} />}
-      {active === '/organization' && <OrganizationPage api={apis.organization} session={session} />}
-      {active === '/academics' && <AcademicsPage api={apis.academics} administrationApi={apis.administration} schoolType={session.schoolType} session={session} />}
-      {active === '/communication' && <CommunicationPage api={apis.communication} session={session} />}
-      {active === '/administration' && <AdministrationPage api={apis.administration} session={session} />}
-      {active === '/identity' && <IdentityPage api={apis.identity} session={session} />}
+      {active === '/organization' && <OrganizationParityPage api={apis.organization} session={session} />}
+      {active === '/academics' && <AcademicsParityPage api={apis.academics} administrationApi={apis.administration} session={session} />}
+      {active === '/communication' && <CommunicationParityPage api={apis.communication} session={session} />}
+      {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
+      {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
       {!nav.includes(active) && <p className="text-sm text-red-700">{t('authFailed')}</p>}
     </AppLayoutShell>
   );
