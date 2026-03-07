@@ -56,3 +56,4 @@ app.MapFallbackToPage("/AppHost");
 
 app.Lifetime.ApplicationStopping.Register(() => app.Logger.LogInformation("Stopping {ServiceName}.", "Skolio.WebHost"));
 app.Run();
+
