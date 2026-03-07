@@ -46,6 +46,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(SkolioPolicies.SchoolAdministrationOnly, policy => policy.RequireRole("SchoolAdministrator"));
     options.AddPolicy(SkolioPolicies.TeacherOrSchoolAdministrationOnly, policy => policy.RequireRole("SchoolAdministrator", "Teacher"));
     options.AddPolicy(SkolioPolicies.ParentStudentTeacherRead, policy => policy.RequireRole("SchoolAdministrator", "Teacher", "Parent", "Student"));
+    options.AddPolicy(SkolioPolicies.StudentSelfService, policy => policy.RequireRole("Student"));
     options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
 });
 
@@ -144,3 +145,4 @@ app.MapGet("/", (Microsoft.Extensions.Options.IOptions<OrganizationServiceOption
 
 app.Lifetime.ApplicationStopping.Register(() => logger.LogInformation("Stopping {ServiceName}.", "Skolio.Organization.Api"));
 app.Run();
+

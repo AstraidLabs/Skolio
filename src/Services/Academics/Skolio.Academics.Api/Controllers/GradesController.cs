@@ -24,6 +24,11 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
         {
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId)) return Forbid();
         }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty || studentUserId != actorUserId) return Forbid();
+        }
         else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
@@ -78,6 +83,9 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
 
     private bool IsParentOnly()
         => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 
     private Guid ResolveActorUserId() => SchoolScope.ResolveActorUserId(User);
 

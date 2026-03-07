@@ -20,8 +20,15 @@ public sealed class SchoolYearsController(IMediator mediator, OrganizationDbCont
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
 
-        return Ok(await dbContext.SchoolYears
-            .Where(x => x.SchoolId == schoolId)
+        var query = dbContext.SchoolYears.Where(x => x.SchoolId == schoolId);
+        if (IsStudentOnly())
+        {
+            var scopedSchoolYearIds = SchoolScope.GetStudentSchoolYearIds(User);
+            if (scopedSchoolYearIds.Count == 0) return Ok(Array.Empty<SchoolYearContract>());
+            query = query.Where(x => scopedSchoolYearIds.Contains(x.Id));
+        }
+
+        return Ok(await query
             .OrderByDescending(x => x.Period.StartDate)
             .Select(x => new SchoolYearContract(x.Id, x.SchoolId, x.Label, x.Period.StartDate, x.Period.EndDate))
             .ToListAsync(cancellationToken));
@@ -62,5 +69,8 @@ public sealed class SchoolYearsController(IMediator mediator, OrganizationDbCont
 
     public sealed record CreateSchoolYearRequest(Guid SchoolId, string Label, DateOnly StartDate, DateOnly EndDate);
     public sealed record UpdateSchoolYearRequest(DateOnly StartDate, DateOnly EndDate);
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 }
 

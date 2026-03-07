@@ -36,6 +36,20 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
 
             query = query.Where(x => linkedAudienceIds.Contains(x.AudienceId));
         }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (studentUserId.HasValue && studentUserId.Value != actorUserId) return Forbid();
+
+            var linkedAudienceIds = await dbContext.AttendanceRecords
+                .Where(x => x.SchoolId == schoolId && x.StudentUserId == actorUserId)
+                .Select(x => x.AudienceId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(x => linkedAudienceIds.Contains(x.AudienceId));
+        }
         else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
@@ -58,6 +72,9 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
 
     private bool IsParentOnly()
         => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 
     private Guid ResolveActorUserId()
     {

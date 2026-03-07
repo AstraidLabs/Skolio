@@ -40,6 +40,12 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
 
             query = query.Where(x => assignedSubjectIds.Contains(x.Id));
         }
+        else if (IsStudentOnly())
+        {
+            var scopedSubjectIds = SchoolScope.GetStudentSubjectIds(User);
+            if (scopedSubjectIds.Count == 0) return Ok(new PagedResult<SubjectContract>(Array.Empty<SubjectContract>(), normalizedPageNumber, normalizedPageSize, 0));
+            query = query.Where(x => scopedSubjectIds.Contains(x.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -72,6 +78,11 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
 
             var isAssigned = await dbContext.TeacherAssignments.AnyAsync(x => x.SchoolId == entity.SchoolId && x.TeacherUserId == actorUserId && x.SubjectId == entity.Id, cancellationToken);
             if (!isAssigned) return Forbid();
+        }
+        else if (IsStudentOnly())
+        {
+            var scopedSubjectIds = SchoolScope.GetStudentSubjectIds(User);
+            if (!scopedSubjectIds.Contains(entity.Id)) return Forbid();
         }
 
         return Ok(new SubjectContract(entity.Id, entity.SchoolId, entity.Code, entity.Name));
@@ -120,5 +131,8 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     public sealed record CreateSubjectRequest(Guid SchoolId, string Code, string Name);
     public sealed record OverrideSubjectRequest(string Code, string Name, string OverrideReason);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 }
 

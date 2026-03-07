@@ -35,6 +35,12 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
 
             query = query.Where(x => groupIds.Contains(x.Id) || (x.ClassRoomId.HasValue && classIds.Contains(x.ClassRoomId.Value)));
         }
+        else if (IsStudentOnly())
+        {
+            var scopedGroupIds = SchoolScope.GetStudentTeachingGroupIds(User);
+            if (scopedGroupIds.Count == 0) return Ok(Array.Empty<TeachingGroupContract>());
+            query = query.Where(x => scopedGroupIds.Contains(x.Id));
+        }
 
         return Ok(await query.OrderBy(x => x.Name).Select(x => new TeachingGroupContract(x.Id, x.SchoolId, x.ClassRoomId, x.Name, x.IsDailyOperationsGroup)).ToListAsync(cancellationToken));
     }
@@ -81,5 +87,8 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
 
     public sealed record CreateTeachingGroupRequest(Guid SchoolId, Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup);
     public sealed record OverrideTeachingGroupRequest(Guid? ClassRoomId, string Name, bool IsDailyOperationsGroup, string OverrideReason);
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 }
 

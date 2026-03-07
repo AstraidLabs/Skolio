@@ -17,6 +17,20 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     private static readonly HashSet<string> SupportedRoleCodes = ["PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"];
     private static readonly HashSet<string> SchoolAdministratorManageableRoleCodes = ["Teacher", "Parent", "Student"];
 
+    [HttpGet("student-me")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.StudentSelfService)]
+    public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> StudentAssignments(CancellationToken cancellationToken)
+    {
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        return Ok(await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == actorUserId)
+            .OrderBy(x => x.RoleCode)
+            .Select(x => new SchoolRoleAssignmentContract(x.Id, x.UserProfileId, x.SchoolId, x.RoleCode))
+            .ToListAsync(cancellationToken));
+    }
+
     [HttpGet("me")]
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> MyAssignments([FromQuery] Guid? schoolId, CancellationToken cancellationToken)

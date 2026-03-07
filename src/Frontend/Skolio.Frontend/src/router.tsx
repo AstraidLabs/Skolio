@@ -319,6 +319,10 @@ function isTeacher(session: SessionState) {
   return session.roles.includes('Teacher') && !session.roles.includes('SchoolAdministrator') && !session.roles.includes('PlatformAdministrator');
 }
 
+function isStudent(session: SessionState) {
+  return session.roles.includes('Student') && !session.roles.includes('SchoolAdministrator') && !session.roles.includes('PlatformAdministrator') && !session.roles.includes('Teacher') && !session.roles.includes('Parent');
+}
+
 function DashboardPage({ session, apis }: { session: SessionState; apis: { organization: ReturnType<typeof createOrganizationApi>; identity: ReturnType<typeof createIdentityApi>; administration: ReturnType<typeof createAdministrationApi>; communication: ReturnType<typeof createCommunicationApi>; academics: ReturnType<typeof createAcademicsApi> } }) {
   const { t } = useI18n();
   const role = session.roles[0] ?? t('roleUser');
@@ -332,6 +336,7 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
   const [error, setError] = useState('');
   const [metrics, setMetrics] = useState<{ activeSchools: number; schoolTypes: Record<string, number>; activeSchoolAdmins: number; enabledToggles: number; recentAudit: number }>({ activeSchools: 0, schoolTypes: {}, activeSchoolAdmins: 0, enabledToggles: 0, recentAudit: 0 });
   const [teacherSnapshot, setTeacherSnapshot] = useState<{ assignments: number; nextLessons: number; pendingAttendance: number; pendingLessonRecords: number; pendingHomework: number; notifications: number; latestAnnouncement: string; recentTeacherAudit: number }>({ assignments: 0, nextLessons: 0, pendingAttendance: 0, pendingLessonRecords: 0, pendingHomework: 0, notifications: 0, latestAnnouncement: '-', recentTeacherAudit: 0 });
+  const [studentSnapshot, setStudentSnapshot] = useState<{ nearestSchedule: number; attendanceRecords: number; grades: number; homework: number; dailyReports: number; notifications: number; latestAnnouncement: string; lifecycleHints: number; kindergartenLimited: boolean }>({ nearestSchedule: 0, attendanceRecords: 0, grades: 0, homework: 0, dailyReports: 0, notifications: 0, latestAnnouncement: '-', lifecycleHints: 0, kindergartenLimited: false });
 
   useEffect(() => {
     if (!isPlatformAdministrator(session)) return;
@@ -398,6 +403,43 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
       .finally(() => setLoading(false));
   }, [apis, session]);
 
+  useEffect(() => {
+    if (!isStudent(session)) return;
+
+    setLoading(true);
+    setError('');
+    const schoolId = selectedSchoolId(session);
+
+    void Promise.all([
+      apis.organization.studentContext(schoolId),
+      apis.academics.timetable(schoolId, session.subject),
+      apis.academics.attendance(schoolId, undefined, session.subject),
+      apis.academics.homework(schoolId, undefined, session.subject),
+      apis.academics.dailyReports(schoolId, undefined, session.subject),
+      apis.communication.announcements(schoolId, true),
+      apis.communication.notifications(session.subject),
+      apis.administration.studentContext()
+    ])
+      .then(async ([context, timetable, attendance, homework, dailyReports, announcements, notifications, adminContext]) => {
+        const gradesBySubject = await Promise.all(context.subjects.map((x) => apis.academics.grades(schoolId, session.subject, x.id).catch(() => [])));
+        const grades = gradesBySubject.flat();
+
+        setStudentSnapshot({
+          nearestSchedule: timetable.length,
+          attendanceRecords: attendance.length,
+          grades: grades.length,
+          homework: homework.length,
+          dailyReports: dailyReports.length,
+          notifications: notifications.length,
+          latestAnnouncement: announcements[0]?.title ?? '-',
+          lifecycleHints: adminContext.schoolLifecyclePolicySummaries.length,
+          kindergartenLimited: session.schoolType === 'Kindergarten'
+        });
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [apis, session]);
+
   if (!isPlatformAdministrator(session)) {
     if (isTeacher(session)) {
       const schoolTypeHint = session.schoolType === 'Kindergarten'
@@ -426,6 +468,33 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
             <p className="font-semibold">Latest announcement</p>
             <p className="mt-1">{teacherSnapshot.latestAnnouncement}</p>
             <p className="mt-2 text-slate-600">Teacher audit impact entries: {teacherSnapshot.recentTeacherAudit}</p>
+            <p className="mt-2 text-slate-600">Quick links: Academics, Organization, Communication, Identity.</p>
+          </div>
+        </section>
+      );
+    }
+
+    if (isStudent(session)) {
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Student Dashboard</h2>
+          <p className="text-sm text-slate-600">{studentSnapshot.kindergartenLimited ? 'Kindergarten student self-service je omezený; primární model zůstává Parent.' : summary}</p>
+          {loading && <p className="text-sm text-slate-500">Loading student snapshot...</p>}
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          <div className="grid gap-3 md:grid-cols-3">
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Nearest timetable</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.nearestSchedule}</p></article>
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">Attendance records</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.attendanceRecords}</p></article>
+            <article className="rounded border p-3"><h3 className="text-xs uppercase tracking-wide text-slate-500">New grades</h3><p className="mt-1 text-2xl font-semibold">{studentSnapshot.grades}</p></article>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Homework</p><p className="mt-1">{studentSnapshot.homework}</p></article>
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Daily reports</p><p className="mt-1">{studentSnapshot.dailyReports}</p></article>
+            <article className="rounded border p-3 text-sm"><p className="font-semibold">Notifications</p><p className="mt-1">{studentSnapshot.notifications}</p></article>
+          </div>
+          <div className="rounded border p-3 text-sm">
+            <p className="font-semibold">Latest announcement</p>
+            <p className="mt-1">{studentSnapshot.latestAnnouncement}</p>
+            <p className="mt-2 text-slate-600">Lifecycle summaries: {studentSnapshot.lifecycleHints}</p>
             <p className="mt-2 text-slate-600">Quick links: Academics, Organization, Communication, Identity.</p>
           </div>
         </section>
@@ -479,11 +548,23 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
 function OrganizationPage({ api, session }: { api: ReturnType<typeof createOrganizationApi>; session: SessionState }) {
   const { t } = useI18n();
   const [schools, setSchools] = useState<any[]>([]);
+  const [studentContext, setStudentContext] = useState<any>();
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [err, setErr] = useState('');
 
   const load = () => {
     setState('loading');
+    if (isStudent(session)) {
+      void api.studentContext(selectedSchoolId(session)).then((result) => {
+        setStudentContext(result);
+        setState('ready');
+      }).catch((e: Error) => {
+        setErr(e.message);
+        setState('error');
+      });
+      return;
+    }
+
     void api.schools().then((result) => {
       setSchools(result);
       setState('ready');
@@ -501,6 +582,10 @@ function OrganizationPage({ api, session }: { api: ReturnType<typeof createOrgan
 
   if (state === 'loading') return <p className="text-sm text-slate-600">{t('loadingOrganization')}</p>;
   if (state === 'error') return <p className="text-sm text-red-700">{err}</p>;
+
+  if (isStudent(session) && studentContext) {
+    return <section className="space-y-3"><h2 className="font-semibold">Student Organization Context</h2><div className="rounded border p-3 text-sm"><p>{studentContext.school.name} ({studentContext.school.schoolType})</p></div><div className="grid gap-3 md:grid-cols-2"><article className="rounded border p-3 text-sm"><p className="font-semibold">School years</p><ul className="mt-2">{studentContext.schoolYears.map((x: any) => <li key={x.id}>{x.label}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Classes</p><ul className="mt-2">{studentContext.classRooms.map((x: any) => <li key={x.id}>{x.displayName}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Groups</p><ul className="mt-2">{studentContext.teachingGroups.map((x: any) => <li key={x.id}>{x.name}</li>)}</ul></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Subjects</p><ul className="mt-2">{studentContext.subjects.map((x: any) => <li key={x.id}>{x.name}</li>)}</ul></article>{session.schoolType === 'SecondarySchool' && <article className="rounded border p-3 text-sm md:col-span-2"><p className="font-semibold">Secondary context</p><ul className="mt-2">{studentContext.secondaryFieldsOfStudy.map((x: any) => <li key={x.id}>{x.code} - {x.name}</li>)}</ul></article>}</div></section>;
+  }
 
   return (
     <section className="space-y-3">
@@ -524,6 +609,8 @@ function OrganizationPage({ api, session }: { api: ReturnType<typeof createOrgan
 function AcademicsPage({ api, administrationApi, schoolType, session }: { api: ReturnType<typeof createAcademicsApi>; administrationApi: ReturnType<typeof createAdministrationApi>; schoolType: SchoolType; session: SessionState }) {
   const { t } = useI18n();
   const [dailyReports, setDailyReports] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [homework, setHomework] = useState<any[]>([]);
   const [overrides, setOverrides] = useState<any[]>([]);
   const [error, setError] = useState('');
 
@@ -532,17 +619,42 @@ function AcademicsPage({ api, administrationApi, schoolType, session }: { api: R
     void administrationApi.auditLogs({ actionCode: 'academics.daily-report.override' }).then(setOverrides).catch((e: Error) => setError(e.message));
   }, [administrationApi, session]);
 
+  useEffect(() => {
+    if (!isStudent(session)) return;
+    const schoolId = selectedSchoolId(session);
+    void Promise.all([
+      api.attendance(schoolId, undefined, session.subject),
+      api.homework(schoolId, undefined, session.subject),
+      api.dailyReports(schoolId, undefined, session.subject)
+    ]).then(([attendanceResult, homeworkResult, reports]) => {
+      setAttendance(attendanceResult);
+      setHomework(homeworkResult);
+      setDailyReports(reports);
+    }).catch((e: Error) => setError(e.message));
+  }, [api, session]);
+
+  if (isStudent(session)) {
+    return <section className="space-y-3"><h2 className="font-semibold">Student Academics</h2><p className="text-sm text-slate-600">{schoolType === 'Kindergarten' ? 'Kindergarten student view je omezený na konzervativní read-only přehled.' : t('academicsDefaultHint')}</p>{error && <p className="text-sm text-red-700">{error}</p>}<div className="grid gap-3 md:grid-cols-3"><article className="rounded border p-3 text-sm"><p className="font-semibold">Attendance records</p><p className="mt-1">{attendance.length}</p></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Homework</p><p className="mt-1">{homework.length}</p></article><article className="rounded border p-3 text-sm"><p className="font-semibold">Daily reports</p><p className="mt-1">{dailyReports.length}</p></article></div></section>;
+  }
+
   return <section className="space-y-3"><h2 className="font-semibold">{t('academicsTitle')}</h2><p className="text-sm text-slate-600">{isPlatformAdministrator(session) ? 'PlatformAdministrator can review and execute only audited corrective overrides. Daily teacher workflows remain out of primary scope.' : schoolType === 'Kindergarten' ? t('academicsKindergartenHint') : t('academicsDefaultHint')}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={() => void api.dailyReports(selectedSchoolId(session), undefined, session.roles.includes('Parent') ? session.linkedStudentIds[0] : undefined).then(setDailyReports).catch((e: Error) => setError(e.message))}>{t('loadDailyReports')}</button>{error && <p className="text-sm text-red-700">{error}</p>}<ul>{dailyReports.map((r) => <li key={r.id}>{r.title ?? r.id}</li>)}</ul>{isPlatformAdministrator(session) && <div className="rounded border p-3"><h3 className="font-semibold text-sm">Recent override operations</h3><ul className="mt-2 text-xs text-slate-700">{overrides.slice(0, 8).map((x) => <li key={x.id}>{x.actionCode}</li>)}</ul></div>}</section>;
 }
 
 function CommunicationPage({ api, session }: { api: ReturnType<typeof createCommunicationApi>; session: SessionState }) {
   const { t } = useI18n();
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'retrying'>('connected');
   const [retryCount, setRetryCount] = useState(0);
 
-  const load = () => void api.announcements(selectedSchoolId(session))
-    .then(setAnnouncements)
+  const load = () => void Promise.all([
+    api.announcements(selectedSchoolId(session)),
+    api.notifications(session.subject)
+  ])
+    .then(([announcementResult, notificationResult]) => {
+      setAnnouncements(announcementResult);
+      setNotifications(notificationResult);
+    })
     .catch(() => {
       setConnectionState('disconnected');
       setTimeout(() => {
@@ -553,7 +665,7 @@ function CommunicationPage({ api, session }: { api: ReturnType<typeof createComm
 
   useEffect(load, [retryCount]);
 
-  return <section className="space-y-3"><h2 className="font-semibold">{t('communicationTitle')}</h2><p className="text-xs text-slate-500">{t('connectionState')}: {t(connectionState)}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={load}>{t('reload')}</button><ul>{announcements.map((a) => <li key={a.id}>{a.title} {a.isActive ? '(active)' : '(inactive)'}</li>)}</ul>{isPlatformAdministrator(session) && <p className="text-xs text-slate-600">Platform announcements and support overrides are available through this module. PlatformAdministrator is not a daily school chat role.</p>}</section>;
+  return <section className="space-y-3"><h2 className="font-semibold">{t('communicationTitle')}</h2><p className="text-xs text-slate-500">{t('connectionState')}: {t(connectionState)}</p><button className="rounded bg-indigo-600 px-3 py-1 text-white" onClick={load}>{t('reload')}</button><ul>{announcements.map((a) => <li key={a.id}>{a.title} {a.isActive ? '(active)' : '(inactive)'}</li>)}</ul><div className="rounded border p-3 text-sm"><p className="font-semibold">Notifications panel</p><p className="mt-1">{notifications.length}</p></div>{isPlatformAdministrator(session) && <p className="text-xs text-slate-600">Platform announcements and support overrides are available through this module. PlatformAdministrator is not a daily school chat role.</p>}</section>;
 }
 
 function AdministrationPage({ api, session }: { api: ReturnType<typeof createAdministrationApi>; session: SessionState }) {
@@ -628,6 +740,23 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
       return;
     }
 
+    if (isStudent(session)) {
+      void api.studentContext()
+        .then((result) => {
+          setProfile(result.profile);
+          setRoleAssignments(result.roleAssignments);
+        })
+        .catch((e: unknown) => {
+          if (e instanceof SkolioHttpError && e.status === 403) {
+            setError('Forbidden');
+            return;
+          }
+
+          setError((e as Error).message);
+        });
+      return;
+    }
+
     void api.myProfile().then(setProfile).catch((e: unknown) => {
       if (e instanceof SkolioHttpError && e.status === 403) {
         setError('Forbidden');
@@ -656,6 +785,10 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
 
   if (session.roles.includes('Parent')) {
     return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<div className="rounded border p-3 text-sm"><p className="font-semibold">Linked students</p><ul className="mt-2">{linkedStudents.map((x) => <li key={x.id}>{x.firstName} {x.lastName}</li>)}</ul></div><div className="rounded border p-3 text-sm"><p className="font-semibold">Parent-student links</p><ul className="mt-2">{links.map((x) => <li key={x.id}>{x.relationship}</li>)}</ul></div></section>;
+  }
+
+  if (isStudent(session)) {
+    return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}<div className="rounded border p-3 text-sm"><p className="font-semibold">Student roles</p><ul className="mt-2">{roleAssignments.map((x) => <li key={x.id}>{x.roleCode}</li>)}</ul></div></section>;
   }
 
   return <section className="space-y-3"><h2 className="font-semibold">{t('identityTitle')}</h2>{error && <p className="text-sm text-red-700">{error}</p>}{profile && <div className="rounded border p-3 text-sm">{profile.firstName} {profile.lastName} ({profile.email})</div>}</section>;
@@ -738,6 +871,10 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
   }
 
   if (roles.includes('Parent')) {
+    return ['/dashboard', '/identity', '/organization', '/academics', '/communication'];
+  }
+
+  if (roles.includes('Student')) {
     return ['/dashboard', '/identity', '/organization', '/academics', '/communication'];
   }
 

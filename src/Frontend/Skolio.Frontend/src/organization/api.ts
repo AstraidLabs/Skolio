@@ -8,6 +8,15 @@ export type TeachingGroup = { id: string; schoolId: string; classRoomId?: string
 export type Subject = { id: string; schoolId: string; code: string; name: string };
 export type SecondaryFieldOfStudy = { id: string; schoolId: string; code: string; name: string };
 export type TeacherAssignment = { id: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string };
+export type StudentContext = {
+  school: School;
+  schoolYears: SchoolYear[];
+  classRooms: ClassRoom[];
+  teachingGroups: TeachingGroup[];
+  subjects: Subject[];
+  gradeLevels: GradeLevel[];
+  secondaryFieldsOfStudy: SecondaryFieldOfStudy[];
+};
 
 type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
 
@@ -51,6 +60,7 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     teacherAssignments: (schoolId: string, teacherUserId?: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments?schoolId=${schoolId}${teacherUserId ? `&teacherUserId=${teacherUserId}` : ''}`),
     myTeacherAssignments: (schoolId: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments/me?schoolId=${schoolId}`),
     createTeacherAssignment: (payload: Omit<TeacherAssignment, 'id'>) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments', { method: 'POST', body: JSON.stringify(payload) }),
-    overrideTeacherAssignment: (payload: { existingAssignmentId?: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string; overrideReason: string }) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments/override/reassign', { method: 'POST', body: JSON.stringify(payload) })
+    overrideTeacherAssignment: (payload: { existingAssignmentId?: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string; overrideReason: string }) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments/override/reassign', { method: 'POST', body: JSON.stringify(payload) }),
+    studentContext: (schoolId: string) => http<StudentContext>('organization', `/api/organization/student-context?schoolId=${schoolId}`)
   };
 }

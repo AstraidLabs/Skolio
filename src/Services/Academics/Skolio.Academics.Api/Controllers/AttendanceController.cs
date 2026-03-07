@@ -40,6 +40,13 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
         }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (studentUserId.HasValue && studentUserId.Value != actorUserId) return Forbid();
+            query = query.Where(x => x.StudentUserId == actorUserId);
+        }
         else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
             var actorUserId = ResolveActorUserId();
@@ -114,6 +121,13 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
 
             if (studentUserId.HasValue && !SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
         }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = ResolveActorUserId();
+            if (actorUserId == Guid.Empty) return Forbid();
+            if (studentUserId.HasValue && studentUserId.Value != actorUserId) return Forbid();
+            query = query.Where(x => x.attendance.StudentUserId == actorUserId);
+        }
 
         var result = await query
             .OrderByDescending(x => x.excuse.SubmittedAtUtc)
@@ -136,6 +150,10 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty || request.ParentUserId != actorUserId) return Forbid();
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
+        }
+        else if (IsStudentOnly())
+        {
+            return Forbid();
         }
         else if (User.IsInRole("Teacher") && !User.IsInRole("SchoolAdministrator"))
         {
@@ -174,6 +192,10 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "update", entity.Id });
             return Ok(new ExcuseNoteContract(entity.Id, entity.AttendanceRecordId, entity.ParentUserId, entity.Reason, entity.SubmittedAtUtc));
         }
+        else if (IsStudentOnly())
+        {
+            return Forbid();
+        }
 
         return Forbid();
     }
@@ -201,6 +223,10 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "cancel", entity.Id });
             return NoContent();
         }
+        else if (IsStudentOnly())
+        {
+            return Forbid();
+        }
 
         return Forbid();
     }
@@ -224,6 +250,9 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
 
     private bool IsParentOnly()
         => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher");
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 
     private Guid ResolveActorUserId() => SchoolScope.ResolveActorUserId(User);
 

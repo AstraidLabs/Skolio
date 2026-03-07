@@ -45,6 +45,8 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<UserProfileContract>>> LinkedStudents(CancellationToken cancellationToken)
     {
+        if (!User.IsInRole("Parent")) return Forbid();
+
         var actorUserId = SchoolScope.ResolveActorUserId(User);
         if (actorUserId == Guid.Empty) return Forbid();
 
@@ -64,6 +66,27 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             .ToListAsync(cancellationToken);
 
         return Ok(result);
+    }
+
+    [HttpGet("student-context")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.StudentSelfService)]
+    public async Task<ActionResult<StudentContextContract>> StudentContext(CancellationToken cancellationToken)
+    {
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
+        if (profile is null) return NotFound();
+
+        var roleAssignments = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == actorUserId)
+            .OrderBy(x => x.RoleCode)
+            .Select(x => new SchoolRoleAssignmentContract(x.Id, x.UserProfileId, x.SchoolId, x.RoleCode))
+            .ToListAsync(cancellationToken);
+
+        return Ok(new StudentContextContract(
+            new UserProfileContract(profile.Id, profile.FirstName, profile.LastName, profile.UserType, profile.Email, profile.IsActive),
+            roleAssignments));
     }
 
     [HttpGet]
@@ -159,4 +182,5 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     public sealed record UpdateMyProfileRequest(string FirstName, string LastName, UserType UserType, string Email);
     public sealed record UpdateAdminProfileRequest(string FirstName, string LastName, UserType UserType, string Email);
     public sealed record SetActivationRequest(bool IsActive);
+    public sealed record StudentContextContract(UserProfileContract Profile, IReadOnlyCollection<SchoolRoleAssignmentContract> RoleAssignments);
 }

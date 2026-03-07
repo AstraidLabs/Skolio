@@ -35,6 +35,12 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
 
             query = query.Where(x => assignedClassIds.Contains(x.Id));
         }
+        else if (IsStudentOnly())
+        {
+            var scopedClassRoomIds = SchoolScope.GetStudentClassRoomIds(User);
+            if (scopedClassRoomIds.Count == 0) return Ok(Array.Empty<ClassRoomContract>());
+            query = query.Where(x => scopedClassRoomIds.Contains(x.Id));
+        }
 
         return Ok(await query.OrderBy(x => x.DisplayName).Select(x => new ClassRoomContract(x.Id, x.SchoolId, x.GradeLevelId, x.Code, x.DisplayName)).ToListAsync(cancellationToken));
     }
@@ -74,6 +80,9 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     }
 
     private Guid ResolveActorUserId() => ResolveActorUserId(User);
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 
     private void Audit(string actionCode, Guid schoolId, object payload)
     {

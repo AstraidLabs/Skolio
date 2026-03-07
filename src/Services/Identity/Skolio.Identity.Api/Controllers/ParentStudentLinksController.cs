@@ -26,6 +26,12 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
             if (actorUserId == Guid.Empty) return Forbid();
             query = query.Where(x => x.ParentUserProfileId == actorUserId);
         }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = SchoolScope.ResolveActorUserId(User);
+            if (actorUserId == Guid.Empty) return Forbid();
+            query = query.Where(x => x.StudentUserProfileId == actorUserId);
+        }
         else
         {
             if (parentUserProfileId.HasValue)
@@ -65,7 +71,7 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
         if (actorUserId == Guid.Empty) return Forbid();
 
         var links = await dbContext.ParentStudentLinks
-            .Where(x => x.ParentUserProfileId == actorUserId)
+            .Where(x => IsStudentOnly() ? x.StudentUserProfileId == actorUserId : x.ParentUserProfileId == actorUserId)
             .ToListAsync(cancellationToken);
 
         return Ok(links.Select(x => new ParentStudentLinkContract(x.Id, x.ParentUserProfileId, x.StudentUserProfileId, x.Relationship)).ToList());
@@ -82,6 +88,11 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
         {
             var actorUserId = SchoolScope.ResolveActorUserId(User);
             if (actorUserId == Guid.Empty || entity.ParentUserProfileId != actorUserId) return Forbid();
+        }
+        else if (IsStudentOnly())
+        {
+            var actorUserId = SchoolScope.ResolveActorUserId(User);
+            if (actorUserId == Guid.Empty || entity.StudentUserProfileId != actorUserId) return Forbid();
         }
         else if (!await HasLinkAccess(entity, cancellationToken))
         {
@@ -133,7 +144,10 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
     }
 
     private bool IsParentOnly()
-        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator");
+        => User.IsInRole("Parent") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Student");
+
+    private bool IsStudentOnly()
+        => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 
     private async Task<bool> HasLinkAccess(Skolio.Identity.Domain.Entities.ParentStudentLink link, CancellationToken cancellationToken)
         => await HasUserScopeAccess(link.ParentUserProfileId, cancellationToken) || await HasUserScopeAccess(link.StudentUserProfileId, cancellationToken);
