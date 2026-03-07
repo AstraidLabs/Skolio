@@ -20,7 +20,7 @@ public static class DependencyInjection
     {
         services.AddOptions<IdentityDatabaseOptions>().Bind(configuration.GetSection(IdentityDatabaseOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<IdentityRedisOptions>().Bind(configuration.GetSection(IdentityRedisOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
-        services.AddOptions<IdentityOptions>().Bind(configuration.GetSection(IdentityOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<Skolio.Identity.Infrastructure.Configuration.IdentityOptions>().Bind(configuration.GetSection(Skolio.Identity.Infrastructure.Configuration.IdentityOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<OpenIddictOptions>().Bind(configuration.GetSection(OpenIddictOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<JwksOptions>().Bind(configuration.GetSection(JwksOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();

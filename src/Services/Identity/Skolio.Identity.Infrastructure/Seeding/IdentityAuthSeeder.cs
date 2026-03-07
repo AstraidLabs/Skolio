@@ -57,7 +57,7 @@ public sealed class IdentityAuthSeeder(
                 ClientId = oidcOptions.FrontendClient.ClientId,
                 ConsentType = OpenIddictConstants.ConsentTypes.Explicit,
                 DisplayName = oidcOptions.FrontendClient.DisplayName,
-                Type = OpenIddictConstants.ClientTypes.Public
+                ClientType = OpenIddictConstants.ClientTypes.Public
             };
 
             foreach (var redirectUri in oidcOptions.FrontendClient.RedirectUris)
@@ -74,10 +74,10 @@ public sealed class IdentityAuthSeeder(
             {
                 OpenIddictConstants.Permissions.Endpoints.Authorization,
                 OpenIddictConstants.Permissions.Endpoints.Token,
-                OpenIddictConstants.Permissions.Endpoints.Logout,
+                OpenIddictConstants.Permissions.Endpoints.EndSession,
                 OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
                 OpenIddictConstants.Permissions.ResponseTypes.Code,
-                OpenIddictConstants.Permissions.Scopes.OpenId,
+                OpenIddictConstants.Permissions.Scopes.Openid,
                 OpenIddictConstants.Permissions.Scopes.Profile,
                 OpenIddictConstants.Permissions.Prefixes.Scope + "skolio_api"
             });
