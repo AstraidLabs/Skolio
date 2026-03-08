@@ -367,6 +367,14 @@
     filter: brightness(1.05);
   }
 
+  .sk-btn:disabled {
+    @apply cursor-not-allowed opacity-70;
+  }
+
+  .sk-btn-busy {
+    @apply animate-pulse;
+  }
+
   .sk-btn-secondary {
     background: var(--sk-surface-muted);
     border: 1px solid var(--sk-border);
@@ -483,11 +491,44 @@
     background: var(--sk-surface);
     border: 1px solid var(--sk-border-strong);
     border-radius: var(--sk-radius-sm);
-    @apply w-full px-3 py-2 text-sm;
+    @apply w-full px-3 py-2 text-sm transition-colors duration-150;
   }
 
   .sk-input:focus {
     border-color: var(--sk-primary);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.16);
+  }
+
+  .sk-input-invalid {
+    border-color: #fca5a5;
+  }
+
+  .sk-input-invalid:focus {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.14);
+  }
+
+  .sk-feedback-banner {
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    @apply flex items-center justify-between gap-3 px-3 py-2;
+    animation: skFadeIn 180ms ease-out;
+  }
+
+  .sk-feedback-banner.success {
+    background: #ecfdf3;
+    border-color: #86efac;
+    color: #166534;
+  }
+
+  .sk-feedback-banner.error {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+  }
+
+  .sk-feedback-dismiss {
+    @apply text-xs font-semibold underline decoration-1 underline-offset-2 opacity-80 transition-opacity hover:opacity-100;
   }
 
   .sk-state {
@@ -575,6 +616,17 @@
   }
 }
 
+@keyframes skFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .landing-reveal {
   animation: landingReveal 700ms ease both;
 }
@@ -585,4 +637,14 @@
 
 .landing-glow {
   animation: landingGlow 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal,
+  .landing-float,
+  .landing-glow,
+  .sk-feedback-banner {
+    animation: none !important;
+    transition: none !important;
+  }
 }
