@@ -44,7 +44,7 @@ public sealed class IdentitySecurityController(
     {
         var user = await ResolveActorUser(cancellationToken);
         if (user is null) return Forbid();
-        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal)) return BadRequest(new { message = "Password confirmation does not match." });
+        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal)) return this.ValidationField("confirmNewPassword", "Password confirmation does not match.");
 
         var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
         if (!result.Succeeded) return BadRequest(ToValidationProblem(result));
@@ -96,10 +96,10 @@ public sealed class IdentitySecurityController(
     [EnableRateLimiting("identity-security-reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
     {
-        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal)) return BadRequest(new { message = "Password confirmation does not match." });
+        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal)) return this.ValidationField("confirmNewPassword", "Password confirmation does not match.");
 
         var user = await userManager.FindByIdAsync(request.UserId);
-        if (user is null) return BadRequest(new { message = "Reset token is invalid or expired." });
+        if (user is null) return this.ValidationForm("Reset token is invalid or expired.");
 
         var token = DecodeToken(request.Token);
         var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
@@ -127,8 +127,8 @@ public sealed class IdentitySecurityController(
         if (user is null) return Forbid();
 
         var reauth = await signInManager.CheckPasswordSignInAsync(user, request.CurrentPassword, lockoutOnFailure: false);
-        if (!reauth.Succeeded) return BadRequest(new { message = "Current password is invalid." });
-        if (string.IsNullOrWhiteSpace(request.NewEmail)) return BadRequest(new { message = "New email is required." });
+        if (!reauth.Succeeded) return this.ValidationField("currentPassword", "Current password is invalid.");
+        if (string.IsNullOrWhiteSpace(request.NewEmail)) return this.ValidationField("newEmail", "New email is required.");
 
         var normalizedEmail = request.NewEmail.Trim();
         var token = await userManager.GenerateChangeEmailTokenAsync(user, normalizedEmail);
@@ -153,7 +153,7 @@ public sealed class IdentitySecurityController(
     public async Task<IActionResult> ConfirmEmailChange([FromBody] ConfirmEmailChangeRequest request, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByIdAsync(request.UserId);
-        if (user is null) return BadRequest(new { message = "Email change token is invalid or expired." });
+        if (user is null) return this.ValidationForm("Email change token is invalid or expired.");
 
         var token = DecodeToken(request.Token);
         var oldEmail = user.Email ?? string.Empty;
@@ -219,7 +219,7 @@ public sealed class IdentitySecurityController(
 
         var verificationCode = NormalizeCode(request.VerificationCode);
         var isValid = await userManager.VerifyTwoFactorTokenAsync(user, userManager.Options.Tokens.AuthenticatorTokenProvider, verificationCode);
-        if (!isValid) return BadRequest(new { message = "Verification code is invalid." });
+        if (!isValid) return this.ValidationField("verificationCode", "Verification code is invalid.");
 
         await userManager.SetTwoFactorEnabledAsync(user, true);
         var recoveryCodes = (await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10) ?? []).ToArray();
@@ -245,11 +245,11 @@ public sealed class IdentitySecurityController(
         if (user is null) return Forbid();
 
         var reauth = await signInManager.CheckPasswordSignInAsync(user, request.CurrentPassword, lockoutOnFailure: false);
-        if (!reauth.Succeeded) return BadRequest(new { message = "Current password is invalid." });
+        if (!reauth.Succeeded) return this.ValidationField("currentPassword", "Current password is invalid.");
 
         var verificationCode = NormalizeCode(request.VerificationCode);
         var isValid = await userManager.VerifyTwoFactorTokenAsync(user, userManager.Options.Tokens.AuthenticatorTokenProvider, verificationCode);
-        if (!isValid) return BadRequest(new { message = "Verification code is invalid." });
+        if (!isValid) return this.ValidationField("verificationCode", "Verification code is invalid.");
 
         await userManager.SetTwoFactorEnabledAsync(user, false);
         await userManager.ResetAuthenticatorKeyAsync(user);
@@ -275,8 +275,8 @@ public sealed class IdentitySecurityController(
         if (user is null) return Forbid();
 
         var reauth = await signInManager.CheckPasswordSignInAsync(user, request.CurrentPassword, lockoutOnFailure: false);
-        if (!reauth.Succeeded) return BadRequest(new { message = "Current password is invalid." });
-        if (!await userManager.GetTwoFactorEnabledAsync(user)) return BadRequest(new { message = "MFA is not enabled." });
+        if (!reauth.Succeeded) return this.ValidationField("currentPassword", "Current password is invalid.");
+        if (!await userManager.GetTwoFactorEnabledAsync(user)) return this.ValidationForm("MFA is not enabled.");
 
         var recoveryCodes = (await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10) ?? []).ToArray();
         await identityEmailSender.SendSecurityNotificationAsync(
@@ -358,13 +358,22 @@ public sealed class IdentitySecurityController(
 
     private static ValidationProblemDetails ToValidationProblem(IdentityResult result)
     {
-        var details = new ValidationProblemDetails();
+        var details = new ValidationProblemDetails
+        {
+            Title = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest
+        };
         foreach (var error in result.Errors)
         {
             if (!details.Errors.ContainsKey(error.Code))
             {
                 details.Errors[error.Code] = [error.Description];
             }
+        }
+
+        if (details.Errors.Count == 0)
+        {
+            details.Errors["$form"] = ["Validation failed."];
         }
 
         return details;
@@ -390,3 +399,4 @@ public sealed class IdentitySecurityController(
     public sealed record RegenerateRecoveryCodesRequest(string CurrentPassword);
     public sealed record RegenerateRecoveryCodesContract(IReadOnlyCollection<string> RecoveryCodes);
 }
+

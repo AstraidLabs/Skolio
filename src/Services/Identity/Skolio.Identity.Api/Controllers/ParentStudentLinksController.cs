@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -117,7 +117,7 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<ParentStudentLinkContract>> Override(Guid id, [FromBody] OverrideParentStudentLinkRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.ParentStudentLinks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -171,3 +171,4 @@ public sealed class ParentStudentLinksController(IMediator mediator, IdentityDbC
     public sealed record CreateParentStudentLinkRequest(Guid ParentUserProfileId, Guid StudentUserProfileId, string Relationship);
     public sealed record OverrideParentStudentLinkRequest(string Relationship, string OverrideReason);
 }
+

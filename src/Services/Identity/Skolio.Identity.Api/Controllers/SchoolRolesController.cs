@@ -98,7 +98,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolRoleAssignmentContract>> Assign([FromBody] AssignSchoolRoleRequest request, CancellationToken cancellationToken)
     {
-        if (!SupportedRoleCodes.Contains(request.RoleCode)) return BadRequest("Unsupported role code.");
+        if (!SupportedRoleCodes.Contains(request.RoleCode)) return this.ValidationField("roleCode", "Unsupported role code.");
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
 
         if (!SchoolScope.IsPlatformAdministrator(User) && !SchoolAdministratorManageableRoleCodes.Contains(request.RoleCode))
@@ -145,3 +145,4 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
 
     public sealed record AssignSchoolRoleRequest(Guid UserProfileId, Guid SchoolId, string RoleCode);
 }
+

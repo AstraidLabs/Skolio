@@ -51,6 +51,26 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var details = new ValidationProblemDetails(context.ModelState)
+        {
+            Title = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        var correlationId = context.HttpContext.Response.Headers["X-Correlation-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            details.Extensions["correlationId"] = correlationId;
+        }
+
+        return new BadRequestObjectResult(details);
+    };
+});
 builder.Services.AddRouting();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks()
@@ -150,4 +170,5 @@ app.MapGet("/", (Microsoft.Extensions.Options.IOptions<OrganizationServiceOption
 
 app.Lifetime.ApplicationStopping.Register(() => logger.LogInformation("Stopping {ServiceName}.", "Skolio.Organization.Api"));
 app.Run();
+
 

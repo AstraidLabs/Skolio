@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +28,7 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
 
         if (IsParentOnly())
         {
-            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!studentUserId.HasValue) return this.ValidationField("studentUserId", "Parent read scope requires studentUserId.");
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
 
             var linkedAudienceIds = await dbContext.AttendanceRecords
@@ -57,7 +57,7 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
-            if (!audienceId.HasValue) return BadRequest("Teacher read scope requires audienceId.");
+            if (!audienceId.HasValue) return this.ValidationField("audienceId", "Teacher read scope requires audienceId.");
 
             var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.AudienceId == audienceId.Value, cancellationToken);
             if (!hasTeachingContext) return Forbid();
@@ -90,7 +90,7 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<HomeworkAssignmentContract>> OverrideHomework(Guid id, [FromBody] OverrideHomeworkRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.HomeworkAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -119,3 +119,4 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
     public sealed record AssignHomeworkRequest(Guid SchoolId, Guid AudienceId, Guid SubjectId, string Title, string Instructions, DateOnly DueDate);
     public sealed record OverrideHomeworkRequest(Guid AudienceId, Guid SubjectId, string Title, string Instructions, DateOnly DueDate, string OverrideReason);
 }
+

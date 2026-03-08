@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,7 +61,7 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<TeachingGroupContract>> Override(Guid id, [FromBody] OverrideTeachingGroupRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.TeachingGroups.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -91,4 +91,5 @@ public sealed class TeachingGroupsController(IMediator mediator, OrganizationDbC
     private bool IsStudentOnly()
         => User.IsInRole("Student") && !User.IsInRole("SchoolAdministrator") && !User.IsInRole("PlatformAdministrator") && !User.IsInRole("Teacher") && !User.IsInRole("Parent");
 }
+
 

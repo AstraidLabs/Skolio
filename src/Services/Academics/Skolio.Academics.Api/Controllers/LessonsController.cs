@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +30,7 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
 
         if (IsParentOnly())
         {
-            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!studentUserId.HasValue) return this.ValidationField("studentUserId", "Parent read scope requires studentUserId.");
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
 
             var linkedAudienceIds = await dbContext.AttendanceRecords
@@ -90,7 +90,7 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<LessonRecordContract>> OverrideLesson(Guid id, [FromBody] OverrideLessonRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.LessonRecords.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -124,3 +124,4 @@ public sealed class LessonsController(IMediator mediator, AcademicsDbContext dbC
     public sealed record RecordLessonRequest(Guid TimetableEntryId, DateOnly LessonDate, string Topic, string Summary);
     public sealed record OverrideLessonRequest(Guid TimetableEntryId, DateOnly LessonDate, string Topic, string Summary, string OverrideReason);
 }
+

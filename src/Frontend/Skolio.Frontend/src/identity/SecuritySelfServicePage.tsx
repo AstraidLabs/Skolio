@@ -3,6 +3,7 @@ import type { createIdentityApi, MfaSetupStart, SecuritySummary } from './api';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 import { useI18n } from '../i18n';
+import { extractValidationErrors } from '../shared/http/httpClient';
 
 export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof createIdentityApi> }) {
   const { t } = useI18n();
@@ -37,23 +38,39 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
   const submitChangePassword = () => {
     setError('');
     setSuccess('');
+    if (!changePasswordDraft.currentPassword || !changePasswordDraft.newPassword || !changePasswordDraft.confirmNewPassword) {
+      setError(t('profileFieldRequired'));
+      return;
+    }
+    if (changePasswordDraft.newPassword !== changePasswordDraft.confirmNewPassword) {
+      setError(t('validationPasswordConfirmationMismatch'));
+      return;
+    }
     void api.changePassword(changePasswordDraft)
       .then((response) => {
         setSuccess(response.message);
         setChangePasswordDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
   };
 
   const submitChangeEmailRequest = () => {
     setError('');
     setSuccess('');
+    if (!changeEmailDraft.currentPassword || !changeEmailDraft.newEmail) {
+      setError(t('profileFieldRequired'));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changeEmailDraft.newEmail)) {
+      setError(t('securityInvalidEmailFormat'));
+      return;
+    }
     void api.requestEmailChange(changeEmailDraft)
       .then((response) => {
         setSuccess(response.message);
         setChangeEmailDraft({ currentPassword: '', newEmail: '' });
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
   };
 
   const startMfaSetup = () => {
@@ -64,7 +81,7 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
         setMfaSetup(response);
         setRecoveryCodes([]);
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
   };
 
   const confirmMfaSetup = () => {
@@ -78,7 +95,7 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
         setSuccess(t('securityMfaEnabledSuccess'));
         load();
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
   };
 
   const disableMfa = () => {
@@ -90,7 +107,7 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
         setMfaDisableDraft({ currentPassword: '', verificationCode: '' });
         load();
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
   };
 
   const regenerateCodes = () => {
@@ -103,7 +120,15 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
         setSuccess(t('securityRecoveryRegeneratedSuccess'));
         load();
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapValidationMessage(e)));
+  };
+
+  const mapValidationMessage = (e: unknown) => {
+    const mapped = extractValidationErrors(e);
+    if (mapped.formErrors.length > 0) return mapped.formErrors[0];
+    const firstField = Object.values(mapped.fieldErrors)[0];
+    if (firstField && firstField.length > 0) return firstField[0];
+    return e instanceof Error ? e.message : t('errorUnexpected');
   };
 
   if (loading) return <LoadingState text={t('securityLoading')} />;
@@ -210,7 +235,10 @@ export function ForgotPasswordPage({ api }: { api: ReturnType<typeof createIdent
     setDone('');
     void api.forgotPassword({ email })
       .then((response) => setDone(response.message))
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => {
+        const mapped = extractValidationErrors(e);
+        setError(mapped.formErrors[0] ?? Object.values(mapped.fieldErrors)[0]?.[0] ?? (e instanceof Error ? e.message : t('errorUnexpected')));
+      });
   };
 
   return (
@@ -247,7 +275,10 @@ export function ResetPasswordPage({
     setDone('');
     void api.resetPassword({ userId, token, ...draft })
       .then((response) => setDone(response.message))
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => {
+        const mapped = extractValidationErrors(e);
+        setError(mapped.formErrors[0] ?? Object.values(mapped.fieldErrors)[0]?.[0] ?? (e instanceof Error ? e.message : t('errorUnexpected')));
+      });
   };
 
   return (
@@ -286,7 +317,10 @@ export function ConfirmEmailChangePage({
     setDone('');
     void api.confirmEmailChange({ userId, token, newEmail })
       .then((response) => setDone(response.message))
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => {
+        const mapped = extractValidationErrors(e);
+        setError(mapped.formErrors[0] ?? Object.values(mapped.fieldErrors)[0]?.[0] ?? (e instanceof Error ? e.message : t('errorUnexpected')));
+      });
   }, [api, newEmail, token, userId]);
 
   if (error) return <section className="mx-auto max-w-lg p-4"><ErrorState text={error} /></section>;

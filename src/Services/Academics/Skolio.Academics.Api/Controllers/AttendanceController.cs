@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +37,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
 
         if (IsParentOnly())
         {
-            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!studentUserId.HasValue) return this.ValidationField("studentUserId", "Parent read scope requires studentUserId.");
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
         }
         else if (IsStudentOnly())
@@ -51,7 +51,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         {
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty) return Forbid();
-            if (!audienceId.HasValue) return BadRequest("Teacher read scope requires audienceId.");
+            if (!audienceId.HasValue) return this.ValidationField("audienceId", "Teacher read scope requires audienceId.");
 
             var hasTeachingContext = await dbContext.TimetableEntries.AnyAsync(x => x.SchoolId == schoolId && x.TeacherUserId == actorUserId && x.AudienceId == audienceId.Value, cancellationToken);
             if (!hasTeachingContext) return Forbid();
@@ -86,7 +86,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<AttendanceRecordContract>> OverrideAttendance(Guid id, [FromBody] OverrideAttendanceRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -195,7 +195,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         if (attendance is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
         if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
-        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse update window expired.");
+        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return this.ValidationForm("Excuse update window expired.");
 
         entity.UpdateByParent(request.Reason, DateTimeOffset.UtcNow);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -221,7 +221,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         if (attendance is null) return NotFound();
         if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
         if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
-        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse cancellation window expired.");
+        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return this.ValidationForm("Excuse cancellation window expired.");
 
         dbContext.ExcuseNotes.Remove(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -278,7 +278,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty || entity.ParentUserId != actorUserId) return Forbid();
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
-            if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse update window expired.");
+            if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return this.ValidationForm("Excuse update window expired.");
 
             entity.UpdateByParent(request.Reason, DateTimeOffset.UtcNow);
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -309,7 +309,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
             var actorUserId = ResolveActorUserId();
             if (actorUserId == Guid.Empty || entity.ParentUserId != actorUserId) return Forbid();
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
-            if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse cancellation window expired.");
+            if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return this.ValidationForm("Excuse cancellation window expired.");
 
             dbContext.ExcuseNotes.Remove(entity);
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -328,7 +328,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<ExcuseNoteContract>> OverrideExcuse(Guid id, [FromBody] OverrideExcuseRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.ExcuseNotes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -362,3 +362,4 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     public sealed record UpdateExcuseRequest(string Reason);
     public sealed record OverrideExcuseRequest(string Reason, DateTimeOffset SubmittedAtUtc, string OverrideReason);
 }
+

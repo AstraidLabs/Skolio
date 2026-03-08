@@ -35,7 +35,7 @@ public sealed class SecondaryFieldsOfStudyController(OrganizationDbContext dbCon
 
         var school = await dbContext.Schools.FirstOrDefaultAsync(x => x.Id == request.SchoolId, cancellationToken);
         if (school is null) return NotFound();
-        if (school.SchoolType != SchoolType.SecondarySchool) return BadRequest("Field of study is available only for secondary schools.");
+        if (school.SchoolType != SchoolType.SecondarySchool) return this.ValidationForm("Field of study is available only for secondary schools.");
 
         var field = SecondaryFieldOfStudy.Create(Guid.NewGuid(), request.SchoolId, school.SchoolType, request.Code, request.Name);
         await dbContext.SecondaryFieldsOfStudy.AddAsync(field, cancellationToken);
@@ -72,3 +72,4 @@ public sealed class SecondaryFieldsOfStudyController(OrganizationDbContext dbCon
     public sealed record CreateSecondaryFieldOfStudyRequest(Guid SchoolId, string Code, string Name);
     public sealed record UpdateSecondaryFieldOfStudyRequest(string Code, string Name);
 }
+

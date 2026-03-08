@@ -31,7 +31,27 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(SkolioPolicies.StudentSelfService, policy => policy.RequireRole("Student"));
     options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
 });
-builder.Services.AddControllers();builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddSignalR();builder.Services.AddOpenApi();
+builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var details = new ValidationProblemDetails(context.ModelState)
+        {
+            Title = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        var correlationId = context.HttpContext.Response.Headers["X-Correlation-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            details.Extensions["correlationId"] = correlationId;
+        }
+
+        return new BadRequestObjectResult(details);
+    };
+});builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddSignalR();builder.Services.AddOpenApi();
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("CommunicationApiWrite", limiterOptions =>
@@ -67,4 +87,5 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 app.UseCors("SkolioDevelopment");app.UseRateLimiter();app.UseAuthentication();app.UseAuthorization();app.MapControllers().RequireRateLimiting("CommunicationApiWrite");app.MapHealthChecks("/health/live");app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });app.MapHub<CommunicationHub>("/hubs/communication").RequireAuthorization(SkolioPolicies.ParentStudentTeacherRead);
 app.MapGet("/", (Microsoft.Extensions.Options.IOptions<CommunicationServiceOptions> options) => Results.Ok(new { service = options.Value.ServiceName, status = "phase-7-operational-ready", publicBaseUrl = options.Value.PublicBaseUrl, signalRHub = "/hubs/communication" }));
 app.Run();
+
 

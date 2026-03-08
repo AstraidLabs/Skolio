@@ -67,7 +67,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<AnnouncementContract>> OverrideAnnouncement(Guid id, [FromBody] OverrideAnnouncementRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -104,6 +104,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     public sealed record OverrideAnnouncementRequest(string Title, string Message, DateTimeOffset PublishAtUtc, string OverrideReason);
     public sealed record SetAnnouncementActivationRequest(bool IsActive);
 }
+
 
 
 

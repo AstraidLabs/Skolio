@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,7 +61,7 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<ClassRoomContract>> OverrideClassRoom(Guid id, [FromBody] OverrideClassRoomRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var classRoom = await dbContext.ClassRooms.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (classRoom is null) return NotFound();
@@ -93,4 +93,5 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     public sealed record CreateClassRoomRequest(Guid SchoolId, Guid GradeLevelId, string Code, string DisplayName);
     public sealed record OverrideClassRoomRequest(string Code, string DisplayName, string OverrideReason);
 }
+
 

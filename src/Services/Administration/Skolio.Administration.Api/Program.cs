@@ -30,7 +30,27 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(SkolioPolicies.StudentSelfService, policy => policy.RequireRole("Student"));
     options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
 });
-builder.Services.AddControllers();builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddOpenApi();builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));builder.Services.AddHangfireServer();
+builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var details = new ValidationProblemDetails(context.ModelState)
+        {
+            Title = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        var correlationId = context.HttpContext.Response.Headers["X-Correlation-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            details.Extensions["correlationId"] = correlationId;
+        }
+
+        return new BadRequestObjectResult(details);
+    };
+});builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddOpenApi();builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));builder.Services.AddHangfireServer();
 builder.Services.AddHealthChecks().AddDbContextCheck<AdministrationDbContext>(tags: ["ready"]).AddCheck<RedisHealthCheck>("redis", tags: ["ready"]).AddCheck<HangfireHealthCheck>("hangfire", tags: ["ready"]);
 var app = builder.Build();
 if (app.Environment.IsDevelopment()) { await app.ApplyAdministrationMigrationsAsync(); app.MapOpenApi(); }
@@ -57,4 +77,5 @@ app.UseCors("SkolioDevelopment");app.UseAuthentication();app.UseAuthorization();
 RecurringJob.AddOrUpdate<HousekeepingJob>("administration-housekeeping-boundary", job => job.ExecuteAsync(), Cron.HourInterval(6));
 app.MapGet("/", (Microsoft.Extensions.Options.IOptions<AdministrationServiceOptions> options) => Results.Ok(new { service = options.Value.ServiceName, status = "phase-7-operational-ready", publicBaseUrl = options.Value.PublicBaseUrl, hangfireDashboard = "/hangfire" }));
 app.Run();
+
 

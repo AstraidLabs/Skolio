@@ -5,6 +5,7 @@ import type { createOrganizationApi, TeacherAssignment } from '../organization/a
 import { Card, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 import { localeLabels, supportedLocales, useI18n } from '../i18n';
+import { extractValidationErrors } from '../shared/http/httpClient';
 
 type ProfileDraft = SelfProfileUpdatePayload;
 
@@ -532,8 +533,16 @@ function FeedbackBanner({
   );
 }
 
-function mapProfileError(error: Error, t: (key: 'profileSaveErrorInvalidSchoolPosition' | 'profileSaveErrorValidation' | 'profileSaveErrorGeneric') => string) {
-  const normalized = (error.message || '').toLowerCase();
+function mapProfileError(error: unknown, t: (key: 'profileSaveErrorInvalidSchoolPosition' | 'profileSaveErrorValidation' | 'profileSaveErrorGeneric') => string) {
+  const validation = extractValidationErrors(error);
+  const merged = [...validation.formErrors, ...Object.values(validation.fieldErrors).flat()].join(' ').toLowerCase();
+  if (merged.includes('position') || merged.includes('school context')) {
+    return t('profileSaveErrorInvalidSchoolPosition');
+  }
+  if (Object.keys(validation.fieldErrors).length > 0 || validation.formErrors.length > 0) {
+    return t('profileSaveErrorValidation');
+  }
+  const normalized = (error instanceof Error ? error.message : '').toLowerCase();
   if (normalized.includes('selected school position is not allowed')) {
     return t('profileSaveErrorInvalidSchoolPosition');
   }

@@ -30,6 +30,26 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
 });
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var details = new ValidationProblemDetails(context.ModelState)
+        {
+            Title = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        var correlationId = context.HttpContext.Response.Headers["X-Correlation-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            details.Extensions["correlationId"] = correlationId;
+        }
+
+        return new BadRequestObjectResult(details);
+    };
+});
 builder.Services.AddRouting();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddDbContextCheck<AcademicsDbContext>(tags: ["ready"]).AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
@@ -65,4 +85,5 @@ app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/", (Microsoft.Extensions.Options.IOptions<AcademicsServiceOptions> options) => Results.Ok(new { service = options.Value.ServiceName, status = "phase-7-operational-ready", publicBaseUrl = options.Value.PublicBaseUrl }));
 app.Run();
+
 

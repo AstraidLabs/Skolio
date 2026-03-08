@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -69,7 +69,7 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<GradeEntryContract>> OverrideGrade(Guid id, [FromBody] OverrideGradeRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         var entity = await dbContext.GradeEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity is null) return NotFound();
@@ -98,3 +98,4 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
     public sealed record RecordGradeRequest(Guid SchoolId, Guid StudentUserId, Guid SubjectId, string GradeValue, string Note, DateOnly GradedOn);
     public sealed record OverrideGradeRequest(Guid SchoolId, Guid StudentUserId, Guid SubjectId, string GradeValue, string Note, DateOnly GradedOn, string OverrideReason);
 }
+

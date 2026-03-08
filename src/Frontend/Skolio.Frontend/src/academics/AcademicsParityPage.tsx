@@ -4,6 +4,8 @@ import type { createAcademicsApi } from './api';
 import type { createAdministrationApi } from '../administration/api';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
+import { extractValidationErrors } from '../shared/http/httpClient';
+import { useI18n } from '../i18n';
 
 type AcademicsView =
   | 'overview'
@@ -26,6 +28,7 @@ export function AcademicsParityPage({
   session: SessionState;
   initialView?: AcademicsView;
 }) {
+  const { t } = useI18n();
   const schoolId = session.schoolIds[0] ?? '';
   const hasSchoolContext = schoolId.length > 0;
   const studentId = session.roles.includes('Parent') ? (session.linkedStudentIds[0] ?? '') : (session.roles.includes('Student') ? session.subject : '');
@@ -54,6 +57,7 @@ export function AcademicsParityPage({
   const [newLesson, setNewLesson] = useState({ timetableEntryId: '', lessonDate: '', topic: '', summary: '' });
   const [newAttendance, setNewAttendance] = useState({ audienceId: '', studentUserId: '', attendanceDate: '', status: 'Present' });
   const [newExcuse, setNewExcuse] = useState({ attendanceRecordId: '', reason: '' });
+  const [excuseFieldErrors, setExcuseFieldErrors] = useState<{ attendanceRecordId?: string; reason?: string }>({});
   const [newGrade, setNewGrade] = useState({ studentUserId: studentId, subjectId: '', gradeValue: '', note: '', gradedOn: '' });
   const [newHomework, setNewHomework] = useState({ audienceId: '', subjectId: '', title: '', instructions: '', dueDate: '' });
   const [newReport, setNewReport] = useState({ audienceId: '', reportDate: '', summary: '', notes: '' });
@@ -91,7 +95,23 @@ export function AcademicsParityPage({
   const onCreateTimetable = () => void api.createTimetableEntry({ id: '', schoolId, ...newTimetable }).then(load).catch((e: Error) => setError(e.message));
   const onCreateLesson = () => void api.createLesson({ id: '', ...newLesson }).then(load).catch((e: Error) => setError(e.message));
   const onCreateAttendance = () => void api.createAttendance({ id: '', schoolId, ...newAttendance }).then(load).catch((e: Error) => setError(e.message));
-  const onCreateExcuse = () => void api.createMyExcuse(newExcuse).then(load).catch((e: Error) => setError(e.message));
+  const onCreateExcuse = () => {
+    const next: { attendanceRecordId?: string; reason?: string } = {};
+    if (!newExcuse.attendanceRecordId.trim()) next.attendanceRecordId = t('validationRequiredAttendanceRecordId');
+    if (!newExcuse.reason.trim()) next.reason = t('validationRequiredReason');
+    setExcuseFieldErrors(next);
+    if (Object.keys(next).length > 0) return;
+    void api.createMyExcuse(newExcuse)
+      .then(() => {
+        setNewExcuse({ attendanceRecordId: '', reason: '' });
+        load();
+      })
+      .catch((e: unknown) => {
+        const mapped = extractValidationErrors(e);
+        const message = mapped.formErrors[0] ?? Object.values(mapped.fieldErrors)[0]?.[0] ?? (e instanceof Error ? e.message : t('validationGeneric'));
+        setError(message);
+      });
+  };
   const onCreateGrade = () => void api.createGrade({ id: '', schoolId, ...newGrade }).then(load).catch((e: Error) => setError(e.message));
   const onCreateHomework = () => void api.createHomework({ id: '', schoolId, ...newHomework }).then(load).catch((e: Error) => setError(e.message));
   const onCreateDailyReport = () => void api.createDailyReport({ id: '', schoolId, ...newReport }).then(load).catch((e: Error) => setError(e.message));
@@ -211,8 +231,10 @@ export function AcademicsParityPage({
             <Card>
               <p className="font-semibold text-sm">Submit excuse request</p>
               <div className="mt-2 grid gap-2">
-                <input className="sk-input" placeholder="Attendance record id" value={newExcuse.attendanceRecordId} onChange={(e) => setNewExcuse((v) => ({ ...v, attendanceRecordId: e.target.value }))} />
-                <input className="sk-input" placeholder="Reason" value={newExcuse.reason} onChange={(e) => setNewExcuse((v) => ({ ...v, reason: e.target.value }))} />
+                <input className={`sk-input ${excuseFieldErrors.attendanceRecordId ? 'sk-input-invalid' : ''}`} placeholder="Attendance record id" value={newExcuse.attendanceRecordId} onChange={(e) => { setExcuseFieldErrors((v) => ({ ...v, attendanceRecordId: undefined })); setNewExcuse((v) => ({ ...v, attendanceRecordId: e.target.value })); }} />
+                {excuseFieldErrors.attendanceRecordId ? <span className="text-xs text-red-700">{excuseFieldErrors.attendanceRecordId}</span> : null}
+                <input className={`sk-input ${excuseFieldErrors.reason ? 'sk-input-invalid' : ''}`} placeholder="Reason" value={newExcuse.reason} onChange={(e) => { setExcuseFieldErrors((v) => ({ ...v, reason: undefined })); setNewExcuse((v) => ({ ...v, reason: e.target.value })); }} />
+                {excuseFieldErrors.reason ? <span className="text-xs text-red-700">{excuseFieldErrors.reason}</span> : null}
               </div>
               <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateExcuse} type="button">Create excuse</button></div>
             </Card>

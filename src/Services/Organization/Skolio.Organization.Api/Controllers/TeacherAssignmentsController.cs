@@ -74,7 +74,7 @@ public sealed class TeacherAssignmentsController(IMediator mediator, Organizatio
     [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<TeacherAssignmentContract>> OverrideReassign([FromBody] OverrideReassignTeacherRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return BadRequest("Override reason is required.");
+        if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
 
         if (request.ExistingAssignmentId.HasValue)
         {
@@ -108,3 +108,4 @@ public sealed class TeacherAssignmentsController(IMediator mediator, Organizatio
     public sealed record AssignTeacherRequest(Guid SchoolId, Guid TeacherUserId, TeacherAssignmentScope Scope, Guid? ClassRoomId, Guid? TeachingGroupId, Guid? SubjectId);
     public sealed record OverrideReassignTeacherRequest(Guid? ExistingAssignmentId, Guid SchoolId, Guid TeacherUserId, TeacherAssignmentScope Scope, Guid? ClassRoomId, Guid? TeachingGroupId, Guid? SubjectId, string OverrideReason);
 }
+

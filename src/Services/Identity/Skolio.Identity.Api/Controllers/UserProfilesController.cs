@@ -126,7 +126,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             var allowedCodes = await ResolveAllowedSchoolPositionCodesForActor(profile.Id, cancellationToken);
             if (!allowedCodes.Contains(normalizedRequest.PositionTitle))
             {
-                return BadRequest(new { message = "Selected school position is not allowed for current school context." });
+                return this.ValidationField("positionTitle", "Selected school position is not allowed for current school context.");
             }
         }
 
@@ -471,3 +471,4 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         bool IsParent,
         bool IsStudent);
 }
+

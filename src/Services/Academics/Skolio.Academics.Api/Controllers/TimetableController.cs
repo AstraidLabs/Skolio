@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +25,7 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
 
         if (IsParentOnly())
         {
-            if (!studentUserId.HasValue) return BadRequest("Parent read scope requires studentUserId.");
+            if (!studentUserId.HasValue) return this.ValidationField("studentUserId", "Parent read scope requires studentUserId.");
             if (!SchoolScope.GetLinkedStudentIds(User).Contains(studentUserId.Value)) return Forbid();
 
             var linkedAudienceIds = await dbContext.AttendanceRecords
@@ -84,3 +84,4 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
 
     public sealed record CreateTimetableEntryRequest(Guid SchoolId, Guid SchoolYearId, DayOfWeek DayOfWeek, TimeOnly StartTime, TimeOnly EndTime, LessonAudienceType AudienceType, Guid AudienceId, Guid SubjectId, Guid TeacherUserId);
 }
+
