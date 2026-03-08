@@ -41,6 +41,17 @@ export type SelfProfileUpdatePayload = {
 };
 
 export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;
+export type SecuritySummary = {
+  userId: string;
+  currentEmail: string;
+  emailConfirmed: boolean;
+  mfaEnabled: boolean;
+  hasAuthenticatorKey: boolean;
+  recoveryCodesLeft: number;
+};
+export type MfaStatus = { enabled: boolean; hasAuthenticatorKey: boolean; recoveryCodesLeft: number };
+export type MfaSetupStart = { sharedKey: string; authenticatorUri: string };
+export type RecoveryCodeResult = { recoveryCodes: string[] };
 
 export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
   return {
@@ -78,6 +89,17 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     },
     createParentStudentLink: (payload: { parentUserProfileId: string; studentUserProfileId: string; relationship: string }) => http<ParentStudentLink>('identity', '/api/identity/parent-student-links', { method: 'POST', body: JSON.stringify(payload) }),
     overrideParentStudentLink: (id: string, payload: { relationship: string; overrideReason: string }) => http<ParentStudentLink>('identity', `/api/identity/parent-student-links/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
-    deleteParentStudentLink: (id: string) => http<void>('identity', `/api/identity/parent-student-links/${id}`, { method: 'DELETE' })
+    deleteParentStudentLink: (id: string) => http<void>('identity', `/api/identity/parent-student-links/${id}`, { method: 'DELETE' }),
+    securitySummary: () => http<SecuritySummary>('identity', '/api/identity/security/summary'),
+    changePassword: (payload: { currentPassword: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/change-password', { method: 'POST', body: JSON.stringify(payload) }),
+    forgotPassword: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/forgot-password', { method: 'POST', body: JSON.stringify(payload) }),
+    resetPassword: (payload: { userId: string; token: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
+    requestEmailChange: (payload: { currentPassword: string; newEmail: string }) => http<{ message: string }>('identity', '/api/identity/security/change-email/request', { method: 'POST', body: JSON.stringify(payload) }),
+    confirmEmailChange: (payload: { userId: string; newEmail: string; token: string }) => http<{ message: string }>('identity', '/api/identity/security/change-email/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    mfaStatus: () => http<MfaStatus>('identity', '/api/identity/security/mfa/status'),
+    startMfaSetup: () => http<MfaSetupStart>('identity', '/api/identity/security/mfa/setup/start', { method: 'POST' }),
+    confirmMfaSetup: (payload: { verificationCode: string }) => http<RecoveryCodeResult>('identity', '/api/identity/security/mfa/setup/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    disableMfa: (payload: { currentPassword: string; verificationCode: string }) => http<{ message: string }>('identity', '/api/identity/security/mfa/disable', { method: 'POST', body: JSON.stringify(payload) }),
+    regenerateRecoveryCodes: (payload: { currentPassword: string }) => http<RecoveryCodeResult>('identity', '/api/identity/security/mfa/recovery-codes/regenerate', { method: 'POST', body: JSON.stringify(payload) })
   };
 }

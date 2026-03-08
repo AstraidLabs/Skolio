@@ -29,6 +29,7 @@ export type AppRouteLike =
   | '/communication'
   | '/administration'
   | '/identity'
+  | '/identity/security'
   | '/login';
 
 export function AppShell({
@@ -88,8 +89,10 @@ export function AppShell({
         profileName={profileDisplayName ?? session.subject}
         profileContext={profileContext ?? `${session.roles.join(', ') || 'User'} | ${session.schoolType}`}
         myProfileLabel={t('myProfile')}
+        securityLabel={t('routeSecurity')}
         signOutLabel={t('signOutMenu')}
         onProfile={() => onNavigate('/identity')}
+        onSecurity={() => onNavigate('/identity/security')}
         onLogout={onLogout}
         rightSlot={topSlot}
       />
@@ -267,6 +270,7 @@ function routeLabel(route: AppRouteLike, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
   if (route === '/identity') return t('routeIdentity');
+  if (route === '/identity/security') return t('routeSecurity');
   return route;
 }
 

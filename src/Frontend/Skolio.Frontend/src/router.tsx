@@ -12,6 +12,7 @@ import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primit
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
 import { AppShell as AppLayoutShell } from './shared/layout/AppShell';
 import { IdentityParityPage } from './identity/IdentityParityPage';
+import { ConfirmEmailChangePage, ForgotPasswordPage, ResetPasswordPage, SecuritySelfServicePage } from './identity/SecuritySelfServicePage';
 import { OrganizationParityPage } from './organization/OrganizationParityPage';
 import { AcademicsParityPage } from './academics/AcademicsParityPage';
 import { CommunicationParityPage } from './communication/CommunicationParityPage';
@@ -40,6 +41,10 @@ type AppRoute =
   | '/communication'
   | '/administration'
   | '/identity'
+  | '/identity/security'
+  | '/security/forgot-password'
+  | '/security/reset-password'
+  | '/security/confirm-email-change'
   | '/login';
 
 export function RouterShell({ config }: RouterProps) {
@@ -88,6 +93,27 @@ export function RouterShell({ config }: RouterProps) {
     return <AuthCallbackPage config={config} onSession={setSession} />;
   }
 
+  if (route === '/security/forgot-password') {
+    return <ForgotPasswordPage api={apis.identity} />;
+  }
+
+  if (route === '/security/reset-password') {
+    const query = new URLSearchParams(window.location.search);
+    const userId = query.get('userId') ?? '';
+    const token = query.get('token') ?? '';
+    if (!userId || !token) return <ErrorState text="Missing reset password token parameters." />;
+    return <ResetPasswordPage api={apis.identity} userId={userId} token={token} />;
+  }
+
+  if (route === '/security/confirm-email-change') {
+    const query = new URLSearchParams(window.location.search);
+    const userId = query.get('userId') ?? '';
+    const token = query.get('token') ?? '';
+    const newEmail = query.get('newEmail') ?? '';
+    if (!userId || !token || !newEmail) return <ErrorState text="Missing email confirmation parameters." />;
+    return <ConfirmEmailChangePage api={apis.identity} userId={userId} token={token} newEmail={newEmail} />;
+  }
+
   if (!session) {
     return <LandingPage onSignIn={() => { void beginLogin(config); }} />;
   }
@@ -98,7 +124,10 @@ export function RouterShell({ config }: RouterProps) {
   }
 
   const nav = navigationFor(session.roles, session.schoolType);
-  const active = nav.includes(route as AppRoute) ? (route as AppRoute) : '/dashboard';
+  const active =
+    nav.includes(route as AppRoute) || route === '/identity/security'
+      ? (route as AppRoute)
+      : '/dashboard';
   const profileName = (profileSummary?.profile.preferredDisplayName?.trim()
     || `${profileSummary?.profile.firstName ?? ''} ${profileSummary?.profile.lastName ?? ''}`.trim()
     || session.subject);
@@ -136,7 +165,8 @@ export function RouterShell({ config }: RouterProps) {
       {active === '/communication' && <CommunicationParityPage api={apis.communication} session={session} />}
       {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
-      {!nav.includes(active) && <p className="text-sm text-red-700">{t('authFailed')}</p>}
+      {active === '/identity/security' && <SecuritySelfServicePage api={apis.identity} />}
+      {!nav.includes(active) && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}
     </AppLayoutShell>
   );
 }
@@ -1087,6 +1117,7 @@ function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
   if (route === '/identity') return t('routeIdentity');
+  if (route === '/identity/security') return t('routeSecurity');
   return route;
 }
 

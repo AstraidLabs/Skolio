@@ -14,8 +14,10 @@ export function AppNavbar({
   profileName,
   profileContext,
   myProfileLabel,
+  securityLabel,
   signOutLabel,
   onProfile,
+  onSecurity,
   onLogout,
   rightSlot
 }: {
@@ -24,8 +26,10 @@ export function AppNavbar({
   profileName: string;
   profileContext: string;
   myProfileLabel?: string;
+  securityLabel?: string;
   signOutLabel?: string;
   onProfile: () => void;
+  onSecurity: () => void;
   onLogout: () => void;
   rightSlot?: ReactNode;
 }) {
@@ -44,8 +48,10 @@ export function AppNavbar({
             displayName={profileName}
             context={profileContext}
             myProfileLabel={myProfileLabel ?? t('myProfile')}
+            securityLabel={securityLabel ?? t('routeSecurity')}
             signOutLabel={signOutLabel ?? t('signOutMenu')}
             onProfile={onProfile}
+            onSecurity={onSecurity}
             onLogout={onLogout}
           />
           <NavbarNotificationsMenu label={t('notifications')} />
@@ -78,15 +84,19 @@ export function NavbarProfileMenu({
   displayName,
   context,
   myProfileLabel,
+  securityLabel,
   signOutLabel,
   onProfile,
+  onSecurity,
   onLogout
 }: {
   displayName: string;
   context: string;
   myProfileLabel: string;
+  securityLabel: string;
   signOutLabel: string;
   onProfile: () => void;
+  onSecurity: () => void;
   onLogout: () => void;
 }) {
   const { t } = useI18n();
@@ -153,6 +163,18 @@ export function NavbarProfileMenu({
           >
             <ProfileCardIcon className="h-4 w-4 shrink-0" />
             <span>{myProfileLabel}</span>
+          </button>
+          <button
+            className="sk-profile-menu-item"
+            onClick={() => {
+              setOpen(false);
+              onSecurity();
+            }}
+            role="menuitem"
+            type="button"
+          >
+            <SecurityIcon className="h-4 w-4 shrink-0" />
+            <span>{securityLabel}</span>
           </button>
           <button
             className="sk-profile-menu-item danger"
@@ -264,6 +286,16 @@ function SignOutIcon({ className = 'h-4 w-4 shrink-0' }: { className?: string })
       <path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" stroke="currentColor" strokeWidth="1.8" />
       <path d="M14 16l4-4-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M18 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SecurityIcon({ className = 'h-4 w-4 shrink-0' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M12 3.5 18 6v5.2c0 4.3-2.7 7.5-6 8.8-3.3-1.3-6-4.5-6-8.8V6l6-2.5Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 9.5v5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="8" r="0.9" fill="currentColor" />
     </svg>
   );
 }
