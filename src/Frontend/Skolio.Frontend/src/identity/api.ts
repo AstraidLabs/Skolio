@@ -41,6 +41,7 @@ export type SelfProfileUpdatePayload = {
 };
 
 export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;
+export type SchoolPositionOption = { code: string; label: string };
 export type SecuritySummary = {
   userId: string;
   currentEmail: string;
@@ -57,6 +58,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
   return {
     myProfile: () => http<UserProfile>('identity', '/api/identity/user-profiles/me'),
     myProfileSummary: () => http<MyProfileSummary>('identity', '/api/identity/user-profiles/me/summary'),
+    mySchoolPositionOptions: (schoolId?: string) => http<SchoolPositionOption[]>('identity', `/api/identity/user-profiles/me/school-position-options${schoolId ? `?schoolId=${schoolId}` : ''}`),
     studentContext: () => http<StudentIdentityContext>('identity', '/api/identity/user-profiles/student-context'),
     updateMyProfile: (payload: SelfProfileUpdatePayload) => http<UserProfile>('identity', '/api/identity/user-profiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
     linkedStudents: () => http<UserProfile[]>('identity', '/api/identity/user-profiles/linked-students'),

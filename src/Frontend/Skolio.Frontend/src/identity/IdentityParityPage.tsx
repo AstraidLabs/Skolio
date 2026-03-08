@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import type { createIdentityApi, MyProfileSummary, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, StatusBadge } from '../shared/ui/primitives';
@@ -36,6 +36,8 @@ export function IdentityParityPage({
   const [linkedStudents, setLinkedStudents] = useState<UserProfile[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [schoolPositionOptions, setSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
+  const [schoolPositionLoading, setSchoolPositionLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
@@ -54,12 +56,13 @@ export function IdentityParityPage({
 
   const selfEditRules = useMemo(() => ({
     canEditName: !isStudentOnly,
-    canEditPositionTitle: isPlatformAdministrator || isSchoolAdministrator || isTeacher,
+    canEditSchoolPosition: isSchoolAdministrator || isTeacher || isPlatformAdministrator,
     canEditPublicContactNote: isTeacher,
     canEditPreferredContactNote: isParent
   }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
 
   const selectedSchoolId = session.schoolIds[0] ?? '';
+  const canShowSchoolPositionField = (isSchoolAdministrator || isTeacher || isPlatformAdministrator) && (schoolPositionLoading || schoolPositionOptions.length > 0);
 
   const mapToDraft = (profile: UserProfile): ProfileDraft => ({
     firstName: profile.firstName ?? '',
@@ -100,6 +103,18 @@ export function IdentityParityPage({
           setAdminDraft(EMPTY_DRAFT);
         }
 
+        if (selfEditRules.canEditSchoolPosition && selectedSchoolId) {
+          setSchoolPositionLoading(true);
+          tasks.push(
+            api.mySchoolPositionOptions(selectedSchoolId)
+              .then(setSchoolPositionOptions)
+              .finally(() => setSchoolPositionLoading(false))
+          );
+        } else {
+          setSchoolPositionOptions([]);
+          setSchoolPositionLoading(false);
+        }
+
         await Promise.all(tasks);
       })
       .catch((e: Error) => setError(e.message))
@@ -116,7 +131,7 @@ export function IdentityParityPage({
       ...selfDraft,
       firstName: selfEditRules.canEditName ? selfDraft.firstName : (summary?.profile.firstName ?? ''),
       lastName: selfEditRules.canEditName ? selfDraft.lastName : (summary?.profile.lastName ?? ''),
-      positionTitle: selfEditRules.canEditPositionTitle ? selfDraft.positionTitle : (summary?.profile.positionTitle ?? ''),
+      positionTitle: selfEditRules.canEditSchoolPosition ? selfDraft.positionTitle : (summary?.profile.positionTitle ?? ''),
       publicContactNote: selfEditRules.canEditPublicContactNote ? selfDraft.publicContactNote : (summary?.profile.publicContactNote ?? ''),
       preferredContactNote: selfEditRules.canEditPreferredContactNote ? selfDraft.preferredContactNote : (summary?.profile.preferredContactNote ?? '')
     };
@@ -231,7 +246,19 @@ export function IdentityParityPage({
           <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
           <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
           <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
-          <Field icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPositionTitle')} value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
+          {canShowSchoolPositionField ? (
+            <SchoolPositionField
+              icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />}
+              label={t('profileFieldSchoolPosition')}
+              value={selfDraft.positionTitle ?? ''}
+              options={schoolPositionOptions}
+              loading={schoolPositionLoading}
+              onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))}
+              loadingText={t('profileSchoolPositionLoading')}
+              placeholder={t('profileSelectSchoolPositionPlaceholder')}
+              unavailableText={t('profileSchoolPositionUnavailable')}
+            />
+          ) : null}
           <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
           <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
         </div>
@@ -388,6 +415,54 @@ function LanguageField({
         {supportedLocales.map((locale) => (
           <option key={locale} value={locale}>
             {localeLabels[locale]} ({locale.toUpperCase()})
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function SchoolPositionField({
+  icon,
+  label,
+  value,
+  options,
+  loading,
+  onChange,
+  loadingText,
+  placeholder,
+  unavailableText
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  options: SchoolPositionOption[];
+  loading: boolean;
+  onChange: (value: string) => void;
+  loadingText: string;
+  placeholder: string;
+  unavailableText: string;
+}) {
+  const disabled = loading || options.length === 0;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="sk-label inline-flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+      </label>
+      <select
+        className="sk-input"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">
+          {loading ? loadingText : (options.length > 0 ? placeholder : unavailableText)}
+        </option>
+        {options.map((option) => (
+          <option key={option.code} value={option.code}>
+            {option.label}
           </option>
         ))}
       </select>

@@ -16,6 +16,19 @@ namespace Skolio.Identity.Api.Controllers;
 [Route("api/identity/user-profiles")]
 public sealed class UserProfilesController(IMediator mediator, IdentityDbContext dbContext, ILogger<UserProfilesController> logger) : ControllerBase
 {
+    private static readonly SchoolPositionOptionContract[] SchoolAdministratorPositionOptions =
+    [
+        new("SCHOOL_ADMINISTRATOR", "School Administrator"),
+        new("DEPUTY_SCHOOL_ADMINISTRATOR", "Deputy School Administrator")
+    ];
+
+    private static readonly SchoolPositionOptionContract[] TeacherPositionOptions =
+    [
+        new("TEACHER", "Teacher"),
+        new("CLASS_TEACHER", "Class Teacher"),
+        new("SUBJECT_TEACHER", "Subject Teacher")
+    ];
+
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<UserProfileContract>> Me(CancellationToken cancellationToken)
@@ -64,6 +77,34 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             User.IsInRole("Student")));
     }
 
+    [HttpGet("me/school-position-options")]
+    [Authorize]
+    public async Task<ActionResult<IReadOnlyCollection<SchoolPositionOptionContract>>> MySchoolPositionOptions([FromQuery] Guid? schoolId, CancellationToken cancellationToken)
+    {
+        var actorUserId = SchoolScope.ResolveActorUserId(User);
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        if (SchoolScope.IsParent(User) || SchoolScope.IsStudent(User)) return Ok(Array.Empty<SchoolPositionOptionContract>());
+
+        var assignments = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == actorUserId)
+            .Select(x => new { x.SchoolId, x.RoleCode })
+            .ToListAsync(cancellationToken);
+
+        var resolvedSchoolId = schoolId ?? assignments.Select(x => x.SchoolId).FirstOrDefault();
+        if (resolvedSchoolId == Guid.Empty) return Ok(Array.Empty<SchoolPositionOptionContract>());
+
+        var roleCodes = assignments
+            .Where(x => x.SchoolId == resolvedSchoolId)
+            .Select(x => x.RoleCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (roleCodes.Count == 0) return Ok(Array.Empty<SchoolPositionOptionContract>());
+
+        var options = BuildSchoolPositionOptions(roleCodes);
+        return Ok(options);
+    }
+
     [HttpPut("me")]
     [Authorize]
     public async Task<ActionResult<UserProfileContract>> UpdateMe([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken)
@@ -75,6 +116,15 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (profile is null) return NotFound();
 
         var normalizedRequest = NormalizeSelfRequest(profile, request);
+        if (!string.IsNullOrWhiteSpace(normalizedRequest.PositionTitle))
+        {
+            var allowedCodes = await ResolveAllowedSchoolPositionCodesForActor(profile.Id, cancellationToken);
+            if (!allowedCodes.Contains(normalizedRequest.PositionTitle))
+            {
+                return BadRequest(new { message = "Selected school position is not allowed for current school context." });
+            }
+        }
+
         var changedFields = CollectChangedFields(profile, normalizedRequest);
 
         var result = await mediator.Send(new UpsertUserProfileCommand(
@@ -330,6 +380,39 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             profile.PublicContactNote,
             profile.PreferredContactNote);
 
+    private async Task<HashSet<string>> ResolveAllowedSchoolPositionCodesForActor(Guid actorUserId, CancellationToken cancellationToken)
+    {
+        var roleCodes = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == actorUserId)
+            .Select(x => x.RoleCode)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return BuildSchoolPositionOptions(roleCodes)
+            .Select(x => x.Code)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyCollection<SchoolPositionOptionContract> BuildSchoolPositionOptions(IEnumerable<string> roleCodes)
+    {
+        var set = roleCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var options = new List<SchoolPositionOptionContract>();
+
+        if (set.Contains("SchoolAdministrator"))
+        {
+            options.AddRange(SchoolAdministratorPositionOptions);
+        }
+
+        if (set.Contains("Teacher"))
+        {
+            options.AddRange(TeacherPositionOptions);
+        }
+
+        return options
+            .DistinctBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private void Audit(string actionCode, Guid targetId, object payload)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "unknown";
@@ -370,6 +453,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
 
     public sealed record SetActivationRequest(bool IsActive);
     public sealed record StudentContextContract(UserProfileContract Profile, IReadOnlyCollection<SchoolRoleAssignmentContract> RoleAssignments);
+    public sealed record SchoolPositionOptionContract(string Code, string Label);
 
     public sealed record MyProfileSummaryContract(
         UserProfileContract Profile,
