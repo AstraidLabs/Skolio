@@ -8,6 +8,7 @@ using OpenIddict.Abstractions;
 using Skolio.Identity.Application.Abstractions;
 using Skolio.Identity.Infrastructure.Auth;
 using Skolio.Identity.Infrastructure.Configuration;
+using Skolio.Identity.Infrastructure.Delivery;
 using Skolio.Identity.Infrastructure.Persistence;
 using Skolio.Identity.Infrastructure.Seeding;
 using StackExchange.Redis;
@@ -25,12 +26,14 @@ public static class DependencyInjection
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<JwksOptions>().Bind(configuration.GetSection(JwksOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<OpenIddictSigningOptions>().Bind(configuration.GetSection(OpenIddictSigningOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<EmailGatewayOptions>().Bind(configuration.GetSection(EmailGatewayOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
 
         var databaseOptions = configuration.GetSection(IdentityDatabaseOptions.SectionName).Get<IdentityDatabaseOptions>() ?? throw new InvalidOperationException("Missing IdentityDatabaseOptions configuration.");
         var redisOptions = configuration.GetSection(IdentityRedisOptions.SectionName).Get<IdentityRedisOptions>() ?? throw new InvalidOperationException("Missing IdentityRedisOptions configuration.");
         var oidcOptions = configuration.GetSection(OpenIddictOptions.SectionName).Get<OpenIddictOptions>() ?? throw new InvalidOperationException("Missing OpenIddictOptions configuration.");
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? throw new InvalidOperationException("Missing JwtOptions configuration.");
         var signingOptions = configuration.GetSection(OpenIddictSigningOptions.SectionName).Get<OpenIddictSigningOptions>() ?? throw new InvalidOperationException("Missing OpenIddictSigningOptions configuration.");
+        var emailGatewayOptions = configuration.GetSection(EmailGatewayOptions.SectionName).Get<EmailGatewayOptions>() ?? throw new InvalidOperationException("Missing EmailGatewayOptions configuration.");
 
         services.AddDbContext<IdentityDbContext>(options =>
         {
@@ -123,6 +126,11 @@ public static class DependencyInjection
 
         services.AddScoped<IIdentityCommandStore, IdentityCommandStore>();
         services.AddScoped<IIdentityReadStore, IdentityReadStore>();
+        services.AddHttpClient<IIdentityEmailSender, EmailGatewayIdentityEmailSender>(httpClient =>
+        {
+            httpClient.BaseAddress = new Uri(emailGatewayOptions.BaseUrl);
+            httpClient.Timeout = TimeSpan.FromSeconds(emailGatewayOptions.TimeoutSeconds);
+        });
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions
         {
             EndPoints = { redisOptions.ConnectionString },

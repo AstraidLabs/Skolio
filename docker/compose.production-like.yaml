@@ -13,6 +13,8 @@ services:
         condition: service_healthy
       administration-api:
         condition: service_healthy
+      email-gateway-api:
+        condition: service_healthy
 
   identity-api:
     environment:
@@ -24,6 +26,12 @@ services:
         condition: service_healthy
       identity-migrator:
         condition: service_completed_successfully
+      email-gateway-api:
+        condition: service_healthy
+
+  email-gateway-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
 
   organization-api:
     environment:

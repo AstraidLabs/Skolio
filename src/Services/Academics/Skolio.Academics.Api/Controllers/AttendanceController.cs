@@ -137,6 +137,99 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
         return Ok(result);
     }
 
+    [HttpGet("my/excuse-requests")]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<IReadOnlyCollection<ExcuseNoteContract>>> MyExcuseRequests(CancellationToken cancellationToken)
+    {
+        if (!IsParentOnly()) return Forbid();
+
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var linkedStudentIds = SchoolScope.GetLinkedStudentIds(User);
+        if (linkedStudentIds.Count == 0) return Ok(Array.Empty<ExcuseNoteContract>());
+
+        var result = await dbContext.ExcuseNotes
+            .Join(dbContext.AttendanceRecords, excuse => excuse.AttendanceRecordId, attendance => attendance.Id, (excuse, attendance) => new { excuse, attendance })
+            .Where(x => x.excuse.ParentUserId == actorUserId && linkedStudentIds.Contains(x.attendance.StudentUserId))
+            .OrderByDescending(x => x.excuse.SubmittedAtUtc)
+            .Select(x => new ExcuseNoteContract(x.excuse.Id, x.excuse.AttendanceRecordId, x.excuse.ParentUserId, x.excuse.Reason, x.excuse.SubmittedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("my/excuse-requests")]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<ExcuseNoteContract>> SubmitMyExcuse([FromBody] SubmitMyExcuseNoteRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsParentOnly()) return Forbid();
+
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == request.AttendanceRecordId, cancellationToken);
+        if (attendance is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
+        if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
+
+        var result = await mediator.Send(new SubmitExcuseNoteCommand(request.AttendanceRecordId, actorUserId, request.Reason), cancellationToken);
+        Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "create", result.Id, request.AttendanceRecordId, parentUserId = actorUserId, selfService = true });
+        return CreatedAtAction(nameof(SubmitMyExcuse), new { id = result.Id }, result);
+    }
+
+    [HttpPut("my/excuse-requests/{id:guid}")]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<ActionResult<ExcuseNoteContract>> UpdateMyExcuse(Guid id, [FromBody] UpdateExcuseRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsParentOnly()) return Forbid();
+
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var entity = await dbContext.ExcuseNotes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+        if (entity.ParentUserId != actorUserId) return Forbid();
+
+        var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == entity.AttendanceRecordId, cancellationToken);
+        if (attendance is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
+        if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
+        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse update window expired.");
+
+        entity.UpdateByParent(request.Reason, DateTimeOffset.UtcNow);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "update", entity.Id, parentUserId = actorUserId, selfService = true });
+        return Ok(new ExcuseNoteContract(entity.Id, entity.AttendanceRecordId, entity.ParentUserId, entity.Reason, entity.SubmittedAtUtc));
+    }
+
+    [HttpDelete("my/excuse-requests/{id:guid}")]
+    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    public async Task<IActionResult> CancelMyExcuse(Guid id, CancellationToken cancellationToken)
+    {
+        if (!IsParentOnly()) return Forbid();
+
+        var actorUserId = ResolveActorUserId();
+        if (actorUserId == Guid.Empty) return Forbid();
+
+        var entity = await dbContext.ExcuseNotes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+        if (entity.ParentUserId != actorUserId) return Forbid();
+
+        var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == entity.AttendanceRecordId, cancellationToken);
+        if (attendance is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, attendance.SchoolId)) return Forbid();
+        if (!SchoolScope.GetLinkedStudentIds(User).Contains(attendance.StudentUserId)) return Forbid();
+        if (DateTimeOffset.UtcNow - entity.SubmittedAtUtc > ParentExcuseUpdateWindow) return BadRequest("Excuse cancellation window expired.");
+
+        dbContext.ExcuseNotes.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Audit("academics.excuse-note.changed", attendance.SchoolId, new { operation = "cancel", entity.Id, parentUserId = actorUserId, selfService = true });
+        return NoContent();
+    }
+
     [HttpPost("excuse-notes")]
     [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ExcuseNoteContract>> SubmitExcuse([FromBody] SubmitExcuseNoteRequest request, CancellationToken cancellationToken)
@@ -265,6 +358,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     public sealed record RecordAttendanceRequest(Guid SchoolId, Guid AudienceId, Guid StudentUserId, DateOnly AttendanceDate, AttendanceStatus Status);
     public sealed record OverrideAttendanceRequest(Guid AudienceId, Guid StudentUserId, DateOnly AttendanceDate, AttendanceStatus Status, string OverrideReason);
     public sealed record SubmitExcuseNoteRequest(Guid AttendanceRecordId, Guid ParentUserId, string Reason);
+    public sealed record SubmitMyExcuseNoteRequest(Guid AttendanceRecordId, string Reason);
     public sealed record UpdateExcuseRequest(string Reason);
     public sealed record OverrideExcuseRequest(string Reason, DateTimeOffset SubmittedAtUtc, string OverrideReason);
 }

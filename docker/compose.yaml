@@ -60,6 +60,9 @@ services:
       Identity__Seed__Enabled: true
       Identity__Seed__EnableLocalMode: true
       Identity__Seed__Password: SkolioDev!2026
+      Identity__EmailGateway__BaseUrl: http://email-gateway-api:8080/
+      Identity__EmailGateway__InternalApiKey: skolio-internal-email-gateway-key
+      Identity__EmailGateway__TimeoutSeconds: 10
       
     ports:
       - "8081:8080"
@@ -68,6 +71,40 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      email-gateway-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health/ready"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  email-gateway-api:
+    build:
+      context: ..
+      dockerfile: src/Services/EmailGateway/Skolio.EmailGateway.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
+      EmailGateway__ServiceName: Skolio.EmailGateway.Api
+      EmailGateway__InternalApiKey: skolio-internal-email-gateway-key
+      EmailGateway__FromAddress: noreply@skolio.local
+      EmailGateway__FromDisplayName: Skolio Security
+      EmailGateway__AllowedTemplateTypes__0: PasswordReset
+      EmailGateway__AllowedTemplateTypes__1: ChangeEmailVerification
+      EmailGateway__AllowedTemplateTypes__2: SecurityNotification
+      EmailGateway__AllowedTemplateTypes__3: MfaChanged
+      EmailGateway__AllowedTemplateTypes__4: AccountConfirmation
+      EmailGateway__Smtp__Host: smtp4dev
+      EmailGateway__Smtp__Port: 25
+      EmailGateway__Smtp__UseSsl: false
+      EmailGateway__Smtp__RequireAuthentication: false
+      EmailGateway__Smtp__ConnectionTimeoutSeconds: 10
+      EmailGateway__Smtp__CommandTimeoutSeconds: 15
+    depends_on:
+      - smtp4dev
+    expose:
+      - "8080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health/ready"]
       interval: 20s
@@ -227,7 +264,16 @@ services:
       timeout: 5s
       retries: 10
 
+  smtp4dev:
+    image: rnwood/smtp4dev:latest
+    ports:
+      - "5080:80"
+      - "2525:25"
+    volumes:
+      - smtp4dev_data:/smtp4dev
+
 volumes:
   postgresql_data:
   redis_data:
+  smtp4dev_data:
 

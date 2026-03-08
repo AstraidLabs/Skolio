@@ -7,6 +7,7 @@ export type ExcuseNote = { id: string; attendanceRecordId: string; parentUserId:
 export type Grade = { id: string; studentUserId: string; subjectId: string; gradeValue: string; note: string; gradedOn: string };
 export type Homework = { id: string; schoolId: string; audienceId: string; subjectId: string; title: string; instructions: string; dueDate: string };
 export type DailyReport = { id: string; schoolId: string; audienceId: string; reportDate: string; summary: string; notes: string };
+export type MyExcuseRequestCreate = { attendanceRecordId: string; reason: string };
 
 export function createAcademicsApi(http: ReturnType<typeof createHttpClient>) {
   return {
@@ -22,6 +23,10 @@ export function createAcademicsApi(http: ReturnType<typeof createHttpClient>) {
     createExcuse: (payload: Omit<ExcuseNote, 'id' | 'submittedAtUtc'>) => http<ExcuseNote>('academics', '/api/academics/attendance/excuse-notes', { method: 'POST', body: JSON.stringify(payload) }),
     updateExcuse: (id: string, payload: { reason: string }) => http<ExcuseNote>('academics', `/api/academics/attendance/excuse-notes/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     cancelExcuse: (id: string) => http<void>('academics', `/api/academics/attendance/excuse-notes/${id}`, { method: 'DELETE' }),
+    myExcuses: () => http<ExcuseNote[]>('academics', '/api/academics/attendance/my/excuse-requests'),
+    createMyExcuse: (payload: MyExcuseRequestCreate) => http<ExcuseNote>('academics', '/api/academics/attendance/my/excuse-requests', { method: 'POST', body: JSON.stringify(payload) }),
+    updateMyExcuse: (id: string, payload: { reason: string }) => http<ExcuseNote>('academics', `/api/academics/attendance/my/excuse-requests/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    cancelMyExcuse: (id: string) => http<void>('academics', `/api/academics/attendance/my/excuse-requests/${id}`, { method: 'DELETE' }),
     overrideExcuse: (id: string, payload: { reason: string; submittedAtUtc: string; overrideReason: string }) => http<ExcuseNote>('academics', `/api/academics/attendance/excuse-notes/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
     grades: (schoolId: string, studentUserId: string, subjectId: string) => http<Grade[]>('academics', `/api/academics/grades?schoolId=${schoolId}&studentUserId=${studentUserId}&subjectId=${subjectId}`),
     createGrade: (payload: Omit<Grade, 'id'> & { schoolId: string }) => http<Grade>('academics', '/api/academics/grades', { method: 'POST', body: JSON.stringify(payload) }),

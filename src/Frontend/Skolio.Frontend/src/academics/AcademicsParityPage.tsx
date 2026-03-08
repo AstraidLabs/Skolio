@@ -26,7 +26,8 @@ export function AcademicsParityPage({
   session: SessionState;
   initialView?: AcademicsView;
 }) {
-  const schoolId = session.schoolIds[0] ?? '00000000-0000-0000-0000-000000000000';
+  const schoolId = session.schoolIds[0] ?? '';
+  const hasSchoolContext = schoolId.length > 0;
   const studentId = session.roles.includes('Parent') ? (session.linkedStudentIds[0] ?? '') : (session.roles.includes('Student') ? session.subject : '');
   const isPlatformAdmin = session.roles.includes('PlatformAdministrator');
   const isSchoolAdmin = session.roles.includes('SchoolAdministrator');
@@ -52,7 +53,7 @@ export function AcademicsParityPage({
   const [newTimetable, setNewTimetable] = useState({ schoolYearId: '', dayOfWeek: '1', startTime: '08:00', endTime: '08:45', audienceType: 'ClassRoom', audienceId: '', subjectId: '', teacherUserId: '' });
   const [newLesson, setNewLesson] = useState({ timetableEntryId: '', lessonDate: '', topic: '', summary: '' });
   const [newAttendance, setNewAttendance] = useState({ audienceId: '', studentUserId: '', attendanceDate: '', status: 'Present' });
-  const [newExcuse, setNewExcuse] = useState({ attendanceRecordId: '', parentUserId: session.subject, reason: '' });
+  const [newExcuse, setNewExcuse] = useState({ attendanceRecordId: '', reason: '' });
   const [newGrade, setNewGrade] = useState({ studentUserId: studentId, subjectId: '', gradeValue: '', note: '', gradedOn: '' });
   const [newHomework, setNewHomework] = useState({ audienceId: '', subjectId: '', title: '', instructions: '', dueDate: '' });
   const [newReport, setNewReport] = useState({ audienceId: '', reportDate: '', summary: '', notes: '' });
@@ -61,13 +62,13 @@ export function AcademicsParityPage({
     setLoading(true);
     setError('');
     void Promise.all([
-      api.timetable(schoolId, isStudent ? session.subject : undefined),
-      api.lessons(schoolId, undefined, isStudent ? session.subject : undefined),
-      api.attendance(schoolId, undefined, studentId || undefined),
-      api.excuses(schoolId, studentId || undefined),
-      studentId ? api.grades(schoolId, studentId, newGrade.subjectId || '00000000-0000-0000-0000-000000000000').catch(() => []) : Promise.resolve([]),
-      api.homework(schoolId, undefined, studentId || undefined),
-      api.dailyReports(schoolId, undefined, studentId || undefined),
+      hasSchoolContext ? api.timetable(schoolId, isStudent ? session.subject : undefined) : Promise.resolve([]),
+      hasSchoolContext ? api.lessons(schoolId, undefined, isStudent ? session.subject : undefined) : Promise.resolve([]),
+      hasSchoolContext ? api.attendance(schoolId, undefined, studentId || undefined) : Promise.resolve([]),
+      canParentExcuse ? api.myExcuses() : (hasSchoolContext ? api.excuses(schoolId, studentId || undefined) : Promise.resolve([])),
+      studentId && hasSchoolContext ? api.grades(schoolId, studentId, newGrade.subjectId || '00000000-0000-0000-0000-000000000000').catch(() => []) : Promise.resolve([]),
+      hasSchoolContext ? api.homework(schoolId, undefined, studentId || undefined) : Promise.resolve([]),
+      hasSchoolContext ? api.dailyReports(schoolId, undefined, studentId || undefined) : Promise.resolve([]),
       isPlatformAdmin ? administrationApi.auditLogs({ actionCode: 'academics.daily-report.override' }) : Promise.resolve([])
     ])
       .then(([tt, lr, at, ex, gr, hw, dr, oa]) => {
@@ -90,7 +91,7 @@ export function AcademicsParityPage({
   const onCreateTimetable = () => void api.createTimetableEntry({ id: '', schoolId, ...newTimetable }).then(load).catch((e: Error) => setError(e.message));
   const onCreateLesson = () => void api.createLesson({ id: '', ...newLesson }).then(load).catch((e: Error) => setError(e.message));
   const onCreateAttendance = () => void api.createAttendance({ id: '', schoolId, ...newAttendance }).then(load).catch((e: Error) => setError(e.message));
-  const onCreateExcuse = () => void api.createExcuse({ id: '', submittedAtUtc: '', ...newExcuse }).then(load).catch((e: Error) => setError(e.message));
+  const onCreateExcuse = () => void api.createMyExcuse(newExcuse).then(load).catch((e: Error) => setError(e.message));
   const onCreateGrade = () => void api.createGrade({ id: '', schoolId, ...newGrade }).then(load).catch((e: Error) => setError(e.message));
   const onCreateHomework = () => void api.createHomework({ id: '', schoolId, ...newHomework }).then(load).catch((e: Error) => setError(e.message));
   const onCreateDailyReport = () => void api.createDailyReport({ id: '', schoolId, ...newReport }).then(load).catch((e: Error) => setError(e.message));
@@ -223,7 +224,7 @@ export function AcademicsParityPage({
         {show('timetable') ? <Card><p className="font-semibold text-sm">Timetable</p>{timetable.length === 0 ? <EmptyState text="No timetable entries in scope." /> : <ul className="sk-list">{timetable.map((x) => <li className="sk-list-item" key={x.id}>{x.dayOfWeek} {x.startTime}-{x.endTime}</li>)}</ul>}</Card> : null}
         {show('lesson-records') ? <Card><p className="font-semibold text-sm">Lesson records</p>{lessons.length === 0 ? <EmptyState text="No lesson records in scope." /> : <ul className="sk-list">{lessons.map((x) => <li className="sk-list-item" key={x.id}>{x.lessonDate} | {x.topic}</li>)}</ul>}</Card> : null}
         {show('attendance') ? <Card><p className="font-semibold text-sm">Attendance</p>{attendance.length === 0 ? <EmptyState text="No attendance records in scope." /> : <ul className="sk-list">{attendance.map((x) => <li className="sk-list-item" key={x.id}><span>{x.attendanceDate} | {x.studentUserId}</span><StatusBadge label={x.status} tone={x.status === 'Present' ? 'good' : 'warn'} /></li>)}</ul>}</Card> : null}
-        {show('excuses') ? <Card><p className="font-semibold text-sm">Excuses</p>{excuses.length === 0 ? <EmptyState text="No excuse records in scope." /> : <ul className="sk-list">{excuses.map((x) => <li className="sk-list-item" key={x.id}><span>{x.reason}</span>{canParentExcuse ? <button className="sk-btn sk-btn-secondary" type="button" onClick={() => void api.cancelExcuse(x.id).then(load).catch((e: Error) => setError(e.message))}>Cancel</button> : <StatusBadge label="Read" tone="info" />}</li>)}</ul>}</Card> : null}
+        {show('excuses') ? <Card><p className="font-semibold text-sm">Excuses</p>{excuses.length === 0 ? <EmptyState text="No excuse records in scope." /> : <ul className="sk-list">{excuses.map((x) => <li className="sk-list-item gap-2" key={x.id}><span className="flex-1">{x.reason}</span>{canParentExcuse ? <><button className="sk-btn sk-btn-secondary" type="button" onClick={() => { const updated = window.prompt('Update excuse reason', x.reason); if (updated && updated.trim().length > 0) { void api.updateMyExcuse(x.id, { reason: updated.trim() }).then(load).catch((e: Error) => setError(e.message)); } }}>Edit</button><button className="sk-btn sk-btn-secondary" type="button" onClick={() => void api.cancelMyExcuse(x.id).then(load).catch((e: Error) => setError(e.message))}>Cancel</button><StatusBadge label={new Date(x.submittedAtUtc).toLocaleString()} tone="info" /></> : <StatusBadge label="Read" tone="info" />}</li>)}</ul>}</Card> : null}
         {show('grades') ? <Card><p className="font-semibold text-sm">Grades</p>{grades.length === 0 ? <EmptyState text="No grades in scope." /> : <ul className="sk-list">{grades.map((x) => <li className="sk-list-item" key={x.id}>{x.gradedOn} | {x.gradeValue}</li>)}</ul>}</Card> : null}
         {show('homework') ? <Card><p className="font-semibold text-sm">Homework</p>{homework.length === 0 ? <EmptyState text="No homework in scope." /> : <ul className="sk-list">{homework.map((x) => <li className="sk-list-item" key={x.id}>{x.title}</li>)}</ul>}</Card> : null}
         {show('daily-reports') ? <Card className="lg:col-span-2"><p className="font-semibold text-sm">Daily reports</p>{dailyReports.length === 0 ? <EmptyState text="No daily reports in scope." /> : <ul className="sk-list">{dailyReports.map((x) => <li className="sk-list-item" key={x.id}>{x.reportDate} | {x.summary}</li>)}</ul>}</Card> : null}
