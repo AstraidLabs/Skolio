@@ -116,7 +116,12 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (profile is null) return NotFound();
 
         var normalizedRequest = NormalizeSelfRequest(profile, request);
-        if (!string.IsNullOrWhiteSpace(normalizedRequest.PositionTitle))
+        var positionTitleChanged = !string.Equals(
+            profile.PositionTitle?.Trim(),
+            normalizedRequest.PositionTitle?.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+
+        if (positionTitleChanged && !string.IsNullOrWhiteSpace(normalizedRequest.PositionTitle))
         {
             var allowedCodes = await ResolveAllowedSchoolPositionCodesForActor(profile.Id, cancellationToken);
             if (!allowedCodes.Contains(normalizedRequest.PositionTitle))
