@@ -10,6 +10,7 @@ using Skolio.Administration.Application.FeatureToggles;
 using Skolio.Administration.Application.HousekeepingPolicies;
 using Skolio.Administration.Application.SchoolYearPolicies;
 using Skolio.Administration.Application.SystemSettings;
+using Skolio.Administration.Domain.Entities;
 using Skolio.Administration.Infrastructure.Persistence;
 
 namespace Skolio.Administration.Api.Controllers;
@@ -183,6 +184,113 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
         return Ok(result);
     }
 
+    [HttpPost("system-settings")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult<SystemSettingContract>> CreateSetting([FromBody] CreateSettingRequest request, CancellationToken cancellationToken)
+    {
+        if (await dbContext.SystemSettings.AnyAsync(x => x.Key == request.Key, cancellationToken))
+            return Conflict(new { message = $"Setting with key '{request.Key}' already exists." });
+
+        var entity = SystemSetting.Create(Guid.NewGuid(), request.Key, request.Value, request.IsSensitive);
+        await dbContext.SystemSettings.AddAsync(entity, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.system-setting.created", new { entity.Id, request.Key, request.Value, request.IsSensitive }, cancellationToken);
+        return Created($"/api/administration/system-settings", new SystemSettingContract(entity.Id, entity.Key, entity.Value, entity.IsSensitive));
+    }
+
+    [HttpDelete("system-settings/{id:guid}")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult> DeleteSetting(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.SystemSettings.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        dbContext.SystemSettings.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.system-setting.deleted", new { id, entity.Key }, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("feature-toggles")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult<FeatureToggleContract>> CreateToggle([FromBody] CreateToggleRequest request, CancellationToken cancellationToken)
+    {
+        if (await dbContext.FeatureToggles.AnyAsync(x => x.FeatureCode == request.FeatureCode, cancellationToken))
+            return Conflict(new { message = $"Feature toggle '{request.FeatureCode}' already exists." });
+
+        var entity = FeatureToggle.Create(Guid.NewGuid(), request.FeatureCode, request.IsEnabled);
+        await dbContext.FeatureToggles.AddAsync(entity, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.feature-toggle.created", new { entity.Id, request.FeatureCode, request.IsEnabled }, cancellationToken);
+        return Created($"/api/administration/feature-toggles", new FeatureToggleContract(entity.Id, entity.FeatureCode, entity.IsEnabled));
+    }
+
+    [HttpDelete("feature-toggles/{id:guid}")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult> DeleteToggle(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.FeatureToggles.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        dbContext.FeatureToggles.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.feature-toggle.deleted", new { id, entity.FeatureCode }, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("school-year-policies")]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
+    public async Task<ActionResult<SchoolYearLifecyclePolicyContract>> CreateSchoolYearPolicy([FromBody] CreateSchoolYearPolicyRequest request, CancellationToken cancellationToken)
+    {
+        if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
+
+        var entity = SchoolYearLifecyclePolicy.Create(Guid.NewGuid(), request.SchoolId, request.PolicyName, request.ClosureGraceDays);
+        if (request.Activate) entity.Activate();
+        await dbContext.SchoolYearLifecyclePolicies.AddAsync(entity, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.school-year-policy.created", new { entity.Id, request.SchoolId, request.PolicyName, request.ClosureGraceDays, request.Activate }, cancellationToken);
+        return Created($"/api/administration/school-year-policies", new SchoolYearLifecyclePolicyContract(entity.Id, entity.SchoolId, entity.PolicyName, entity.ClosureGraceDays, entity.Status));
+    }
+
+    [HttpDelete("school-year-policies/{id:guid}")]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
+    public async Task<ActionResult> DeleteSchoolYearPolicy(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.SchoolYearLifecyclePolicies.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+        if (!SchoolScope.HasSchoolAccess(User, entity.SchoolId)) return Forbid();
+
+        dbContext.SchoolYearLifecyclePolicies.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.school-year-policy.deleted", new { id, entity.PolicyName, entity.SchoolId }, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("housekeeping-policies")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult<HousekeepingPolicyContract>> CreateHousekeepingPolicy([FromBody] CreateHousekeepingPolicyRequest request, CancellationToken cancellationToken)
+    {
+        var entity = HousekeepingPolicy.Create(Guid.NewGuid(), request.PolicyName, request.RetentionDays);
+        if (request.Activate) entity.Activate();
+        await dbContext.HousekeepingPolicies.AddAsync(entity, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.housekeeping-policy.created", new { entity.Id, request.PolicyName, request.RetentionDays, request.Activate }, cancellationToken);
+        return Created($"/api/administration/housekeeping-policies", new HousekeepingPolicyContract(entity.Id, entity.PolicyName, entity.RetentionDays, entity.Status));
+    }
+
+    [HttpDelete("housekeeping-policies/{id:guid}")]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
+    public async Task<ActionResult> DeleteHousekeepingPolicy(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.HousekeepingPolicies.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return NotFound();
+
+        dbContext.HousekeepingPolicies.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await WriteAudit("administration.housekeeping-policy.deleted", new { id, entity.PolicyName }, cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("operational-summary")]
     public async Task<ActionResult<OperationalSummaryResponse>> OperationalSummary(CancellationToken cancellationToken)
     {
@@ -223,9 +331,13 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
         await mediator.Send(new WriteAuditLogEntryCommand(actorUserId, actionCode, System.Text.Json.JsonSerializer.Serialize(payload)), cancellationToken);
     }
 
+    public sealed record CreateSettingRequest(string Key, string Value, bool IsSensitive);
     public sealed record UpdateSettingRequest(string Value, bool IsSensitive);
+    public sealed record CreateToggleRequest(string FeatureCode, bool IsEnabled);
     public sealed record UpdateToggleRequest(bool IsEnabled);
+    public sealed record CreateSchoolYearPolicyRequest(Guid SchoolId, string PolicyName, int ClosureGraceDays, bool Activate);
     public sealed record UpdateSchoolYearPolicyRequest(int ClosureGraceDays, string Status);
+    public sealed record CreateHousekeepingPolicyRequest(string PolicyName, int RetentionDays, bool Activate);
     public sealed record UpdateHousekeepingPolicyRequest(int RetentionDays, string Status);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount);
     public sealed record OperationalSummaryResponse(int RecentAuditCount, int EnabledFeatureToggles, int ActiveLifecyclePolicies, int ActiveHousekeepingPolicies, IReadOnlyCollection<string> LatestAuditActions);

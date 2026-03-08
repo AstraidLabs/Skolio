@@ -4,7 +4,14 @@
       "Bash(dotnet build:*)",
       "Bash(npm install:*)",
       "Bash(npx vite:*)",
-      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)"
+      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs grep:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet add:*)"
     ]
   }
 }

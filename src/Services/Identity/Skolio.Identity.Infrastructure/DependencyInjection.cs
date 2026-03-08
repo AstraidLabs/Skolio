@@ -49,11 +49,28 @@ public static class DependencyInjection
             .AddSignInManager<SignInManager<SkolioIdentityUser>>()
             .AddDefaultTokenProviders();
 
-        services.AddAuthentication(IdentityConstants.ApplicationScheme)
+        services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = "IdentitySmartScheme";
+                options.DefaultChallengeScheme = "IdentitySmartScheme";
+            })
             .AddCookie(IdentityConstants.ApplicationScheme, options =>
             {
                 options.LoginPath = "/account/login";
                 options.LogoutPath = "/account/logout";
+            })
+            .AddPolicyScheme("IdentitySmartScheme", "Cookie or Bearer", options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                {
+                    var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                    if (authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        return OpenIddict.Validation.AspNetCore.OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                    }
+
+                    return IdentityConstants.ApplicationScheme;
+                };
             });
 
         services.AddOpenIddict()
@@ -97,6 +114,11 @@ public static class DependencyInjection
                     .EnableEndSessionEndpointPassthrough()
                     .EnableUserInfoEndpointPassthrough()
                     .DisableTransportSecurityRequirement();
+            })
+            .AddValidation(options =>
+            {
+                options.UseLocalServer();
+                options.UseAspNetCore();
             });
 
         services.AddScoped<IIdentityCommandStore, IdentityCommandStore>();
