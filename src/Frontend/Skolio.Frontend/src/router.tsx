@@ -143,7 +143,7 @@ export function RouterShell({ config }: RouterProps) {
       profileDisplayName={profileName}
       profileContext={profileContext}
       pageTitle={labelForRoute(active, t)}
-      pageSubtitle={active === '/identity' ? undefined : t('shellSubtitle')}
+      pageSubtitle={active === '/identity' || active === '/identity/security' ? undefined : t('shellSubtitle')}
       footerLanguageSwitcher={<LanguageSwitcher />}
     >
       {active === '/dashboard' && <DashboardPage session={session} profileSummary={profileSummary} apis={apis} />}
@@ -1114,7 +1114,7 @@ function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
   if (route === '/identity') return t('myProfile.title');
-  if (route === '/identity/security') return t('routeSecurity');
+  if (route === '/identity/security') return t('security.title');
   return route;
 }
 
