@@ -283,6 +283,10 @@
     @apply inline-flex items-center gap-2 px-2 py-1.5 text-left;
   }
 
+  .sk-notification-trigger {
+    @apply min-h-11;
+  }
+
   .sk-profile-avatar {
     background: var(--sk-primary-soft);
     color: #1e40af;
@@ -307,16 +311,21 @@
     border: 1px solid var(--sk-border);
     border-radius: var(--sk-radius-sm);
     box-shadow: var(--sk-shadow-2);
-    @apply absolute right-0 z-30 mt-2 w-48 p-1;
+    @apply absolute right-0 z-30 mt-2 w-full min-w-full p-1;
   }
 
   .sk-profile-menu-item {
     border-radius: 8px;
-    @apply block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100;
+    @apply flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100;
   }
 
   .sk-profile-menu-item.danger {
     @apply text-red-700 hover:bg-red-50;
+  }
+
+  .sk-profile-menu-heading {
+    border-bottom: 1px solid var(--sk-border);
+    @apply px-3 py-2 text-sm font-semibold text-slate-900;
   }
 
   .sk-topbar {

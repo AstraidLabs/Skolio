@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import type { createIdentityApi, MyProfileSummary, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
-import { Card, SectionHeader, StatusBadge, WidgetGrid } from '../shared/ui/primitives';
+import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
-import { localeLabels, supportedLocales } from '../i18n';
+import { localeLabels, supportedLocales, useI18n } from '../i18n';
 
 type ProfileDraft = SelfProfileUpdatePayload;
 
@@ -28,6 +28,7 @@ export function IdentityParityPage({
   organizationApi?: ReturnType<typeof createOrganizationApi>;
   session: SessionState;
 }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -122,7 +123,7 @@ export function IdentityParityPage({
 
     void api.updateMyProfile(payload)
       .then(() => {
-        setSuccess('Profile saved.');
+        setSuccess(t('profileSaveSuccess'));
         load();
       })
       .catch((e: Error) => setError(e.message));
@@ -152,22 +153,73 @@ export function IdentityParityPage({
 
     void api.updateUserProfile(selectedUserId, payload)
       .then(() => {
-        setSuccess('Administrative profile edit saved.');
+        setSuccess(t('profileAdminSaveSuccess'));
         load();
       })
       .catch((e: Error) => setError(e.message));
   };
 
-  if (loading) return <LoadingState text="Loading profile..." />;
+  if (loading) return <LoadingState text={t('profileLoading')} />;
   if (error) return <ErrorState text={error} />;
-  if (!summary) return <EmptyState text="Profile is not available." />;
+  if (!summary) return <EmptyState text={t('profileNotAvailable')} />;
+
+  const headerInitials = toProfileInitials(
+    summary.profile.preferredDisplayName
+    || `${summary.profile.firstName} ${summary.profile.lastName}`.trim()
+    || summary.profile.email
+  );
 
   return (
     <section className="space-y-4">
       <SectionHeader
-        title="My Profile"
-        description="Business profile self-service with strict read-only boundaries for identity assignments and links."
+        title={t('profileHeaderTitle')}
+        description={t('profileHeaderDescription')}
       />
+
+      <Card>
+        <div className="flex flex-wrap items-start gap-3">
+          <span className="sk-profile-avatar !h-12 !w-12 !text-sm" aria-hidden="true">
+            {headerInitials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                  <ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span>{summary.profile.preferredDisplayName || `${summary.profile.firstName} ${summary.profile.lastName}`.trim()}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <ProfileRoleIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="text-slate-500">{t('profileLabelRole')}:</span>
+                  <span>{session.roles.join(", ")}</span>
+                </div>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <ProfileEmailIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="text-slate-500">{t('email')}:</span>
+                  <span>{summary.profile.email}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <ProfileStatusIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="text-slate-500">{t('profileLabelAccountActive')}:</span>
+                  <span>{summary.profile.isActive ? t('profileValueYes') : t('profileValueNo')}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="text-slate-500">{t('profileLabelSchoolContext')}:</span>
+                  <span>{session.schoolType}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <ProfileAssignmentIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="text-slate-500">{t('profileLabelAssignedSchools')}:</span>
+                  <span>{summary.schoolIds.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {success ? (
         <Card className="border-emerald-200 bg-emerald-50 text-emerald-900">
@@ -175,53 +227,31 @@ export function IdentityParityPage({
         </Card>
       ) : null}
 
-      <WidgetGrid>
-        <Card>
-          <p className="sk-metric-label">Role</p>
-          <p className="sk-metric-value">{session.roles.join(', ')}</p>
-        </Card>
-        <Card>
-          <p className="sk-metric-label">School context</p>
-          <p className="sk-metric-value">{session.schoolType}</p>
-        </Card>
-        <Card>
-          <p className="sk-metric-label">Assigned schools</p>
-          <p className="sk-metric-value">{summary.schoolIds.length}</p>
-        </Card>
-      </WidgetGrid>
-
       <Card>
-        <p className="font-semibold text-sm">Self profile edit</p>
+        <p className="font-semibold text-sm">{t('profileSelfEditTitle')}</p>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          <Field label="First name" value={selfDraft.firstName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, firstName: value }))} />
-          <Field label="Last name" value={selfDraft.lastName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, lastName: value }))} />
-          <Field label="Preferred display name" value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
-          <LanguageField label="Preferred language" value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
-          <Field label="Phone number" value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
-          <Field label="Position title" value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
-          <Field label="Public contact note" value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
-          <Field label="Preferred contact note" value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
+          <Field label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, firstName: value }))} />
+          <Field label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, lastName: value }))} />
+          <Field label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+          <LanguageField label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+          <Field label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+          <Field label={t('profileFieldPositionTitle')} value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
+          <Field label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+          <Field label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
         </div>
         <div className="mt-3 flex gap-2">
-          <button className="sk-btn sk-btn-primary" onClick={saveSelfProfile} type="button">Save my profile</button>
-          <StatusBadge label="Email / Username / Role assignments are read-only" tone="info" />
+          <button className="sk-btn sk-btn-primary gap-2" onClick={saveSelfProfile} type="button">
+            <SaveDiskIcon className="h-4 w-4 shrink-0" />
+            <span>{t('profileButtonSaveMyProfile')}</span>
+          </button>
+          <StatusBadge label={t('profileReadOnlyHint')} tone="info" />
         </div>
-      </Card>
-
-      <Card>
-        <p className="font-semibold text-sm">Read-only account and assignment scope</p>
-        <ul className="mt-2 space-y-1 text-sm text-slate-700">
-          <li>UserId: {summary.profile.id}</li>
-          <li>Email (login): {summary.profile.email}</li>
-          <li>Main role type: {summary.profile.userType}</li>
-          <li>Account status: {summary.profile.isActive ? 'Active' : 'Inactive'}</li>
-        </ul>
       </Card>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <p className="font-semibold text-sm">Role assignments (read-only)</p>
-          {summary.roleAssignments.length === 0 ? <EmptyState text="No role assignments." /> : (
+          <p className="font-semibold text-sm">{t('profileRoleAssignmentsTitle')}</p>
+          {summary.roleAssignments.length === 0 ? <EmptyState text={t('profileNoRoleAssignments')} /> : (
             <ul className="sk-list">
               {summary.roleAssignments.map((assignment) => (
                 <li key={assignment.id} className="sk-list-item">{assignment.roleCode} | {assignment.schoolId}</li>
@@ -230,8 +260,8 @@ export function IdentityParityPage({
           )}
         </Card>
         <Card>
-          <p className="font-semibold text-sm">Parent-student links (read-only)</p>
-          {summary.parentStudentLinks.length === 0 ? <EmptyState text="No parent-student links." /> : (
+          <p className="font-semibold text-sm">{t('profileParentStudentLinksTitle')}</p>
+          {summary.parentStudentLinks.length === 0 ? <EmptyState text={t('profileNoParentStudentLinks')} /> : (
             <ul className="sk-list">
               {summary.parentStudentLinks.map((link) => (
                 <li key={link.id} className="sk-list-item">{link.parentUserProfileId} {'->'} {link.studentUserProfileId} ({link.relationship})</li>
@@ -243,11 +273,11 @@ export function IdentityParityPage({
 
       {isTeacher ? (
         <Card>
-          <p className="font-semibold text-sm">Teacher assignments (read-only)</p>
-          {teacherAssignments.length === 0 ? <EmptyState text="No teacher assignments in selected school context." /> : (
+          <p className="font-semibold text-sm">{t('profileTeacherAssignmentsTitle')}</p>
+          {teacherAssignments.length === 0 ? <EmptyState text={t('profileNoTeacherAssignments')} /> : (
             <ul className="sk-list">
               {teacherAssignments.map((assignment) => (
-                <li key={assignment.id} className="sk-list-item">{assignment.scope} | class: {assignment.classRoomId ?? '-'} | group: {assignment.teachingGroupId ?? '-'} | subject: {assignment.subjectId ?? '-'}</li>
+                <li key={assignment.id} className="sk-list-item">{assignment.scope} | {t('profileLabelClass')}: {assignment.classRoomId ?? '-'} | {t('profileLabelGroup')}: {assignment.teachingGroupId ?? '-'} | {t('profileLabelSubject')}: {assignment.subjectId ?? '-'}</li>
               ))}
             </ul>
           )}
@@ -256,8 +286,8 @@ export function IdentityParityPage({
 
       {isParent ? (
         <Card>
-          <p className="font-semibold text-sm">Linked students summary</p>
-          {linkedStudents.length === 0 ? <EmptyState text="No linked students." /> : (
+          <p className="font-semibold text-sm">{t('profileLinkedStudentsTitle')}</p>
+          {linkedStudents.length === 0 ? <EmptyState text={t('profileNoLinkedStudents')} /> : (
             <ul className="sk-list">
               {linkedStudents.map((student) => (
                 <li key={student.id} className="sk-list-item">{student.firstName} {student.lastName} ({student.email})</li>
@@ -269,12 +299,12 @@ export function IdentityParityPage({
 
       {canAdminProfiles ? (
         <Card>
-          <p className="font-semibold text-sm">Administrative profile edit</p>
-          <p className="mt-1 text-xs text-slate-600">Role assignments remain in dedicated role-management boundary and are not edited here.</p>
+          <p className="font-semibold text-sm">{t('profileAdminEditTitle')}</p>
+          <p className="mt-1 text-xs text-slate-600">{t('profileAdminEditDescription')}</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            <label className="sk-label" htmlFor="admin-user">User profile</label>
+            <label className="sk-label" htmlFor="admin-user">{t('profileAdminUserSelectLabel')}</label>
             <select id="admin-user" className="sk-input" value={selectedUserId} onChange={(e) => loadAdminTarget(e.target.value)}>
-              <option value="">Select user</option>
+              <option value="">{t('profileAdminUserSelectPlaceholder')}</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>{user.firstName} {user.lastName} ({user.userType})</option>
               ))}
@@ -283,19 +313,19 @@ export function IdentityParityPage({
 
           {selectedUserId ? (
             <div className="mt-3 grid gap-2 md:grid-cols-2">
-              <Field label="First name" value={adminDraft.firstName} onChange={(value) => setAdminDraft((v) => ({ ...v, firstName: value }))} />
-              <Field label="Last name" value={adminDraft.lastName} onChange={(value) => setAdminDraft((v) => ({ ...v, lastName: value }))} />
-              <Field label="Preferred display name" value={adminDraft.preferredDisplayName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredDisplayName: value }))} />
-              <LanguageField label="Preferred language" value={adminDraft.preferredLanguage ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredLanguage: value }))} />
-              <Field label="Phone number" value={adminDraft.phoneNumber ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, phoneNumber: value }))} />
-              <Field label="Position title" value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
-              <Field label="Public contact note" value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
-              <Field label="Preferred contact note" value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
+              <Field label={t('profileFieldFirstName')} value={adminDraft.firstName} onChange={(value) => setAdminDraft((v) => ({ ...v, firstName: value }))} />
+              <Field label={t('profileFieldLastName')} value={adminDraft.lastName} onChange={(value) => setAdminDraft((v) => ({ ...v, lastName: value }))} />
+              <Field label={t('profileFieldPreferredDisplayName')} value={adminDraft.preferredDisplayName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+              <LanguageField label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={adminDraft.preferredLanguage ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredLanguage: value }))} />
+              <Field label={t('profileFieldPhoneNumber')} value={adminDraft.phoneNumber ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, phoneNumber: value }))} />
+              <Field label={t('profileFieldPositionTitle')} value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
+              <Field label={t('profileFieldPublicContactNote')} value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
+              <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
             </div>
           ) : null}
 
           <div className="mt-3">
-            <button className="sk-btn sk-btn-primary" disabled={!selectedUserId} onClick={saveAdminProfile} type="button">Save administrative edit</button>
+            <button className="sk-btn sk-btn-primary" disabled={!selectedUserId} onClick={saveAdminProfile} type="button">{t('profileButtonSaveAdminEdit')}</button>
           </div>
         </Card>
       ) : null}
@@ -330,11 +360,13 @@ function Field({
 function LanguageField({
   label,
   value,
+  placeholder,
   onChange,
   disabled = false
 }: {
   label: string;
   value: string;
+  placeholder: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
@@ -347,7 +379,7 @@ function LanguageField({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">Select language</option>
+        <option value="">{placeholder}</option>
         {supportedLocales.map((locale) => (
           <option key={locale} value={locale}>
             {localeLabels[locale]} ({locale.toUpperCase()})
@@ -356,4 +388,79 @@ function LanguageField({
       </select>
     </div>
   );
+}
+
+function SaveDiskIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M5 4h11l3 3v13H5V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M8 4v6h8V4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 20v-6h8v6" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ProfileIdentityIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileEmailIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m5.5 7 6.5 5 6.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ProfileRoleIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M12 3 4 7v6c0 4.2 2.4 6.8 8 8 5.6-1.2 8-3.8 8-8V7l-8-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m9.5 12 1.8 1.8 3.4-3.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ProfileSchoolIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M3 10 12 4l9 6-9 6-9-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M6 12v6m6-2v4m6-8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileAssignmentIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <rect x="3.5" y="4" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7 8h10M7 12h7M7 16h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileStatusIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m8.5 12.5 2.2 2.2 4.8-5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function toProfileInitials(value: string) {
+  const parts = value
+    .split(/[\s._-]+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+
+  if (parts.length === 0) return 'SK';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }

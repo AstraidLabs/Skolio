@@ -11,6 +11,7 @@ import type {
   StudentContext,
   createOrganizationApi
 } from './api';
+import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 
@@ -75,6 +76,8 @@ export function OrganizationParityPage({
   const canCreateSchool = isPlatformAdmin;
   const canManageOrganization = isPlatformAdmin || isSchoolAdmin;
   const canTeacherScopedOrganization = isTeacher;
+  const canSwitchSchoolContext = (isPlatformAdmin || isSchoolAdmin) && schools.length > 1;
+  const showReadOnlySchoolContext = (isPlatformAdmin || isSchoolAdmin) && schools.length <= 1;
 
   const loadSchoolBoundaries = async (schoolId: string) => {
     if (!schoolId) {
@@ -208,6 +211,44 @@ export function OrganizationParityPage({
     return entries;
   }, [isParent, isStudent, schools.length, schoolYears.length, gradeLevels.length, classRooms.length, teachingGroups.length, subjects.length, teacherAssignments.length, session.schoolType]);
 
+  const contextSwitcherBlock = (showHelperText: boolean) => {
+    if (!canSwitchSchoolContext && !showReadOnlySchoolContext) return null;
+
+    return (
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Aktivní školní kontext</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {canSwitchSchoolContext
+                ? 'Přepnutí kontextu aktualizuje organizační přehledy, seznamy a akce v Organization části.'
+                : 'K dispozici je pouze jeden školní kontext v tomto organizačním rozsahu.'}
+            </p>
+          </div>
+          <div className="w-full max-w-md">
+            {canSwitchSchoolContext ? (
+              <OrganizationContextSwitcher
+                schools={schools}
+                activeSchoolId={activeSchoolId}
+                onSelectSchool={setActiveSchoolId}
+              />
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                <p className="font-semibold text-slate-900">{currentSchool?.name ?? 'N/A'}</p>
+                <p className="text-xs text-slate-500">{currentSchool?.schoolType ?? '-'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        {showHelperText ? (
+          <div className="mt-3 text-xs text-slate-500">
+            Přepínač je page-level pro Organization boundary a nenahrazuje sidebar navigaci.
+          </div>
+        ) : null}
+      </Card>
+    );
+  };
+
   if (loading) return <LoadingState text="Loading organization capabilities..." />;
   if (error) return <ErrorState text={error} />;
 
@@ -233,6 +274,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Organization" description="Přehled organizační oblasti a vstupní body na jednotlivé organizační stránky. Sidebar zůstává hlavní navigace." />
+        {contextSwitcherBlock(true)}
 
         <Card>
           <div className="grid gap-3 md:grid-cols-3">
@@ -278,6 +320,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Školy" description="Entry point pro schools list/detail flow." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Seznam škol</p>
           {schools.length === 0 ? <EmptyState text="No schools available." /> : (
@@ -328,6 +371,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Přehled školních roků" description="Entry point pro school years list/detail flow." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Školní roky</p>
           {schoolYears.length === 0 ? <EmptyState text="No school years." /> : (
@@ -355,6 +399,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Ročníky" description="Organizační struktura ročníků (nikoli grading)." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Ročníky</p>
           {gradeLevels.length === 0 ? <EmptyState text="No grade levels." /> : (
@@ -379,6 +424,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Třídy" description="Entry point pro classes list/detail flow." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Třídy</p>
           {classRooms.length === 0 ? <EmptyState text="No class rooms." /> : (
@@ -404,6 +450,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Skupiny" description="Entry point pro groups list/detail flow." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Skupiny</p>
           {teachingGroups.length === 0 ? <EmptyState text="No teaching groups." /> : (
@@ -429,6 +476,7 @@ export function OrganizationParityPage({
     return (
       <section className="space-y-3">
         <SectionHeader title="Předměty" description="Entry point pro subjects list/detail flow." />
+        {contextSwitcherBlock(false)}
         <Card>
           <p className="font-semibold text-sm">Předměty</p>
           {subjects.length === 0 ? <EmptyState text="No subjects." /> : (
@@ -452,6 +500,7 @@ export function OrganizationParityPage({
   return (
     <section className="space-y-3">
       <SectionHeader title="Teacher Assignments" description="Entry point pro teacher assignments list/detail flow." />
+      {contextSwitcherBlock(false)}
       <Card>
         <p className="font-semibold text-sm">Teacher assignments</p>
         {teacherAssignments.length === 0 ? <EmptyState text="No teacher assignments." /> : (
