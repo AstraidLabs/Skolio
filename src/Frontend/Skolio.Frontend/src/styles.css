@@ -96,6 +96,14 @@
     @apply grid gap-1;
   }
 
+  .sk-sidebar-node {
+    @apply grid gap-1;
+  }
+
+  .sk-sidebar-parent-row {
+    @apply flex items-center gap-1;
+  }
+
   .sk-sidebar-link {
     border: 1px solid transparent;
     border-radius: var(--sk-radius-sm);
@@ -112,6 +120,32 @@
     background: var(--sk-primary-soft);
     border-color: #bfdbfe;
     color: #1e40af;
+  }
+
+  .sk-sidebar-toggle {
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--sk-text-muted);
+    @apply inline-flex h-8 w-8 items-center justify-center text-xs transition;
+  }
+
+  .sk-sidebar-toggle:hover {
+    background: var(--sk-surface-muted);
+    border-color: var(--sk-border);
+    color: var(--sk-text);
+  }
+
+  .sk-sidebar-toggle.is-open {
+    color: #1e40af;
+  }
+
+  .sk-sidebar-children {
+    border-left: 1px solid var(--sk-border);
+    @apply ml-4 grid gap-1 pl-2;
+  }
+
+  .sk-sidebar-child {
+    @apply text-xs;
   }
 
   .sk-page-region {

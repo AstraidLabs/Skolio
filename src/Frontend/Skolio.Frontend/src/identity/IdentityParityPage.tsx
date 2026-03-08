@@ -1,230 +1,263 @@
-import React, { useEffect, useState } from 'react';
-import type { createIdentityApi } from './api';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { createIdentityApi, MyProfileSummary, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
+import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
+import { localeLabels, supportedLocales } from '../i18n';
+
+type ProfileDraft = SelfProfileUpdatePayload;
+
+const EMPTY_DRAFT: ProfileDraft = {
+  firstName: '',
+  lastName: '',
+  preferredDisplayName: '',
+  preferredLanguage: '',
+  phoneNumber: '',
+  positionTitle: '',
+  publicContactNote: '',
+  preferredContactNote: ''
+};
 
 export function IdentityParityPage({
   api,
+  organizationApi,
   session
 }: {
   api: ReturnType<typeof createIdentityApi>;
+  organizationApi?: ReturnType<typeof createOrganizationApi>;
   session: SessionState;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [profile, setProfile] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [roleAssignments, setRoleAssignments] = useState<any[]>([]);
-  const [links, setLinks] = useState<any[]>([]);
-  const [linkedStudents, setLinkedStudents] = useState<any[]>([]);
-  const [profileDraft, setProfileDraft] = useState({ firstName: '', lastName: '', userType: 'Teacher', email: '' });
-  const [newRole, setNewRole] = useState({ userProfileId: '', schoolId: '', roleCode: 'Teacher' });
-  const [newLink, setNewLink] = useState({ parentUserProfileId: '', studentUserProfileId: '', relationship: 'Parent' });
+  const [success, setSuccess] = useState('');
+  const [summary, setSummary] = useState<MyProfileSummary | null>(null);
+  const [linkedStudents, setLinkedStudents] = useState<UserProfile[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
+  const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
 
-  const isPlatformAdmin = session.roles.includes('PlatformAdministrator');
-  const isSchoolAdmin = session.roles.includes('SchoolAdministrator');
+  const isPlatformAdministrator = session.roles.includes('PlatformAdministrator');
+  const isSchoolAdministrator = session.roles.includes('SchoolAdministrator');
+  const isTeacher = session.roles.includes('Teacher');
   const isParent = session.roles.includes('Parent');
-  const isStudent = session.roles.includes('Student');
-  const canAdminIdentity = isPlatformAdmin || isSchoolAdmin;
+  const isStudentOnly = session.roles.includes('Student')
+    && !session.roles.includes('Teacher')
+    && !session.roles.includes('Parent')
+    && !session.roles.includes('SchoolAdministrator')
+    && !session.roles.includes('PlatformAdministrator');
+
+  const canAdminProfiles = summary?.isPlatformAdministrator || summary?.isSchoolAdministrator || false;
+
+  const selfEditRules = useMemo(() => ({
+    canEditName: !isStudentOnly,
+    canEditPositionTitle: isPlatformAdministrator || isSchoolAdministrator || isTeacher,
+    canEditPublicContactNote: isTeacher,
+    canEditPreferredContactNote: isParent
+  }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
+
+  const selectedSchoolId = session.schoolIds[0] ?? '';
+
+  const mapToDraft = (profile: UserProfile): ProfileDraft => ({
+    firstName: profile.firstName ?? '',
+    lastName: profile.lastName ?? '',
+    preferredDisplayName: profile.preferredDisplayName ?? '',
+    preferredLanguage: profile.preferredLanguage ?? '',
+    phoneNumber: profile.phoneNumber ?? '',
+    positionTitle: profile.positionTitle ?? '',
+    publicContactNote: profile.publicContactNote ?? '',
+    preferredContactNote: profile.preferredContactNote ?? ''
+  });
 
   const load = () => {
     setLoading(true);
     setError('');
+    setSuccess('');
 
-    if (canAdminIdentity) {
-      void Promise.all([api.myProfile(), api.userProfiles(), api.roleAssignments(), api.parentStudentLinks()])
-        .then(([myProfile, allUsers, roles, parentLinks]) => {
-          setProfile(myProfile);
-          setUsers(allUsers);
-          setRoleAssignments(roles);
-          setLinks(parentLinks);
-          setProfileDraft({
-            firstName: myProfile.firstName ?? '',
-            lastName: myProfile.lastName ?? '',
-            userType: myProfile.userType ?? 'Teacher',
-            email: myProfile.email ?? ''
-          });
-        })
-        .catch((e: Error) => setError(e.message))
-        .finally(() => setLoading(false));
-      return;
-    }
+    void api.myProfileSummary()
+      .then(async (result) => {
+        setSummary(result);
+        setSelfDraft(mapToDraft(result.profile));
 
-    if (isParent) {
-      void Promise.all([api.myProfile(), api.myParentStudentLinks(), api.linkedStudents()])
-        .then(([myProfile, parentLinks, students]) => {
-          setProfile(myProfile);
-          setLinks(parentLinks);
-          setLinkedStudents(students);
-          setProfileDraft({
-            firstName: myProfile.firstName ?? '',
-            lastName: myProfile.lastName ?? '',
-            userType: myProfile.userType ?? 'Parent',
-            email: myProfile.email ?? ''
-          });
-        })
-        .catch((e: Error) => setError(e.message))
-        .finally(() => setLoading(false));
-      return;
-    }
+        const tasks: Promise<unknown>[] = [];
 
-    if (isStudent) {
-      void api.studentContext()
-        .then((studentContext) => {
-          setProfile(studentContext.profile);
-          setRoleAssignments(studentContext.roleAssignments);
-          setProfileDraft({
-            firstName: studentContext.profile.firstName ?? '',
-            lastName: studentContext.profile.lastName ?? '',
-            userType: studentContext.profile.userType ?? 'Student',
-            email: studentContext.profile.email ?? ''
-          });
-        })
-        .catch((e: Error) => setError(e.message))
-        .finally(() => setLoading(false));
-      return;
-    }
+        if (isParent) {
+          tasks.push(api.linkedStudents().then(setLinkedStudents));
+        }
 
-    void Promise.all([api.myProfile(), api.myRoleAssignments(session.schoolIds[0])])
-      .then(([myProfile, myRoles]) => {
-        setProfile(myProfile);
-        setRoleAssignments(myRoles);
-        setProfileDraft({
-          firstName: myProfile.firstName ?? '',
-          lastName: myProfile.lastName ?? '',
-          userType: myProfile.userType ?? 'Teacher',
-          email: myProfile.email ?? ''
-        });
+        if (isTeacher && selectedSchoolId && organizationApi) {
+          tasks.push(organizationApi.myTeacherAssignments(selectedSchoolId).then(setTeacherAssignments));
+        }
+
+        if (result.isPlatformAdministrator || result.isSchoolAdministrator) {
+          tasks.push(api.userProfiles().then(setUsers));
+        } else {
+          setUsers([]);
+          setSelectedUserId('');
+          setAdminDraft(EMPTY_DRAFT);
+        }
+
+        await Promise.all(tasks);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [api, session.accessToken]);
+  useEffect(load, [api, organizationApi, session.accessToken]);
 
-  const saveProfile = () => {
+  const saveSelfProfile = () => {
     setError('');
-    void api.updateMyProfile(profileDraft).then(load).catch((e: Error) => setError(e.message));
+    setSuccess('');
+
+    const payload: ProfileDraft = {
+      ...selfDraft,
+      firstName: selfEditRules.canEditName ? selfDraft.firstName : (summary?.profile.firstName ?? ''),
+      lastName: selfEditRules.canEditName ? selfDraft.lastName : (summary?.profile.lastName ?? ''),
+      positionTitle: selfEditRules.canEditPositionTitle ? selfDraft.positionTitle : (summary?.profile.positionTitle ?? ''),
+      publicContactNote: selfEditRules.canEditPublicContactNote ? selfDraft.publicContactNote : (summary?.profile.publicContactNote ?? ''),
+      preferredContactNote: selfEditRules.canEditPreferredContactNote ? selfDraft.preferredContactNote : (summary?.profile.preferredContactNote ?? '')
+    };
+
+    void api.updateMyProfile(payload)
+      .then(() => {
+        setSuccess('Profile saved.');
+        load();
+      })
+      .catch((e: Error) => setError(e.message));
   };
 
-  const assignRole = () => {
+  const loadAdminTarget = (userId: string) => {
+    setSelectedUserId(userId);
+    if (!userId) {
+      setAdminDraft(EMPTY_DRAFT);
+      return;
+    }
+
     setError('');
-    void api.assignRole(newRole).then(() => {
-      setNewRole({ userProfileId: '', schoolId: '', roleCode: 'Teacher' });
-      load();
-    }).catch((e: Error) => setError(e.message));
+    void api.userProfile(userId)
+      .then((profile) => setAdminDraft(mapToDraft(profile)))
+      .catch((e: Error) => setError(e.message));
   };
 
-  const createLink = () => {
+  const saveAdminProfile = () => {
+    if (!selectedUserId) return;
+
     setError('');
-    void api.createParentStudentLink(newLink).then(() => {
-      setNewLink({ parentUserProfileId: '', studentUserProfileId: '', relationship: 'Parent' });
-      load();
-    }).catch((e: Error) => setError(e.message));
+    setSuccess('');
+    const payload = isPlatformAdministrator
+      ? adminDraft
+      : { ...adminDraft, publicContactNote: '', preferredContactNote: '' };
+
+    void api.updateUserProfile(selectedUserId, payload)
+      .then(() => {
+        setSuccess('Administrative profile edit saved.');
+        load();
+      })
+      .catch((e: Error) => setError(e.message));
   };
 
-  if (loading) return <LoadingState text="Loading identity capabilities..." />;
+  if (loading) return <LoadingState text="Loading profile..." />;
   if (error) return <ErrorState text={error} />;
+  if (!summary) return <EmptyState text="Profile is not available." />;
 
   return (
-    <section className="space-y-3">
-      <SectionHeader title="Identity Parity" description="Frontend parity for existing identity backend capabilities." />
+    <section className="space-y-4">
+      <SectionHeader
+        title="My Profile"
+        description="Business profile self-service with strict read-only boundaries for identity assignments and links."
+      />
 
-      {profile ? (
-        <Card>
-          <p className="font-semibold text-sm">My profile</p>
-          <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input className="sk-input" placeholder="First name" value={profileDraft.firstName} onChange={(e) => setProfileDraft((v) => ({ ...v, firstName: e.target.value }))} />
-            <input className="sk-input" placeholder="Last name" value={profileDraft.lastName} onChange={(e) => setProfileDraft((v) => ({ ...v, lastName: e.target.value }))} />
-            <input className="sk-input" placeholder="Email" value={profileDraft.email} onChange={(e) => setProfileDraft((v) => ({ ...v, email: e.target.value }))} />
-            <input className="sk-input" placeholder="User type" value={profileDraft.userType} onChange={(e) => setProfileDraft((v) => ({ ...v, userType: e.target.value }))} />
-          </div>
-          <div className="mt-2">
-            <button className="sk-btn sk-btn-primary" onClick={saveProfile} type="button">Save my profile</button>
-          </div>
+      {success ? (
+        <Card className="border-emerald-200 bg-emerald-50 text-emerald-900">
+          <p className="text-sm font-medium">{success}</p>
         </Card>
-      ) : (
-        <EmptyState text="Identity profile is not available in current role scope." />
-      )}
-
-      {canAdminIdentity ? (
-        <>
-          <WidgetGrid>
-            <Card><p className="sk-metric-label">User profiles</p><p className="sk-metric-value">{users.length}</p></Card>
-            <Card><p className="sk-metric-label">Role assignments</p><p className="sk-metric-value">{roleAssignments.length}</p></Card>
-            <Card><p className="sk-metric-label">Parent-student links</p><p className="sk-metric-value">{links.length}</p></Card>
-          </WidgetGrid>
-
-          <Card>
-            <p className="font-semibold text-sm">Assign role</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="User profile id" value={newRole.userProfileId} onChange={(e) => setNewRole((v) => ({ ...v, userProfileId: e.target.value }))} />
-              <input className="sk-input" placeholder="School id" value={newRole.schoolId} onChange={(e) => setNewRole((v) => ({ ...v, schoolId: e.target.value }))} />
-              <input className="sk-input" placeholder="Role code" value={newRole.roleCode} onChange={(e) => setNewRole((v) => ({ ...v, roleCode: e.target.value }))} />
-            </div>
-            <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={assignRole} type="button">Create role assignment</button></div>
-          </Card>
-
-          <Card>
-            <p className="font-semibold text-sm">Create parent-student link</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="Parent user profile id" value={newLink.parentUserProfileId} onChange={(e) => setNewLink((v) => ({ ...v, parentUserProfileId: e.target.value }))} />
-              <input className="sk-input" placeholder="Student user profile id" value={newLink.studentUserProfileId} onChange={(e) => setNewLink((v) => ({ ...v, studentUserProfileId: e.target.value }))} />
-              <input className="sk-input" placeholder="Relationship" value={newLink.relationship} onChange={(e) => setNewLink((v) => ({ ...v, relationship: e.target.value }))} />
-            </div>
-            <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={createLink} type="button">Create link</button></div>
-          </Card>
-        </>
       ) : null}
 
-      {roleAssignments.length > 0 ? (
+      <WidgetGrid>
         <Card>
-          <p className="font-semibold text-sm">Role assignments</p>
-          <ul className="sk-list">
-            {roleAssignments.map((assignment) => (
-              <li key={assignment.id} className="sk-list-item">
-                <span>{assignment.roleCode} | {assignment.schoolId}</span>
-                {canAdminIdentity ? (
-                  <button className="sk-btn sk-btn-secondary" onClick={() => void api.deleteRoleAssignment(assignment.id).then(load).catch((e: Error) => setError(e.message))} type="button">
-                    Remove
-                  </button>
-                ) : <StatusBadge label="Read" tone="info" />}
-              </li>
-            ))}
-          </ul>
+          <p className="sk-metric-label">Role</p>
+          <p className="sk-metric-value">{session.roles.join(', ')}</p>
         </Card>
-      ) : <EmptyState text="No role assignments in current scope." />}
-
-      {links.length > 0 ? (
         <Card>
-          <p className="font-semibold text-sm">Parent-student links</p>
-          <ul className="sk-list">
-            {links.map((link) => (
-              <li key={link.id} className="sk-list-item">
-                <span>{link.parentUserProfileId} {'->'} {link.studentUserProfileId} ({link.relationship})</span>
-                {canAdminIdentity ? (
-                  <div className="flex gap-2">
-                    <button
-                      className="sk-btn sk-btn-secondary"
-                      onClick={() => void api.overrideParentStudentLink(link.id, { relationship: link.relationship, overrideReason: 'Identity parity correction' }).then(load).catch((e: Error) => setError(e.message))}
-                      type="button"
-                    >
-                      Override
-                    </button>
-                    <button className="sk-btn sk-btn-secondary" onClick={() => void api.deleteParentStudentLink(link.id).then(load).catch((e: Error) => setError(e.message))} type="button">Delete</button>
-                  </div>
-                ) : <StatusBadge label="Read" tone="info" />}
-              </li>
-            ))}
-          </ul>
+          <p className="sk-metric-label">School context</p>
+          <p className="sk-metric-value">{session.schoolType}</p>
+        </Card>
+        <Card>
+          <p className="sk-metric-label">Assigned schools</p>
+          <p className="sk-metric-value">{summary.schoolIds.length}</p>
+        </Card>
+      </WidgetGrid>
+
+      <Card>
+        <p className="font-semibold text-sm">Self profile edit</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          <Field label="First name" value={selfDraft.firstName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, firstName: value }))} />
+          <Field label="Last name" value={selfDraft.lastName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, lastName: value }))} />
+          <Field label="Preferred display name" value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+          <LanguageField label="Preferred language" value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+          <Field label="Phone number" value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+          <Field label="Position title" value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
+          <Field label="Public contact note" value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+          <Field label="Preferred contact note" value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button className="sk-btn sk-btn-primary" onClick={saveSelfProfile} type="button">Save my profile</button>
+          <StatusBadge label="Email / Username / Role assignments are read-only" tone="info" />
+        </div>
+      </Card>
+
+      <Card>
+        <p className="font-semibold text-sm">Read-only account and assignment scope</p>
+        <ul className="mt-2 space-y-1 text-sm text-slate-700">
+          <li>UserId: {summary.profile.id}</li>
+          <li>Email (login): {summary.profile.email}</li>
+          <li>Main role type: {summary.profile.userType}</li>
+          <li>Account status: {summary.profile.isActive ? 'Active' : 'Inactive'}</li>
+        </ul>
+      </Card>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card>
+          <p className="font-semibold text-sm">Role assignments (read-only)</p>
+          {summary.roleAssignments.length === 0 ? <EmptyState text="No role assignments." /> : (
+            <ul className="sk-list">
+              {summary.roleAssignments.map((assignment) => (
+                <li key={assignment.id} className="sk-list-item">{assignment.roleCode} | {assignment.schoolId}</li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card>
+          <p className="font-semibold text-sm">Parent-student links (read-only)</p>
+          {summary.parentStudentLinks.length === 0 ? <EmptyState text="No parent-student links." /> : (
+            <ul className="sk-list">
+              {summary.parentStudentLinks.map((link) => (
+                <li key={link.id} className="sk-list-item">{link.parentUserProfileId} {'->'} {link.studentUserProfileId} ({link.relationship})</li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {isTeacher ? (
+        <Card>
+          <p className="font-semibold text-sm">Teacher assignments (read-only)</p>
+          {teacherAssignments.length === 0 ? <EmptyState text="No teacher assignments in selected school context." /> : (
+            <ul className="sk-list">
+              {teacherAssignments.map((assignment) => (
+                <li key={assignment.id} className="sk-list-item">{assignment.scope} | class: {assignment.classRoomId ?? '-'} | group: {assignment.teachingGroupId ?? '-'} | subject: {assignment.subjectId ?? '-'}</li>
+              ))}
+            </ul>
+          )}
         </Card>
       ) : null}
 
       {isParent ? (
         <Card>
-          <p className="font-semibold text-sm">Linked students (parent scope)</p>
-          {linkedStudents.length === 0 ? <EmptyState text="No linked students available." /> : (
+          <p className="font-semibold text-sm">Linked students summary</p>
+          {linkedStudents.length === 0 ? <EmptyState text="No linked students." /> : (
             <ul className="sk-list">
               {linkedStudents.map((student) => (
                 <li key={student.id} className="sk-list-item">{student.firstName} {student.lastName} ({student.email})</li>
@@ -234,19 +267,93 @@ export function IdentityParityPage({
         </Card>
       ) : null}
 
-      {canAdminIdentity && users.length > 0 ? (
+      {canAdminProfiles ? (
         <Card>
-          <p className="font-semibold text-sm">User profiles list</p>
-          <ul className="sk-list">
-            {users.slice(0, 20).map((user) => (
-              <li key={user.id} className="sk-list-item">
-                <span>{user.firstName} {user.lastName} ({user.userType})</span>
-                <StatusBadge label={user.isActive ? 'Active' : 'Inactive'} tone={user.isActive ? 'good' : 'warn'} />
-              </li>
-            ))}
-          </ul>
+          <p className="font-semibold text-sm">Administrative profile edit</p>
+          <p className="mt-1 text-xs text-slate-600">Role assignments remain in dedicated role-management boundary and are not edited here.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <label className="sk-label" htmlFor="admin-user">User profile</label>
+            <select id="admin-user" className="sk-input" value={selectedUserId} onChange={(e) => loadAdminTarget(e.target.value)}>
+              <option value="">Select user</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.firstName} {user.lastName} ({user.userType})</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedUserId ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <Field label="First name" value={adminDraft.firstName} onChange={(value) => setAdminDraft((v) => ({ ...v, firstName: value }))} />
+              <Field label="Last name" value={adminDraft.lastName} onChange={(value) => setAdminDraft((v) => ({ ...v, lastName: value }))} />
+              <Field label="Preferred display name" value={adminDraft.preferredDisplayName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+              <LanguageField label="Preferred language" value={adminDraft.preferredLanguage ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredLanguage: value }))} />
+              <Field label="Phone number" value={adminDraft.phoneNumber ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, phoneNumber: value }))} />
+              <Field label="Position title" value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
+              <Field label="Public contact note" value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
+              <Field label="Preferred contact note" value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
+            </div>
+          ) : null}
+
+          <div className="mt-3">
+            <button className="sk-btn sk-btn-primary" disabled={!selectedUserId} onClick={saveAdminProfile} type="button">Save administrative edit</button>
+          </div>
         </Card>
       ) : null}
     </section>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  disabled = false
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="sk-label">{label}</label>
+      <input
+        className="sk-input"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function LanguageField({
+  label,
+  value,
+  onChange,
+  disabled = false
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="sk-label">{label}</label>
+      <select
+        className="sk-input"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Select language</option>
+        {supportedLocales.map((locale) => (
+          <option key={locale} value={locale}>
+            {localeLabels[locale]} ({locale.toUpperCase()})
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

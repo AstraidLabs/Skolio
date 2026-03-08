@@ -16,11 +16,32 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
         if (request.UserProfileId is Guid profileId)
         {
             profile = await readStore.GetUserProfileAsync(profileId, cancellationToken) ?? throw new IdentityDomainException("User profile was not found.");
-            profile.Update(request.FirstName, request.LastName, request.UserType, request.Email);
+            profile.Update(
+                request.FirstName,
+                request.LastName,
+                request.UserType,
+                request.Email,
+                request.PreferredDisplayName,
+                request.PreferredLanguage,
+                request.PhoneNumber,
+                request.PositionTitle,
+                request.PublicContactNote,
+                request.PreferredContactNote);
         }
         else
         {
-            profile = UserProfile.Create(Guid.NewGuid(), request.FirstName, request.LastName, request.UserType, request.Email);
+            profile = UserProfile.Create(
+                Guid.NewGuid(),
+                request.FirstName,
+                request.LastName,
+                request.UserType,
+                request.Email,
+                request.PreferredDisplayName,
+                request.PreferredLanguage,
+                request.PhoneNumber,
+                request.PositionTitle,
+                request.PublicContactNote,
+                request.PreferredContactNote);
         }
 
         await commandStore.UpsertUserProfileAsync(profile, cancellationToken);

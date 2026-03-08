@@ -4,9 +4,9 @@ import { localeLabels, supportedLocales, useI18n } from './i18n';
 import { createAdministrationApi } from './administration/api';
 import { createAcademicsApi } from './academics/api';
 import { createCommunicationApi } from './communication/api';
-import { createIdentityApi } from './identity/api';
+import { createIdentityApi, type MyProfileSummary } from './identity/api';
 import { createOrganizationApi } from './organization/api';
-import { clearPkce, clearSession, loadPkce, loadSession, normalizeRoles, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
+import { clearPkce, clearSession, extractRolesFromClaims, loadPkce, loadSession, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
@@ -18,12 +18,35 @@ import { CommunicationParityPage } from './communication/CommunicationParityPage
 import { AdministrationParityPage } from './administration/AdministrationParityPage';
 
 type RouterProps = { config: SkolioBootstrapConfig };
-type AppRoute = '/dashboard' | '/organization' | '/academics' | '/communication' | '/administration' | '/identity' | '/login';
+type AppRoute =
+  | '/dashboard'
+  | '/organization'
+  | '/organization/schools'
+  | '/organization/school-years'
+  | '/organization/grade-levels'
+  | '/organization/classes'
+  | '/organization/groups'
+  | '/organization/subjects'
+  | '/organization/fields-of-study'
+  | '/organization/teacher-assignments'
+  | '/academics'
+  | '/academics/timetable'
+  | '/academics/lesson-records'
+  | '/academics/attendance'
+  | '/academics/excuses'
+  | '/academics/grades'
+  | '/academics/homework'
+  | '/academics/daily-reports'
+  | '/communication'
+  | '/administration'
+  | '/identity'
+  | '/login';
 
 export function RouterShell({ config }: RouterProps) {
   const { t } = useI18n();
   const [session, setSession] = useState<SessionState | null>(() => loadSession());
   const [route, setRoute] = useState(window.location.pathname as AppRoute | '/auth/callback');
+  const [profileSummary, setProfileSummary] = useState<MyProfileSummary | null>(null);
 
   useEffect(() => {
     const onPop = () => setRoute(window.location.pathname as AppRoute);
@@ -46,6 +69,17 @@ export function RouterShell({ config }: RouterProps) {
     identity: createIdentityApi(http)
   }), [http]);
 
+  useEffect(() => {
+    if (!session) {
+      setProfileSummary(null);
+      return;
+    }
+
+    void apis.identity.myProfileSummary()
+      .then(setProfileSummary)
+      .catch(() => setProfileSummary(null));
+  }, [apis.identity, session?.accessToken]);
+
   if (route === '/login') {
     return <IdentityLoginPage config={config} />;
   }
@@ -65,21 +99,40 @@ export function RouterShell({ config }: RouterProps) {
 
   const nav = navigationFor(session.roles, session.schoolType);
   const active = nav.includes(route as AppRoute) ? (route as AppRoute) : '/dashboard';
+  const profileName = (profileSummary?.profile.preferredDisplayName?.trim()
+    || `${profileSummary?.profile.firstName ?? ''} ${profileSummary?.profile.lastName ?? ''}`.trim()
+    || session.subject);
+  const profileContext = `${session.roles.join(', ') || 'User'} | ${session.schoolType}`;
 
   return (
     <AppLayoutShell
       session={session}
       nav={nav}
       active={active}
-      onNavigate={setRoute}
+      onNavigate={(nextRoute) => navigateTo(nextRoute, setRoute)}
       onLogout={() => beginLogout(config, setSession)}
+      profileDisplayName={profileName}
+      profileContext={profileContext}
       pageTitle={labelForRoute(active, t)}
-      pageSubtitle="Role-based navigation and school-type-aware application shell."
+      pageSubtitle={t('shellSubtitle')}
       footerLanguageSwitcher={<LanguageSwitcher />}
     >
-      {active === '/dashboard' && <DashboardPage session={session} apis={apis} />}
-      {active === '/organization' && <OrganizationParityPage api={apis.organization} session={session} />}
-      {active === '/academics' && <AcademicsParityPage api={apis.academics} administrationApi={apis.administration} session={session} />}
+      {active === '/dashboard' && <DashboardPage session={session} profileSummary={profileSummary} apis={apis} />}
+      {active.startsWith('/organization') && (
+        <OrganizationParityPage
+          api={apis.organization}
+          session={session}
+          initialView={organizationViewForRoute(active)}
+        />
+      )}
+      {active.startsWith('/academics') && (
+        <AcademicsParityPage
+          api={apis.academics}
+          administrationApi={apis.administration}
+          session={session}
+          initialView={academicsViewForRoute(active)}
+        />
+      )}
       {active === '/communication' && <CommunicationParityPage api={apis.communication} session={session} />}
       {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
@@ -308,7 +361,21 @@ function isStudent(session: SessionState) {
   return session.roles.includes('Student') && !session.roles.includes('SchoolAdministrator') && !session.roles.includes('PlatformAdministrator') && !session.roles.includes('Teacher') && !session.roles.includes('Parent');
 }
 
-function DashboardPage({ session, apis }: { session: SessionState; apis: { organization: ReturnType<typeof createOrganizationApi>; identity: ReturnType<typeof createIdentityApi>; administration: ReturnType<typeof createAdministrationApi>; communication: ReturnType<typeof createCommunicationApi>; academics: ReturnType<typeof createAcademicsApi> } }) {
+function DashboardPage({
+  session,
+  profileSummary,
+  apis
+}: {
+  session: SessionState;
+  profileSummary: MyProfileSummary | null;
+  apis: {
+    organization: ReturnType<typeof createOrganizationApi>;
+    identity: ReturnType<typeof createIdentityApi>;
+    administration: ReturnType<typeof createAdministrationApi>;
+    communication: ReturnType<typeof createCommunicationApi>;
+    academics: ReturnType<typeof createAcademicsApi>;
+  };
+}) {
   const { t } = useI18n();
   const role = session.roles[0] ?? t('roleUser');
   const summary = session.schoolType === 'Kindergarten'
@@ -323,8 +390,10 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
   const [teacherSnapshot, setTeacherSnapshot] = useState<{ assignments: number; nextLessons: number; pendingAttendance: number; pendingLessonRecords: number; pendingHomework: number; notifications: number; latestAnnouncement: string; recentTeacherAudit: number }>({ assignments: 0, nextLessons: 0, pendingAttendance: 0, pendingLessonRecords: 0, pendingHomework: 0, notifications: 0, latestAnnouncement: '-', recentTeacherAudit: 0 });
   const [studentSnapshot, setStudentSnapshot] = useState<{ nearestSchedule: number; attendanceRecords: number; grades: number; homework: number; dailyReports: number; notifications: number; latestAnnouncement: string; lifecycleHints: number; kindergartenLimited: boolean }>({ nearestSchedule: 0, attendanceRecords: 0, grades: 0, homework: 0, dailyReports: 0, notifications: 0, latestAnnouncement: '-', lifecycleHints: 0, kindergartenLimited: false });
 
+  const platformAdminAuthorized = profileSummary?.isPlatformAdministrator ?? false;
+
   useEffect(() => {
-    if (!isPlatformAdministrator(session)) return;
+    if (!platformAdminAuthorized) return;
 
     setLoading(true);
     setError('');
@@ -350,7 +419,7 @@ function DashboardPage({ session, apis }: { session: SessionState; apis: { organ
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [apis, session]);
+  }, [apis, platformAdminAuthorized]);
 
   useEffect(() => {
     if (!isTeacher(session)) return;
@@ -882,30 +951,139 @@ function selectedSchoolId(session: SessionState) {
   if (session.schoolIds.length > 0) return session.schoolIds[0];
   return '00000000-0000-0000-0000-000000000000';
 }
+
+function organizationViewForRoute(route: AppRoute) {
+  if (route === '/organization/schools') return 'schools' as const;
+  if (route === '/organization/school-years') return 'school-years' as const;
+  if (route === '/organization/grade-levels') return 'grade-levels' as const;
+  if (route === '/organization/classes') return 'class-rooms' as const;
+  if (route === '/organization/groups') return 'teaching-groups' as const;
+  if (route === '/organization/subjects') return 'subjects' as const;
+  if (route === '/organization/fields-of-study') return 'secondary-fields' as const;
+  if (route === '/organization/teacher-assignments') return 'teacher-assignments' as const;
+  return 'overview' as const;
+}
+
+function academicsViewForRoute(route: AppRoute) {
+  if (route === '/academics/timetable') return 'timetable' as const;
+  if (route === '/academics/lesson-records') return 'lesson-records' as const;
+  if (route === '/academics/attendance') return 'attendance' as const;
+  if (route === '/academics/excuses') return 'excuses' as const;
+  if (route === '/academics/grades') return 'grades' as const;
+  if (route === '/academics/homework') return 'homework' as const;
+  if (route === '/academics/daily-reports') return 'daily-reports' as const;
+  return 'overview' as const;
+}
+
 function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
   if (roles.includes('PlatformAdministrator')) {
-    return ['/dashboard', '/organization', '/identity', '/administration', '/communication', '/academics'];
+    return [
+      '/dashboard',
+      '/communication',
+      '/identity',
+      '/administration',
+      '/organization',
+      '/organization/schools',
+      '/organization/school-years',
+      '/organization/grade-levels',
+      '/organization/classes',
+      '/organization/groups',
+      '/organization/subjects',
+      '/organization/teacher-assignments',
+      ...(schoolType === 'SecondarySchool' ? (['/organization/fields-of-study'] as const) : []),
+      '/academics',
+      '/academics/timetable',
+      '/academics/lesson-records',
+      '/academics/attendance',
+      '/academics/excuses',
+      '/academics/grades',
+      '/academics/homework',
+      '/academics/daily-reports'
+    ];
   }
 
   if (roles.includes('Parent')) {
-    return ['/dashboard', '/identity', '/organization', '/academics', '/communication'];
+    return [
+      '/dashboard',
+      '/identity',
+      '/communication',
+      '/academics',
+      '/academics/attendance',
+      '/academics/excuses',
+      '/academics/grades',
+      '/academics/homework',
+      '/academics/daily-reports'
+    ];
   }
 
   if (roles.includes('Student')) {
-    return ['/dashboard', '/identity', '/organization', '/academics', '/communication'];
+    return [
+      '/dashboard',
+      '/identity',
+      '/communication',
+      '/academics',
+      '/academics/timetable',
+      '/academics/attendance',
+      '/academics/grades',
+      '/academics/homework',
+      '/academics/daily-reports'
+    ];
   }
 
   const nav: AppRoute[] = ['/dashboard', '/identity', '/communication'];
-  if (roles.some((x) => x === 'SchoolAdministrator' || x === 'Teacher')) nav.push('/organization', '/academics');
-  if (roles.some((x) => x === 'SchoolAdministrator')) nav.push('/administration');
-  if (schoolType === 'Kindergarten' && !nav.includes('/academics')) nav.push('/academics');
+  if (roles.some((x) => x === 'SchoolAdministrator' || x === 'Teacher')) {
+    nav.push(
+      '/organization',
+      '/organization/school-years',
+      '/organization/classes',
+      '/organization/groups',
+      '/organization/subjects',
+      '/organization/teacher-assignments',
+      '/academics',
+      '/academics/timetable',
+      '/academics/lesson-records',
+      '/academics/attendance',
+      '/academics/excuses',
+      '/academics/grades',
+      '/academics/homework',
+      '/academics/daily-reports'
+    );
+  }
+  if (roles.includes('SchoolAdministrator')) {
+    nav.push('/organization/grade-levels');
+    if (schoolType === 'SecondarySchool') {
+      nav.push('/organization/fields-of-study');
+    }
+    nav.push('/administration');
+  }
+  if (roles.includes('Teacher')) {
+    nav.push('/organization/groups', '/organization/subjects');
+  }
+  if (schoolType === 'Kindergarten' && !nav.includes('/academics')) {
+    nav.push('/academics', '/academics/attendance', '/academics/daily-reports');
+  }
   return nav;
 }
 
 function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/dashboard') return t('routeDashboard');
   if (route === '/organization') return t('routeOrganization');
+  if (route === '/organization/schools') return `${t('routeOrganization')} / ${t('navSchools')}`;
+  if (route === '/organization/school-years') return `${t('routeOrganization')} / ${t('navSchoolYears')}`;
+  if (route === '/organization/grade-levels') return `${t('routeOrganization')} / ${t('navGradeLevels')}`;
+  if (route === '/organization/classes') return `${t('routeOrganization')} / ${t('navClasses')}`;
+  if (route === '/organization/groups') return `${t('routeOrganization')} / ${t('navGroups')}`;
+  if (route === '/organization/subjects') return `${t('routeOrganization')} / ${t('navSubjects')}`;
+  if (route === '/organization/fields-of-study') return `${t('routeOrganization')} / ${t('navFieldsOfStudy')}`;
+  if (route === '/organization/teacher-assignments') return `${t('routeOrganization')} / ${t('navTeacherAssignments')}`;
   if (route === '/academics') return t('routeAcademics');
+  if (route === '/academics/timetable') return `${t('routeAcademics')} / ${t('navTimetable')}`;
+  if (route === '/academics/lesson-records') return `${t('routeAcademics')} / ${t('navLessonRecords')}`;
+  if (route === '/academics/attendance') return `${t('routeAcademics')} / ${t('navAttendance')}`;
+  if (route === '/academics/excuses') return `${t('routeAcademics')} / ${t('navExcuses')}`;
+  if (route === '/academics/grades') return `${t('routeAcademics')} / ${t('navGrades')}`;
+  if (route === '/academics/homework') return `${t('routeAcademics')} / ${t('navHomework')}`;
+  if (route === '/academics/daily-reports') return `${t('routeAcademics')} / ${t('navDailyReports')}`;
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
   if (route === '/identity') return t('routeIdentity');
@@ -945,7 +1123,7 @@ async function completeAuthorizationCodeFlow(config: SkolioBootstrapConfig, t: R
     accessToken: token.access_token,
     expiresAtUtc: Date.now() + token.expires_in * 1000,
     subject: claims.sub ?? 'unknown',
-    roles: normalizeRoles(claims.role),
+    roles: extractRolesFromClaims(claims),
     schoolType: (claims['school_type'] as SchoolType) ?? 'ElementarySchool',
     schoolIds: Array.isArray(claims['school_id']) ? claims['school_id'] as string[] : claims['school_id'] ? [claims['school_id'] as string] : [],
     linkedStudentIds: Array.isArray(claims['linked_student_id']) ? claims['linked_student_id'] as string[] : claims['linked_student_id'] ? [claims['linked_student_id'] as string] : []
@@ -999,6 +1177,7 @@ async function beginLogin(config: SkolioBootstrapConfig) {
 
   window.location.href = `${config.identityAuthority}/connect/authorize?${params.toString()}`;
 }
+
 
 
 

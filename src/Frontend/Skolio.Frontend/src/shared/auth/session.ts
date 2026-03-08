@@ -47,6 +47,27 @@ export function normalizeRoles(roleClaim: string | string[] | undefined): string
   return Array.isArray(roleClaim) ? roleClaim : [roleClaim];
 }
 
+export function extractRolesFromClaims(claims: Record<string, string | string[]>): string[] {
+  const roleKeys = [
+    'role',
+    'roles',
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'
+  ];
+
+  const roleSet = new Set<string>();
+  for (const key of roleKeys) {
+    const normalized = normalizeRoles(claims[key]);
+    for (const role of normalized) {
+      if (role && role.trim().length > 0) {
+        roleSet.add(role.trim());
+      }
+    }
+  }
+
+  return [...roleSet];
+}
+
 export function parseJwt(token: string): Record<string, string | string[]> {
   const [, payload] = token.split('.');
   const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));

@@ -5,14 +5,26 @@ import type { createAdministrationApi } from '../administration/api';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 
+type AcademicsView =
+  | 'overview'
+  | 'timetable'
+  | 'lesson-records'
+  | 'attendance'
+  | 'excuses'
+  | 'grades'
+  | 'homework'
+  | 'daily-reports';
+
 export function AcademicsParityPage({
   api,
   administrationApi,
-  session
+  session,
+  initialView = 'overview'
 }: {
   api: ReturnType<typeof createAcademicsApi>;
   administrationApi: ReturnType<typeof createAdministrationApi>;
   session: SessionState;
+  initialView?: AcademicsView;
 }) {
   const schoolId = session.schoolIds[0] ?? '00000000-0000-0000-0000-000000000000';
   const studentId = session.roles.includes('Parent') ? (session.linkedStudentIds[0] ?? '') : (session.roles.includes('Student') ? session.subject : '');
@@ -23,6 +35,7 @@ export function AcademicsParityPage({
   const isStudent = session.roles.includes('Student') && !isTeacher && !isSchoolAdmin && !isPlatformAdmin;
   const canWritePedagogy = isTeacher || isSchoolAdmin || isPlatformAdmin;
   const canParentExcuse = isParent;
+  const [activeView, setActiveView] = useState<AcademicsView>(initialView);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,6 +85,7 @@ export function AcademicsParityPage({
   };
 
   useEffect(load, [session.accessToken, newGrade.subjectId]);
+  useEffect(() => setActiveView(initialView), [initialView]);
 
   const onCreateTimetable = () => void api.createTimetableEntry({ id: '', schoolId, ...newTimetable }).then(load).catch((e: Error) => setError(e.message));
   const onCreateLesson = () => void api.createLesson({ id: '', ...newLesson }).then(load).catch((e: Error) => setError(e.message));
@@ -84,13 +98,22 @@ export function AcademicsParityPage({
   if (loading) return <LoadingState text="Loading academics capabilities..." />;
   if (error) return <ErrorState text={error} />;
 
+  const show = (view: AcademicsView) => activeView === 'overview' || activeView === view;
+  const activeViewTitle = activeView === 'overview'
+    ? 'Academics Overview'
+    : activeView === 'lesson-records'
+      ? 'Lesson Records'
+      : activeView === 'daily-reports'
+        ? 'Daily Reports'
+        : activeView.charAt(0).toUpperCase() + activeView.slice(1);
+
   return (
     <section className="space-y-3">
-      <SectionHeader title="Academics Parity" description="Frontend flows mapped only to existing academics backend endpoints." action={<button className="sk-btn sk-btn-secondary" onClick={load} type="button">Reload</button>} />
+      <SectionHeader title={activeViewTitle} description="Frontend flows mapped only to existing academics backend endpoints." action={<button className="sk-btn sk-btn-secondary" onClick={load} type="button">Reload</button>} />
 
       {(canWritePedagogy || canParentExcuse) ? (
         <div className="grid gap-3 lg:grid-cols-2">
-          {canWritePedagogy ? (
+          {canWritePedagogy && show('timetable') ? (
             <>
               <Card>
                 <p className="font-semibold text-sm">Create timetable entry</p>
@@ -103,7 +126,11 @@ export function AcademicsParityPage({
                 </div>
                 <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateTimetable} type="button">Create timetable</button></div>
               </Card>
+            </>
+          ) : null}
 
+          {canWritePedagogy && show('lesson-records') ? (
+            <>
               <Card>
                 <p className="font-semibold text-sm">Create lesson record</p>
                 <div className="mt-2 grid gap-2">
@@ -114,7 +141,11 @@ export function AcademicsParityPage({
                 </div>
                 <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateLesson} type="button">Create lesson</button></div>
               </Card>
+            </>
+          ) : null}
 
+          {canWritePedagogy && show('attendance') ? (
+            <>
               <Card>
                 <p className="font-semibold text-sm">Create attendance</p>
                 <div className="mt-2 grid gap-2">
@@ -125,7 +156,11 @@ export function AcademicsParityPage({
                 </div>
                 <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateAttendance} type="button">Create attendance</button></div>
               </Card>
+            </>
+          ) : null}
 
+          {canWritePedagogy && show('grades') ? (
+            <>
               <Card>
                 <p className="font-semibold text-sm">Create grade entry</p>
                 <div className="mt-2 grid gap-2">
@@ -137,7 +172,11 @@ export function AcademicsParityPage({
                 </div>
                 <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateGrade} type="button">Create grade</button></div>
               </Card>
+            </>
+          ) : null}
 
+          {canWritePedagogy && show('homework') ? (
+            <>
               <Card>
                 <p className="font-semibold text-sm">Create homework</p>
                 <div className="mt-2 grid gap-2">
@@ -149,7 +188,11 @@ export function AcademicsParityPage({
                 </div>
                 <div className="mt-2"><button className="sk-btn sk-btn-primary" onClick={onCreateHomework} type="button">Create homework</button></div>
               </Card>
+            </>
+          ) : null}
 
+          {canWritePedagogy && show('daily-reports') ? (
+            <>
               <Card>
                 <p className="font-semibold text-sm">Create daily report</p>
                 <div className="mt-2 grid gap-2">
@@ -163,7 +206,7 @@ export function AcademicsParityPage({
             </>
           ) : null}
 
-          {canParentExcuse ? (
+          {canParentExcuse && show('excuses') ? (
             <Card>
               <p className="font-semibold text-sm">Submit excuse request</p>
               <div className="mt-2 grid gap-2">
@@ -177,13 +220,13 @@ export function AcademicsParityPage({
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Card><p className="font-semibold text-sm">Timetable</p>{timetable.length === 0 ? <EmptyState text="No timetable entries in scope." /> : <ul className="sk-list">{timetable.map((x) => <li className="sk-list-item" key={x.id}>{x.dayOfWeek} {x.startTime}-{x.endTime}</li>)}</ul>}</Card>
-        <Card><p className="font-semibold text-sm">Lesson records</p>{lessons.length === 0 ? <EmptyState text="No lesson records in scope." /> : <ul className="sk-list">{lessons.map((x) => <li className="sk-list-item" key={x.id}>{x.lessonDate} | {x.topic}</li>)}</ul>}</Card>
-        <Card><p className="font-semibold text-sm">Attendance</p>{attendance.length === 0 ? <EmptyState text="No attendance records in scope." /> : <ul className="sk-list">{attendance.map((x) => <li className="sk-list-item" key={x.id}><span>{x.attendanceDate} | {x.studentUserId}</span><StatusBadge label={x.status} tone={x.status === 'Present' ? 'good' : 'warn'} /></li>)}</ul>}</Card>
-        <Card><p className="font-semibold text-sm">Excuses</p>{excuses.length === 0 ? <EmptyState text="No excuse records in scope." /> : <ul className="sk-list">{excuses.map((x) => <li className="sk-list-item" key={x.id}><span>{x.reason}</span>{canParentExcuse ? <button className="sk-btn sk-btn-secondary" type="button" onClick={() => void api.cancelExcuse(x.id).then(load).catch((e: Error) => setError(e.message))}>Cancel</button> : <StatusBadge label="Read" tone="info" />}</li>)}</ul>}</Card>
-        <Card><p className="font-semibold text-sm">Grades</p>{grades.length === 0 ? <EmptyState text="No grades in scope." /> : <ul className="sk-list">{grades.map((x) => <li className="sk-list-item" key={x.id}>{x.gradedOn} | {x.gradeValue}</li>)}</ul>}</Card>
-        <Card><p className="font-semibold text-sm">Homework</p>{homework.length === 0 ? <EmptyState text="No homework in scope." /> : <ul className="sk-list">{homework.map((x) => <li className="sk-list-item" key={x.id}>{x.title}</li>)}</ul>}</Card>
-        <Card className="lg:col-span-2"><p className="font-semibold text-sm">Daily reports</p>{dailyReports.length === 0 ? <EmptyState text="No daily reports in scope." /> : <ul className="sk-list">{dailyReports.map((x) => <li className="sk-list-item" key={x.id}>{x.reportDate} | {x.summary}</li>)}</ul>}</Card>
+        {show('timetable') ? <Card><p className="font-semibold text-sm">Timetable</p>{timetable.length === 0 ? <EmptyState text="No timetable entries in scope." /> : <ul className="sk-list">{timetable.map((x) => <li className="sk-list-item" key={x.id}>{x.dayOfWeek} {x.startTime}-{x.endTime}</li>)}</ul>}</Card> : null}
+        {show('lesson-records') ? <Card><p className="font-semibold text-sm">Lesson records</p>{lessons.length === 0 ? <EmptyState text="No lesson records in scope." /> : <ul className="sk-list">{lessons.map((x) => <li className="sk-list-item" key={x.id}>{x.lessonDate} | {x.topic}</li>)}</ul>}</Card> : null}
+        {show('attendance') ? <Card><p className="font-semibold text-sm">Attendance</p>{attendance.length === 0 ? <EmptyState text="No attendance records in scope." /> : <ul className="sk-list">{attendance.map((x) => <li className="sk-list-item" key={x.id}><span>{x.attendanceDate} | {x.studentUserId}</span><StatusBadge label={x.status} tone={x.status === 'Present' ? 'good' : 'warn'} /></li>)}</ul>}</Card> : null}
+        {show('excuses') ? <Card><p className="font-semibold text-sm">Excuses</p>{excuses.length === 0 ? <EmptyState text="No excuse records in scope." /> : <ul className="sk-list">{excuses.map((x) => <li className="sk-list-item" key={x.id}><span>{x.reason}</span>{canParentExcuse ? <button className="sk-btn sk-btn-secondary" type="button" onClick={() => void api.cancelExcuse(x.id).then(load).catch((e: Error) => setError(e.message))}>Cancel</button> : <StatusBadge label="Read" tone="info" />}</li>)}</ul>}</Card> : null}
+        {show('grades') ? <Card><p className="font-semibold text-sm">Grades</p>{grades.length === 0 ? <EmptyState text="No grades in scope." /> : <ul className="sk-list">{grades.map((x) => <li className="sk-list-item" key={x.id}>{x.gradedOn} | {x.gradeValue}</li>)}</ul>}</Card> : null}
+        {show('homework') ? <Card><p className="font-semibold text-sm">Homework</p>{homework.length === 0 ? <EmptyState text="No homework in scope." /> : <ul className="sk-list">{homework.map((x) => <li className="sk-list-item" key={x.id}>{x.title}</li>)}</ul>}</Card> : null}
+        {show('daily-reports') ? <Card className="lg:col-span-2"><p className="font-semibold text-sm">Daily reports</p>{dailyReports.length === 0 ? <EmptyState text="No daily reports in scope." /> : <ul className="sk-list">{dailyReports.map((x) => <li className="sk-list-item" key={x.id}>{x.reportDate} | {x.summary}</li>)}</ul>}</Card> : null}
       </div>
 
       {isPlatformAdmin ? (

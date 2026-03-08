@@ -247,12 +247,33 @@ public sealed class IdentityAuthSeeder(
             var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == seedUser.UserProfileId, cancellationToken);
             if (profile is null)
             {
-                dbContext.UserProfiles.Add(UserProfile.Create(seedUser.UserProfileId, seedUser.FirstName, seedUser.LastName, seedUser.UserType, seedUser.Email));
+                dbContext.UserProfiles.Add(UserProfile.Create(
+                    seedUser.UserProfileId,
+                    seedUser.FirstName,
+                    seedUser.LastName,
+                    seedUser.UserType,
+                    seedUser.Email,
+                    BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
+                    BuildPreferredLanguage(seedUser.UserType),
+                    BuildPhoneNumber(seedUser.UserType),
+                    BuildPositionTitle(seedUser.UserType),
+                    BuildPublicContactNote(seedUser.UserType),
+                    BuildPreferredContactNote(seedUser.UserType)));
                 logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
             }
             else
             {
-                profile.Update(seedUser.FirstName, seedUser.LastName, seedUser.UserType, seedUser.Email);
+                profile.Update(
+                    seedUser.FirstName,
+                    seedUser.LastName,
+                    seedUser.UserType,
+                    seedUser.Email,
+                    BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
+                    BuildPreferredLanguage(seedUser.UserType),
+                    BuildPhoneNumber(seedUser.UserType),
+                    BuildPositionTitle(seedUser.UserType),
+                    BuildPublicContactNote(seedUser.UserType),
+                    BuildPreferredContactNote(seedUser.UserType));
                 profile.Activate();
                 logger.LogInformation("Seed user profile already exists and was refreshed: {Email}", seedUser.Email);
             }
@@ -266,7 +287,13 @@ public sealed class IdentityAuthSeeder(
                 KindergartenChildProfile.FirstName,
                 KindergartenChildProfile.LastName,
                 KindergartenChildProfile.UserType,
-                KindergartenChildProfile.Email));
+                KindergartenChildProfile.Email,
+                BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
+                "cs-CZ",
+                null,
+                null,
+                null,
+                null));
             logger.LogInformation("Seed kindergarten child profile created for parent-child link coverage.");
         }
         else
@@ -275,7 +302,13 @@ public sealed class IdentityAuthSeeder(
                 KindergartenChildProfile.FirstName,
                 KindergartenChildProfile.LastName,
                 KindergartenChildProfile.UserType,
-                KindergartenChildProfile.Email);
+                KindergartenChildProfile.Email,
+                BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
+                "cs-CZ",
+                null,
+                null,
+                null,
+                null);
             kindergartenChild.Activate();
             logger.LogInformation("Seed kindergarten child profile already exists and was refreshed.");
         }
@@ -401,4 +434,43 @@ public sealed class IdentityAuthSeeder(
         string LastName,
         UserType UserType,
         string Email);
+
+    private static string BuildPreferredDisplayName(string firstName, string lastName) => $"{firstName} {lastName}";
+
+    private static string BuildPreferredLanguage(UserType userType)
+        => userType switch
+        {
+            UserType.Parent => "cs-CZ",
+            UserType.Student => "cs-CZ",
+            UserType.Teacher => "cs-CZ",
+            UserType.SchoolAdministrator => "cs-CZ",
+            UserType.SupportStaff => "en-US",
+            _ => "cs-CZ"
+        };
+
+    private static string BuildPhoneNumber(UserType userType)
+        => userType switch
+        {
+            UserType.SupportStaff => "+420700100001",
+            UserType.SchoolAdministrator => "+420700100101",
+            UserType.Teacher => "+420700100201",
+            UserType.Parent => "+420700100301",
+            UserType.Student => "+420700100401",
+            _ => "+420700199999"
+        };
+
+    private static string? BuildPositionTitle(UserType userType)
+        => userType switch
+        {
+            UserType.SupportStaff => "Platform Administrator",
+            UserType.SchoolAdministrator => "School Administrator",
+            UserType.Teacher => "Teacher",
+            _ => null
+        };
+
+    private static string? BuildPublicContactNote(UserType userType)
+        => userType == UserType.Teacher ? "Consultation hours via school communication channel." : null;
+
+    private static string? BuildPreferredContactNote(UserType userType)
+        => userType == UserType.Parent ? "Preferred communication in Czech language." : null;
 }

@@ -32,7 +32,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     }
 
     [HttpGet("me")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize]
     public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> MyAssignments([FromQuery] Guid? schoolId, CancellationToken cancellationToken)
     {
         var actorUserId = ResolveActorUserId();

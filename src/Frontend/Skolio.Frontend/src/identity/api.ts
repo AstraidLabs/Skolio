@@ -1,15 +1,53 @@
-﻿import type { createHttpClient } from '../shared/http/httpClient';
+import type { createHttpClient } from '../shared/http/httpClient';
 
-export type UserProfile = { id: string; firstName: string; lastName: string; userType: string; email: string; isActive: boolean };
+export type UserProfile = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  userType: string;
+  email: string;
+  isActive: boolean;
+  preferredDisplayName?: string | null;
+  preferredLanguage?: string | null;
+  phoneNumber?: string | null;
+  positionTitle?: string | null;
+  publicContactNote?: string | null;
+  preferredContactNote?: string | null;
+};
 export type RoleAssignment = { id: string; userProfileId: string; schoolId: string; roleCode: string };
 export type ParentStudentLink = { id: string; parentUserProfileId: string; studentUserProfileId: string; relationship: string };
 export type StudentIdentityContext = { profile: UserProfile; roleAssignments: RoleAssignment[] };
+export type MyProfileSummary = {
+  profile: UserProfile;
+  roleAssignments: RoleAssignment[];
+  parentStudentLinks: ParentStudentLink[];
+  schoolIds: string[];
+  isPlatformAdministrator: boolean;
+  isSchoolAdministrator: boolean;
+  isTeacher: boolean;
+  isParent: boolean;
+  isStudent: boolean;
+};
+
+export type SelfProfileUpdatePayload = {
+  firstName: string;
+  lastName: string;
+  preferredDisplayName?: string | null;
+  preferredLanguage?: string | null;
+  phoneNumber?: string | null;
+  positionTitle?: string | null;
+  publicContactNote?: string | null;
+  preferredContactNote?: string | null;
+};
+
+export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;
 
 export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
   return {
     myProfile: () => http<UserProfile>('identity', '/api/identity/user-profiles/me'),
+    myProfileSummary: () => http<MyProfileSummary>('identity', '/api/identity/user-profiles/me/summary'),
     studentContext: () => http<StudentIdentityContext>('identity', '/api/identity/user-profiles/student-context'),
-    updateMyProfile: (payload: Omit<UserProfile, 'id' | 'isActive'>) => http<UserProfile>('identity', '/api/identity/user-profiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
+    updateMyProfile: (payload: SelfProfileUpdatePayload) => http<UserProfile>('identity', '/api/identity/user-profiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
     linkedStudents: () => http<UserProfile[]>('identity', '/api/identity/user-profiles/linked-students'),
     userProfiles: (query?: { search?: string; userType?: string; isActive?: boolean }) => {
       const params = new URLSearchParams();
@@ -19,7 +57,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
       return http<UserProfile[]>('identity', `/api/identity/user-profiles${params.size > 0 ? `?${params.toString()}` : ''}`);
     },
     userProfile: (id: string) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}`),
-    updateUserProfile: (id: string, payload: Omit<UserProfile, 'id' | 'isActive'>) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    updateUserProfile: (id: string, payload: AdminProfileUpdatePayload) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     setUserProfileActivation: (id: string, isActive: boolean) => http<UserProfile>('identity', `/api/identity/user-profiles/${id}/activation`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
     myRoleAssignments: (schoolId?: string) => http<RoleAssignment[]>('identity', `/api/identity/school-roles/me${schoolId ? `?schoolId=${schoolId}` : ''}`),
     myStudentRoleAssignments: () => http<RoleAssignment[]>('identity', '/api/identity/school-roles/student-me'),

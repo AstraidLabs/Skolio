@@ -1,4 +1,5 @@
-import React, { type ReactNode } from 'react';
+﻿import React, { type ReactNode } from 'react';
+import { useI18n } from '../../i18n';
 
 export function AppHeader({
   title,
@@ -15,6 +16,8 @@ export function AppHeader({
   onLogout: () => void;
   rightSlot?: ReactNode;
 }) {
+  const { t } = useI18n();
+
   return (
     <header className="sk-topbar">
       <div>
@@ -23,9 +26,9 @@ export function AppHeader({
       </div>
       <div className="sk-topbar-actions">
         {rightSlot}
-        <button className="sk-pill" type="button">{notifications ?? 'Notifications'}</button>
+        <button className="sk-pill" type="button">{notifications ?? t('notifications')}</button>
         <button className="sk-pill" type="button">{profileLabel}</button>
-        <button className="sk-btn sk-btn-secondary" onClick={onLogout} type="button">Sign out</button>
+        <button className="sk-btn sk-btn-secondary" onClick={onLogout} type="button">{t('signOutMenu')}</button>
       </div>
     </header>
   );
