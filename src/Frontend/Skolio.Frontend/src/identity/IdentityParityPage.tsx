@@ -2,7 +2,7 @@
 import type { createIdentityApi, MyProfileSummary, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
-import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
+import { Card, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 import { localeLabels, supportedLocales, useI18n } from '../i18n';
 
@@ -171,12 +171,8 @@ export function IdentityParityPage({
 
   return (
     <section className="space-y-4">
-      <SectionHeader
-        title={t('profileHeaderTitle')}
-        description={t('profileHeaderDescription')}
-      />
-
       <Card>
+        <p className="mb-3 font-semibold text-sm">{t('myProfile.accountOverview')}</p>
         <div className="flex flex-wrap items-start gap-3">
           <span className="sk-profile-avatar !h-12 !w-12 !text-sm" aria-hidden="true">
             {headerInitials}
@@ -228,29 +224,28 @@ export function IdentityParityPage({
       ) : null}
 
       <Card>
-        <p className="font-semibold text-sm">{t('profileSelfEditTitle')}</p>
+        <p className="font-semibold text-sm">{t('myProfile.personalEdit')}</p>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          <Field label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, firstName: value }))} />
-          <Field label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, lastName: value }))} />
-          <Field label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
-          <LanguageField label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
-          <Field label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
-          <Field label={t('profileFieldPositionTitle')} value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
-          <Field label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
-          <Field label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, firstName: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName} onChange={(value) => setSelfDraft((v) => ({ ...v, lastName: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+          <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+          <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+          <Field icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPositionTitle')} value={selfDraft.positionTitle ?? ''} disabled={!selfEditRules.canEditPositionTitle} onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
         </div>
         <div className="mt-3 flex gap-2">
           <button className="sk-btn sk-btn-primary gap-2" onClick={saveSelfProfile} type="button">
             <SaveDiskIcon className="h-4 w-4 shrink-0" />
             <span>{t('profileButtonSaveMyProfile')}</span>
           </button>
-          <StatusBadge label={t('profileReadOnlyHint')} tone="info" />
         </div>
       </Card>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <p className="font-semibold text-sm">{t('profileRoleAssignmentsTitle')}</p>
+          <p className="font-semibold text-sm">{t('myProfile.roleAssignments')}</p>
           {summary.roleAssignments.length === 0 ? <EmptyState text={t('profileNoRoleAssignments')} /> : (
             <ul className="sk-list">
               {summary.roleAssignments.map((assignment) => (
@@ -260,7 +255,7 @@ export function IdentityParityPage({
           )}
         </Card>
         <Card>
-          <p className="font-semibold text-sm">{t('profileParentStudentLinksTitle')}</p>
+          <p className="font-semibold text-sm">{t('myProfile.parentStudentLinks')}</p>
           {summary.parentStudentLinks.length === 0 ? <EmptyState text={t('profileNoParentStudentLinks')} /> : (
             <ul className="sk-list">
               {summary.parentStudentLinks.map((link) => (
@@ -334,11 +329,13 @@ export function IdentityParityPage({
 }
 
 function Field({
+  icon,
   label,
   value,
   onChange,
   disabled = false
 }: {
+  icon?: React.ReactNode;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -346,7 +343,10 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="sk-label">{label}</label>
+      <label className="sk-label inline-flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+      </label>
       <input
         className="sk-input"
         value={value}
@@ -358,12 +358,14 @@ function Field({
 }
 
 function LanguageField({
+  icon,
   label,
   value,
   placeholder,
   onChange,
   disabled = false
 }: {
+  icon?: React.ReactNode;
   label: string;
   value: string;
   placeholder: string;
@@ -372,7 +374,10 @@ function LanguageField({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="sk-label">{label}</label>
+      <label className="sk-label inline-flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+      </label>
       <select
         className="sk-input"
         value={value}
@@ -441,6 +446,53 @@ function ProfileAssignmentIcon({ className = 'h-4 w-4' }: { className?: string }
     <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
       <rect x="3.5" y="4" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
       <path d="M7 8h10M7 12h7M7 16h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileCardIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7.5 10.5h9M7.5 14h5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileLanguageIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M4 6h10M9 4v2m-3 0c.8 2.6 2.3 4.8 4.5 6.5M5.5 15.5h7M9 15.5l2 4m-2-4-2 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="17.5" cy="10.5" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M17.5 7v7M14 10.5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfilePhoneIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M7 4h10v16H7z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10 7h4M11 17h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfilePositionIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <rect x="3.5" y="7" width="17" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 7V5.5A2.5 2.5 0 0 1 11.5 3h1A2.5 2.5 0 0 1 15 5.5V7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 12h17" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ProfileContactIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M4 6h16v10H8l-4 3V6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M8 10h8M8 13h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

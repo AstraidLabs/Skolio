@@ -38,7 +38,6 @@ export function buildSidebarSections(
   const overviewNodes: SidebarNode[] = [];
   if (hasNav('/dashboard')) overviewNodes.push({ key: '/dashboard', label: labelFor('/dashboard'), route: '/dashboard' });
   if (hasNav('/communication')) overviewNodes.push({ key: '/communication', label: labelFor('/communication'), route: '/communication' });
-  if (hasNav('/identity')) overviewNodes.push({ key: '/identity', label: labelFor('/identity'), route: '/identity' });
   if (hasNav('/administration') && (hasRole('PlatformAdministrator') || hasRole('SchoolAdministrator'))) {
     overviewNodes.push({ key: '/administration', label: labelFor('/administration'), route: '/administration' });
   }

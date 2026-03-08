@@ -125,7 +125,7 @@ export function RouterShell({ config }: RouterProps) {
 
   const nav = navigationFor(session.roles, session.schoolType);
   const active =
-    nav.includes(route as AppRoute) || route === '/identity/security'
+    nav.includes(route as AppRoute) || route === '/identity' || route === '/identity/security'
       ? (route as AppRoute)
       : '/dashboard';
   const profileName = (profileSummary?.profile.preferredDisplayName?.trim()
@@ -143,7 +143,7 @@ export function RouterShell({ config }: RouterProps) {
       profileDisplayName={profileName}
       profileContext={profileContext}
       pageTitle={labelForRoute(active, t)}
-      pageSubtitle={t('shellSubtitle')}
+      pageSubtitle={active === '/identity' ? undefined : t('shellSubtitle')}
       footerLanguageSwitcher={<LanguageSwitcher />}
     >
       {active === '/dashboard' && <DashboardPage session={session} profileSummary={profileSummary} apis={apis} />}
@@ -166,7 +166,7 @@ export function RouterShell({ config }: RouterProps) {
       {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
       {active === '/identity/security' && <SecuritySelfServicePage api={apis.identity} />}
-      {!nav.includes(active) && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}
+      {!nav.includes(active) && active !== '/identity' && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}
     </AppLayoutShell>
   );
 }
@@ -1010,7 +1010,6 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
     return [
       '/dashboard',
       '/communication',
-      '/identity',
       '/administration',
       '/organization',
       '/organization/schools',
@@ -1035,7 +1034,6 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
   if (roles.includes('Parent')) {
     return [
       '/dashboard',
-      '/identity',
       '/communication',
       '/academics',
       '/academics/attendance',
@@ -1049,7 +1047,6 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
   if (roles.includes('Student')) {
     return [
       '/dashboard',
-      '/identity',
       '/communication',
       '/academics',
       '/academics/timetable',
@@ -1060,7 +1057,7 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
     ];
   }
 
-  const nav: AppRoute[] = ['/dashboard', '/identity', '/communication'];
+  const nav: AppRoute[] = ['/dashboard', '/communication'];
   if (roles.some((x) => x === 'SchoolAdministrator' || x === 'Teacher')) {
     nav.push(
       '/organization',
@@ -1116,7 +1113,7 @@ function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/academics/daily-reports') return `${t('routeAcademics')} / ${t('navDailyReports')}`;
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
-  if (route === '/identity') return t('routeIdentity');
+  if (route === '/identity') return t('myProfile.title');
   if (route === '/identity/security') return t('routeSecurity');
   return route;
 }
