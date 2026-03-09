@@ -1019,10 +1019,13 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   const returnUrl = query.get('returnUrl');
   const mfaRequired = query.get('mfa') === 'required';
   const challengeId = query.get('challengeId') ?? '';
+  const loginCaptchaRequired = query.get('captcha') === 'required';
+  const loginCaptchaId = query.get('captchaId') ?? '';
   const rememberedFromQuery = query.get('rememberMe') === 'true';
   const loginError = query.get('error') ?? '';
   const [useRecoveryCode, setUseRecoveryCode] = useState(loginError === 'login_mfa_invalid_recovery_code');
   const [rememberMe, setRememberMe] = useState(rememberedFromQuery);
+  const [captchaReloadTick, setCaptchaReloadTick] = useState(0);
   const [busy, setBusy] = useState(false);
   const errorText = mapLoginError(loginError, t);
   const [wordmarkVariant] = useState(() => {
@@ -1108,6 +1111,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
         {!mfaRequired ? (
           <form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login`} onSubmit={() => setBusy(true)}>
             <input type="hidden" name="returnUrl" value={returnUrl} />
+            {loginCaptchaRequired ? <input type="hidden" name="captchaId" value={loginCaptchaId} /> : null}
             <div className="sk-field">
               <label className="sk-label" htmlFor="username">{t('loginUsernameLabel')}</label>
               <div className="relative">
@@ -1122,6 +1126,33 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
                 <input id="password" name="password" type="password" autoComplete="current-password" required placeholder={t('loginPasswordPlaceholder')} className="sk-input pl-10" />
               </div>
             </div>
+            {loginCaptchaRequired && loginCaptchaId ? (
+              <div className="sk-field">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="sk-label" htmlFor="captchaAnswer">{t('loginCaptchaLabel')}</label>
+                  <button className="sk-btn sk-btn-secondary px-2 py-1 text-xs" type="button" onClick={() => setCaptchaReloadTick((v) => v + 1)}>
+                    <span className="inline-flex items-center gap-1">
+                      <LoginRefreshIcon />
+                      <span>{t('loginCaptchaRefresh')}</span>
+                    </span>
+                  </button>
+                </div>
+                <img
+                  className="mt-2 h-14 w-[180px] rounded-md border border-slate-200 bg-slate-50"
+                  src={`${config.identityAuthority}/account/login/captcha?captchaId=${encodeURIComponent(loginCaptchaId)}&v=${captchaReloadTick}`}
+                  alt={t('loginCaptchaAlt')}
+                />
+                <input
+                  id="captchaAnswer"
+                  name="captchaAnswer"
+                  type="text"
+                  autoComplete="off"
+                  required
+                  placeholder={t('loginCaptchaPlaceholder')}
+                  className="sk-input mt-2"
+                />
+              </div>
+            ) : null}
             <div className="flex items-center gap-2 pt-1">
               <input
                 id="rememberMe"
@@ -1179,7 +1210,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
               </div>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button className="sk-btn sk-btn-secondary min-w-[12rem]" type="button" onClick={() => setUseRecoveryCode((v) => !v)} disabled={busy}>
                 <span className="inline-flex items-center gap-2">
                   <LoginRecoveryIcon />
@@ -1212,6 +1243,8 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
 function mapLoginError(code: string, t: ReturnType<typeof useI18n>['t']) {
   if (!code) return '';
   if (code === 'login_invalid_credentials') return t('loginErrorInvalidCredentials');
+  if (code === 'login_captcha_required') return t('loginErrorCaptchaRequired');
+  if (code === 'login_captcha_invalid') return t('loginErrorCaptchaInvalid');
   if (code === 'login_mfa_invalid_code') return t('loginErrorMfaInvalidCode');
   if (code === 'login_mfa_invalid_recovery_code') return t('loginErrorMfaInvalidRecoveryCode');
   if (code === 'login_mfa_challenge_expired') return t('loginErrorMfaChallengeExpired');
@@ -1327,6 +1360,15 @@ function LoginLanguageIcon() {
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18" />
       <path d="M12 3c2.6 2.5 4 5.6 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.6-4-9s1.4-6.5 4-9z" />
+    </svg>
+  );
+}
+
+function LoginRefreshIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M20 11a8 8 0 1 0 2.2 5.5" />
+      <path d="M20 4v7h-7" />
     </svg>
   );
 }
