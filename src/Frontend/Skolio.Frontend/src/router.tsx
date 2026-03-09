@@ -1065,6 +1065,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   const loginSubtitle = mfaRequired
     ? t('loginMfaSubtitle')
     : (hasLoggedInBefore ? t('loginSubtitleReturning') : t('loginSubtitleFirstTime'));
+  const copyrightYear = new Date().getFullYear();
 
   if (!returnUrl) {
     return (
@@ -1179,18 +1180,29 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
             ) : null}
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <button className="sk-btn sk-btn-secondary" type="button" onClick={() => setUseRecoveryCode((v) => !v)} disabled={busy}>
-                {useRecoveryCode ? t('loginMfaUseAuthenticator') : t('loginMfaUseRecovery')}
+              <button className="sk-btn sk-btn-secondary min-w-[12rem]" type="button" onClick={() => setUseRecoveryCode((v) => !v)} disabled={busy}>
+                <span className="inline-flex items-center gap-2">
+                  <LoginRecoveryIcon />
+                  <span>{useRecoveryCode ? t('loginMfaUseAuthenticator') : t('loginMfaUseRecovery')}</span>
+                </span>
               </button>
-              <a className="sk-btn sk-btn-secondary" href={`/login?returnUrl=${encodeURIComponent(returnUrl)}&rememberMe=${rememberMe ? 'true' : 'false'}`}>
-                {t('loginMfaRestart')}
+              <a className="sk-btn sk-btn-secondary min-w-[12rem]" href={`/login?returnUrl=${encodeURIComponent(returnUrl)}&rememberMe=${rememberMe ? 'true' : 'false'}`}>
+                <span className="inline-flex items-center gap-2">
+                  <LoginBackIcon />
+                  <span>{t('loginMfaRestart')}</span>
+                </span>
               </a>
             </div>
           </form>
         )}
         <div className="mt-6 border-t border-slate-200 pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('loginLanguageLabel')}</p>
-          <LanguageSwitcher />
+          <div className="mb-2 flex justify-center text-slate-500" aria-hidden="true">
+            <LoginLanguageIcon />
+          </div>
+          <div className="flex justify-center">
+            <LanguageSwitcher />
+          </div>
+          <p className="mt-4 text-center text-xs text-slate-400">{t('loginCopyright', { platform: 'Skolio', year: copyrightYear })}</p>
         </div>
       </div>
     </section>
@@ -1305,6 +1317,34 @@ function LoginSecurityIcon() {
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 3 5 6v6c0 4.2 2.7 7.8 7 9 4.3-1.2 7-4.8 7-9V6z" />
       <path d="m9.5 12.5 1.8 1.8 3.7-3.7" />
+    </svg>
+  );
+}
+
+function LoginLanguageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.5 4 5.6 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.6-4-9s1.4-6.5 4-9z" />
+    </svg>
+  );
+}
+
+function LoginRecoveryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 3 5 7v5c0 3.9 2.4 7.2 7 9 4.6-1.8 7-5.1 7-9V7z" />
+      <path d="m9.6 12.6 1.8 1.8 3.2-3.2" />
+    </svg>
+  );
+}
+
+function LoginBackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M9 5 3 11l6 6" />
+      <path d="M3 11h9a7 7 0 1 1 0 14" />
     </svg>
   );
 }

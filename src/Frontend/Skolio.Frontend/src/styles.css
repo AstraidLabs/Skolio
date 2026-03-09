@@ -64,11 +64,60 @@
   }
 
   .sk-auth-shell {
+    position: relative;
+    overflow: hidden;
     background:
-      radial-gradient(circle at 15% 10%, rgba(29, 78, 216, 0.08), transparent 35%),
-      radial-gradient(circle at 85% 85%, rgba(14, 165, 233, 0.08), transparent 40%),
+      radial-gradient(circle at 12% 8%, rgba(29, 78, 216, 0.1), transparent 35%),
+      radial-gradient(circle at 86% 82%, rgba(14, 165, 233, 0.1), transparent 42%),
       linear-gradient(180deg, #f7f9fd 0%, #f1f5fb 100%);
     @apply grid place-items-center;
+  }
+
+  .sk-auth-shell::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    background:
+      radial-gradient(circle at 18% 24%, rgba(37, 99, 235, 0.16), transparent 44%),
+      radial-gradient(circle at 76% 74%, rgba(14, 165, 233, 0.12), transparent 42%),
+      radial-gradient(circle at 58% 18%, rgba(99, 102, 241, 0.11), transparent 40%),
+      conic-gradient(from 160deg at 50% 52%, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0), rgba(37, 99, 235, 0.08));
+    animation: skAuthBackgroundShift 14s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  .sk-auth-shell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.62;
+    background:
+      /* learning + organization particles */
+      radial-gradient(circle at 22% 36%, rgba(59, 130, 246, 0.35) 0 2px, transparent 3px),
+      radial-gradient(circle at 34% 44%, rgba(59, 130, 246, 0.24) 0 1.5px, transparent 2.5px),
+      radial-gradient(circle at 46% 31%, rgba(59, 130, 246, 0.28) 0 2px, transparent 3px),
+      radial-gradient(circle at 60% 40%, rgba(59, 130, 246, 0.22) 0 1.5px, transparent 2.5px),
+      radial-gradient(circle at 76% 34%, rgba(14, 165, 233, 0.3) 0 2px, transparent 3px),
+      radial-gradient(circle at 16% 58%, rgba(56, 189, 248, 0.24) 0 1.6px, transparent 2.6px),
+      radial-gradient(circle at 40% 66%, rgba(99, 102, 241, 0.22) 0 1.6px, transparent 2.6px),
+      radial-gradient(circle at 58% 74%, rgba(59, 130, 246, 0.2) 0 1.6px, transparent 2.6px),
+      radial-gradient(circle at 70% 56%, rgba(14, 165, 233, 0.2) 0 1.4px, transparent 2.4px),
+      radial-gradient(circle at 84% 62%, rgba(59, 130, 246, 0.2) 0 1.6px, transparent 2.6px),
+      /* space stars */
+      radial-gradient(circle at 14% 16%, rgba(255, 255, 255, 0.85) 0 1px, transparent 2px),
+      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.78) 0 1px, transparent 2px),
+      radial-gradient(circle at 68% 68%, rgba(255, 255, 255, 0.68) 0 1px, transparent 2px),
+      radial-gradient(circle at 28% 72%, rgba(255, 255, 255, 0.68) 0 1px, transparent 2px),
+      radial-gradient(circle at 52% 18%, rgba(255, 255, 255, 0.6) 0 1px, transparent 2px),
+      radial-gradient(circle at 90% 44%, rgba(255, 255, 255, 0.62) 0 1px, transparent 2px);
+    mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.42) 56%, transparent 100%);
+    animation: skAuthConstellationDrift 22s linear infinite;
+  }
+
+  .sk-auth-shell > * {
+    position: relative;
+    z-index: 1;
   }
 
   .sk-auth-card {
@@ -760,6 +809,33 @@
   }
 }
 
+@keyframes skAuthBackgroundShift {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(1.2%, 1%, 0) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0.4%, -0.8%, 0) scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+@keyframes skAuthConstellationDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-1.2%, 0.8%, 0) scale(1.015);
+  }
+  100% {
+    transform: translate3d(1.1%, -0.7%, 0) scale(1.01);
+  }
+}
+
 .landing-reveal {
   animation: landingReveal 700ms ease both;
 }
@@ -781,7 +857,9 @@
   .sk-auth-alert,
   .sk-auth-busy,
   .sk-auth-spinner,
-  .sk-auth-wave > span {
+  .sk-auth-wave > span,
+  .sk-auth-shell::before,
+  .sk-auth-shell::after {
     animation: none !important;
     transition: none !important;
   }
