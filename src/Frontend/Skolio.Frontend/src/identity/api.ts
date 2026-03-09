@@ -37,6 +37,9 @@ export type UserProfile = {
   preferredContactNote?: string | null;
   administrativeWorkDesignation?: string | null;
   administrativeOrganizationSummary?: string | null;
+  platformRoleContextSummary?: string | null;
+  managedPlatformAreasSummary?: string | null;
+  administrativeBoundarySummary?: string | null;
 };
 export type RoleAssignment = { id: string; userProfileId: string; schoolId: string; roleCode: string };
 export type ParentStudentLink = { id: string; parentUserProfileId: string; studentUserProfileId: string; relationship: string };
@@ -86,6 +89,9 @@ export type SelfProfileUpdatePayload = {
   preferredContactNote?: string | null;
   administrativeWorkDesignation?: string | null;
   administrativeOrganizationSummary?: string | null;
+  platformRoleContextSummary?: string | null;
+  managedPlatformAreasSummary?: string | null;
+  administrativeBoundarySummary?: string | null;
 };
 
 export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;

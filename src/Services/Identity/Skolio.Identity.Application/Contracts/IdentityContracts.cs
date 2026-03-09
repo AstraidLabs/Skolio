@@ -38,6 +38,9 @@ public sealed record UserProfileContract(
     string? PublicContactNote,
     string? PreferredContactNote,
     string? AdministrativeWorkDesignation,
-    string? AdministrativeOrganizationSummary);
+    string? AdministrativeOrganizationSummary,
+    string? PlatformRoleContextSummary,
+    string? ManagedPlatformAreasSummary,
+    string? AdministrativeBoundarySummary);
 public sealed record SchoolRoleAssignmentContract(Guid Id, Guid UserProfileId, Guid SchoolId, string RoleCode);
 public sealed record ParentStudentLinkContract(Guid Id, Guid ParentUserProfileId, Guid StudentUserProfileId, string Relationship);

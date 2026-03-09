@@ -199,7 +199,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote,
             normalizedRequest.AdministrativeWorkDesignation,
-            normalizedRequest.AdministrativeOrganizationSummary), cancellationToken);
+            normalizedRequest.AdministrativeOrganizationSummary,
+            normalizedRequest.PlatformRoleContextSummary,
+            normalizedRequest.ManagedPlatformAreasSummary,
+            normalizedRequest.AdministrativeBoundarySummary), cancellationToken);
 
         Audit("identity.user-profile.self-updated", profile.Id, new { changedFields });
         return Ok(result);
@@ -262,7 +265,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.PublicContactNote,
                 x.PreferredContactNote,
                 x.AdministrativeWorkDesignation,
-                x.AdministrativeOrganizationSummary))
+                x.AdministrativeOrganizationSummary,
+                x.PlatformRoleContextSummary,
+                x.ManagedPlatformAreasSummary,
+                x.AdministrativeBoundarySummary))
             .ToListAsync(cancellationToken);
 
         return Ok(result);
@@ -350,7 +356,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.PublicContactNote,
                 x.PreferredContactNote,
                 x.AdministrativeWorkDesignation,
-                x.AdministrativeOrganizationSummary))
+                x.AdministrativeOrganizationSummary,
+                x.PlatformRoleContextSummary,
+                x.ManagedPlatformAreasSummary,
+                x.AdministrativeBoundarySummary))
             .ToListAsync(cancellationToken);
 
         return Ok(result);
@@ -429,7 +438,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote,
             normalizedRequest.AdministrativeWorkDesignation,
-            normalizedRequest.AdministrativeOrganizationSummary), cancellationToken);
+            normalizedRequest.AdministrativeOrganizationSummary,
+            normalizedRequest.PlatformRoleContextSummary,
+            normalizedRequest.ManagedPlatformAreasSummary,
+            normalizedRequest.AdministrativeBoundarySummary), cancellationToken);
 
         Audit("identity.user-profile.admin-updated", id, new { changedFields });
         return Ok(result);
@@ -509,7 +521,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             PublicContactNote = canEditPublicContactNote ? request.PublicContactNote : profile.PublicContactNote,
             PreferredContactNote = canEditPreferredContactNote ? request.PreferredContactNote : profile.PreferredContactNote,
             AdministrativeWorkDesignation = canEditAdministrativeEmploymentSection ? request.AdministrativeWorkDesignation : profile.AdministrativeWorkDesignation,
-            AdministrativeOrganizationSummary = canEditAdministrativeEmploymentSection ? request.AdministrativeOrganizationSummary : profile.AdministrativeOrganizationSummary
+            AdministrativeOrganizationSummary = canEditAdministrativeEmploymentSection ? request.AdministrativeOrganizationSummary : profile.AdministrativeOrganizationSummary,
+            PlatformRoleContextSummary = User.IsInRole("PlatformAdministrator") ? request.PlatformRoleContextSummary : profile.PlatformRoleContextSummary,
+            ManagedPlatformAreasSummary = User.IsInRole("PlatformAdministrator") ? request.ManagedPlatformAreasSummary : profile.ManagedPlatformAreasSummary,
+            AdministrativeBoundarySummary = User.IsInRole("PlatformAdministrator") ? request.AdministrativeBoundarySummary : profile.AdministrativeBoundarySummary
         };
     }
 
@@ -525,7 +540,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             PublicContactNote = null,
             PreferredContactNote = null,
             AdministrativeWorkDesignation = request.AdministrativeWorkDesignation,
-            AdministrativeOrganizationSummary = request.AdministrativeOrganizationSummary
+            AdministrativeOrganizationSummary = request.AdministrativeOrganizationSummary,
+            PlatformRoleContextSummary = null,
+            ManagedPlatformAreasSummary = null,
+            AdministrativeBoundarySummary = null
         };
     }
 
@@ -565,6 +583,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (!string.Equals(profile.PreferredContactNote, request.PreferredContactNote, StringComparison.Ordinal)) changed.Add("preferredContactNote");
         if (!string.Equals(profile.AdministrativeWorkDesignation, request.AdministrativeWorkDesignation, StringComparison.Ordinal)) changed.Add("administrativeWorkDesignation");
         if (!string.Equals(profile.AdministrativeOrganizationSummary, request.AdministrativeOrganizationSummary, StringComparison.Ordinal)) changed.Add("administrativeOrganizationSummary");
+        if (!string.Equals(profile.PlatformRoleContextSummary, request.PlatformRoleContextSummary, StringComparison.Ordinal)) changed.Add("platformRoleContextSummary");
+        if (!string.Equals(profile.ManagedPlatformAreasSummary, request.ManagedPlatformAreasSummary, StringComparison.Ordinal)) changed.Add("managedPlatformAreasSummary");
+        if (!string.Equals(profile.AdministrativeBoundarySummary, request.AdministrativeBoundarySummary, StringComparison.Ordinal)) changed.Add("administrativeBoundarySummary");
 
         return changed;
     }
@@ -600,6 +621,12 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             return this.ValidationField("administrativeWorkDesignation", "Administrative work designation is too long.");
         if (!string.IsNullOrWhiteSpace(values.AdministrativeOrganizationSummary) && values.AdministrativeOrganizationSummary.Length > 500)
             return this.ValidationField("administrativeOrganizationSummary", "Administrative organization summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.PlatformRoleContextSummary) && values.PlatformRoleContextSummary.Length > 1000)
+            return this.ValidationField("platformRoleContextSummary", "Platform role context summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.ManagedPlatformAreasSummary) && values.ManagedPlatformAreasSummary.Length > 1000)
+            return this.ValidationField("managedPlatformAreasSummary", "Managed platform areas summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.AdministrativeBoundarySummary) && values.AdministrativeBoundarySummary.Length > 1000)
+            return this.ValidationField("administrativeBoundarySummary", "Administrative boundary summary is too long.");
         if (!string.IsNullOrWhiteSpace(values.PreferredContactChannel)
             && !AllowedParentContactChannels.Contains(values.PreferredContactChannel, StringComparer.OrdinalIgnoreCase))
             return this.ValidationField("preferredContactChannel", "Preferred contact channel is invalid.");
@@ -644,7 +671,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             profile.PublicContactNote,
             profile.PreferredContactNote,
             profile.AdministrativeWorkDesignation,
-            profile.AdministrativeOrganizationSummary);
+            profile.AdministrativeOrganizationSummary,
+            profile.PlatformRoleContextSummary,
+            profile.ManagedPlatformAreasSummary,
+            profile.AdministrativeBoundarySummary);
 
     private async Task<HashSet<string>> ResolveAllowedSchoolPositionCodesForProfile(Guid profileId, CancellationToken cancellationToken)
     {
@@ -719,7 +749,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PublicContactNote,
         string? PreferredContactNote,
         string? AdministrativeWorkDesignation,
-        string? AdministrativeOrganizationSummary) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote, AdministrativeWorkDesignation, AdministrativeOrganizationSummary);
+        string? AdministrativeOrganizationSummary,
+        string? PlatformRoleContextSummary,
+        string? ManagedPlatformAreasSummary,
+        string? AdministrativeBoundarySummary) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote, AdministrativeWorkDesignation, AdministrativeOrganizationSummary, PlatformRoleContextSummary, ManagedPlatformAreasSummary, AdministrativeBoundarySummary);
 
     public sealed record UpdateAdminProfileRequest(
         string FirstName,
@@ -753,7 +786,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PublicContactNote,
         string? PreferredContactNote,
         string? AdministrativeWorkDesignation,
-        string? AdministrativeOrganizationSummary) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote, AdministrativeWorkDesignation, AdministrativeOrganizationSummary);
+        string? AdministrativeOrganizationSummary,
+        string? PlatformRoleContextSummary,
+        string? ManagedPlatformAreasSummary,
+        string? AdministrativeBoundarySummary) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote, AdministrativeWorkDesignation, AdministrativeOrganizationSummary, PlatformRoleContextSummary, ManagedPlatformAreasSummary, AdministrativeBoundarySummary);
 
     public abstract record ProfileEditableValues(
         string FirstName,
@@ -787,7 +823,10 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PublicContactNote,
         string? PreferredContactNote,
         string? AdministrativeWorkDesignation,
-        string? AdministrativeOrganizationSummary);
+        string? AdministrativeOrganizationSummary,
+        string? PlatformRoleContextSummary,
+        string? ManagedPlatformAreasSummary,
+        string? AdministrativeBoundarySummary);
 
     public sealed record SetActivationRequest(bool IsActive);
     public sealed record StudentContextContract(UserProfileContract Profile, IReadOnlyCollection<SchoolRoleAssignmentContract> RoleAssignments);

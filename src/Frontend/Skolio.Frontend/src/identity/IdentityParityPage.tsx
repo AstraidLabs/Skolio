@@ -11,6 +11,7 @@ type ProfileDraft = SelfProfileUpdatePayload;
 type TeacherProfileTab = 'basic' | 'address' | 'employment' | 'schoolContext' | 'teachingAssignments';
 type SchoolAdministratorProfileTab = 'basic' | 'addressContact' | 'employment' | 'schoolContext' | 'managedSchools' | 'administrativeOverview';
 type ParentProfileTab = 'basic' | 'addressContact' | 'delivery' | 'linkedStudents' | 'relationshipsContext' | 'communication';
+type PlatformAdministratorProfileTab = 'basic' | 'addressContact' | 'platformRoleContext' | 'managedAreas' | 'administrativeOverview';
 
 const EMPTY_DRAFT: ProfileDraft = {
   firstName: '',
@@ -44,7 +45,10 @@ const EMPTY_DRAFT: ProfileDraft = {
   publicContactNote: '',
   preferredContactNote: '',
   administrativeWorkDesignation: '',
-  administrativeOrganizationSummary: ''
+  administrativeOrganizationSummary: '',
+  platformRoleContextSummary: '',
+  managedPlatformAreasSummary: '',
+  administrativeBoundarySummary: ''
 };
 
 export function IdentityParityPage({
@@ -74,6 +78,7 @@ export function IdentityParityPage({
   const [activeTeacherTab, setActiveTeacherTab] = useState<TeacherProfileTab>('basic');
   const [activeSchoolAdminTab, setActiveSchoolAdminTab] = useState<SchoolAdministratorProfileTab>('basic');
   const [activeParentTab, setActiveParentTab] = useState<ParentProfileTab>('basic');
+  const [activePlatformAdminTab, setActivePlatformAdminTab] = useState<PlatformAdministratorProfileTab>('basic');
   const [adminUserType, setAdminUserType] = useState('');
   const [adminSchoolPositionOptions, setAdminSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [adminSchoolPositionLoading, setAdminSchoolPositionLoading] = useState(false);
@@ -99,7 +104,8 @@ export function IdentityParityPage({
     canEditParentSection: isParent || isSchoolAdministrator || isPlatformAdministrator,
     canEditParentCommunication: isParent || isSchoolAdministrator || isPlatformAdministrator,
     canEditPublicContactNote: isTeacher || isSchoolAdministrator || isPlatformAdministrator,
-    canEditPreferredContactNote: isParent
+    canEditPreferredContactNote: isParent,
+    canEditPlatformAdminSummary: isPlatformAdministrator
   }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
 
   const selectedSchoolId = session.schoolIds[0] ?? '';
@@ -137,7 +143,10 @@ export function IdentityParityPage({
     publicContactNote: profile.publicContactNote ?? '',
     preferredContactNote: profile.preferredContactNote ?? '',
     administrativeWorkDesignation: profile.administrativeWorkDesignation ?? '',
-    administrativeOrganizationSummary: profile.administrativeOrganizationSummary ?? ''
+    administrativeOrganizationSummary: profile.administrativeOrganizationSummary ?? '',
+    platformRoleContextSummary: profile.platformRoleContextSummary ?? '',
+    managedPlatformAreasSummary: profile.managedPlatformAreasSummary ?? '',
+    administrativeBoundarySummary: profile.administrativeBoundarySummary ?? ''
   });
 
   const load = () => {
@@ -235,6 +244,15 @@ export function IdentityParityPage({
     }
     if (selfDraft.administrativeOrganizationSummary && selfDraft.administrativeOrganizationSummary.length > 500) {
       nextFieldErrors.administrativeOrganizationSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.platformRoleContextSummary && selfDraft.platformRoleContextSummary.length > 1000) {
+      nextFieldErrors.platformRoleContextSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.managedPlatformAreasSummary && selfDraft.managedPlatformAreasSummary.length > 1000) {
+      nextFieldErrors.managedPlatformAreasSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.administrativeBoundarySummary && selfDraft.administrativeBoundarySummary.length > 1000) {
+      nextFieldErrors.administrativeBoundarySummary = t('profileSaveErrorValidation');
     }
     if (selfDraft.deliveryContactName && selfDraft.deliveryContactName.length > 160) {
       nextFieldErrors.deliveryContactName = t('profileSaveErrorValidation');
@@ -345,6 +363,7 @@ export function IdentityParityPage({
   const isSchoolAdministratorScopedProfile = summary.profile.userType === 'SchoolAdministrator' || isSchoolAdministrator;
   const isTeacherScopedProfile = summary.profile.userType === 'Teacher' || isTeacher;
   const isParentScopedProfile = summary.profile.userType === 'Parent' || isParent;
+  const isPlatformAdministratorScopedProfile = summary.profile.userType === 'SupportStaff' && isPlatformAdministrator;
 
   return (
     <section className="space-y-4">
@@ -412,7 +431,59 @@ export function IdentityParityPage({
             onDismiss={() => setFormError('')}
           />
         ) : null}
-        {isSchoolAdministratorScopedProfile ? (
+        {isPlatformAdministratorScopedProfile ? (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className={`sk-btn ${activePlatformAdminTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActivePlatformAdminTab('basic')}>{t('profileTabPlatformAdminBasic')}</button>
+              <button type="button" className={`sk-btn ${activePlatformAdminTab === 'addressContact' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActivePlatformAdminTab('addressContact')}>{t('profileTabPlatformAdminAddressContact')}</button>
+              <button type="button" className={`sk-btn ${activePlatformAdminTab === 'platformRoleContext' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActivePlatformAdminTab('platformRoleContext')}>{t('profileTabPlatformAdminRoleContext')}</button>
+              <button type="button" className={`sk-btn ${activePlatformAdminTab === 'managedAreas' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActivePlatformAdminTab('managedAreas')}>{t('profileTabPlatformAdminManagedAreas')}</button>
+              <button type="button" className={`sk-btn ${activePlatformAdminTab === 'administrativeOverview' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActivePlatformAdminTab('administrativeOverview')}>{t('profileTabPlatformAdminAdministrativeOverview')}</button>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {activePlatformAdminTab === 'basic' ? (
+                <>
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
+                  <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+                  <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+                </>
+              ) : null}
+
+              {activePlatformAdminTab === 'addressContact' ? (
+                <>
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPermanentAddress')} value={selfDraft.permanentAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, permanentAddress: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
+                  <Field icon={<ProfileEmailIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => setSelfDraft((v) => ({ ...v, contactEmail: value }))} />
+                  <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+                </>
+              ) : null}
+
+              {activePlatformAdminTab === 'platformRoleContext' ? (
+                <>
+                  <Field icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldAdministrativeWorkDesignation')} value={selfDraft.administrativeWorkDesignation ?? ''} disabled={!selfEditRules.canEditPlatformAdminSummary || savingSelf} invalid={Boolean(fieldErrors.administrativeWorkDesignation)} errorText={fieldErrors.administrativeWorkDesignation} onChange={(value) => setSelfDraft((v) => ({ ...v, administrativeWorkDesignation: value }))} />
+                  <Field icon={<ProfileRoleIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPlatformRoleContextSummary')} value={selfDraft.platformRoleContextSummary ?? ''} disabled={!selfEditRules.canEditPlatformAdminSummary || savingSelf} invalid={Boolean(fieldErrors.platformRoleContextSummary)} errorText={fieldErrors.platformRoleContextSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, platformRoleContextSummary: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldAdministrativeOrganizationSummary')} value={selfDraft.administrativeOrganizationSummary ?? ''} disabled={!selfEditRules.canEditPlatformAdminSummary || savingSelf} invalid={Boolean(fieldErrors.administrativeOrganizationSummary)} errorText={fieldErrors.administrativeOrganizationSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, administrativeOrganizationSummary: value }))} />
+                </>
+              ) : null}
+
+              {activePlatformAdminTab === 'managedAreas' ? (
+                <>
+                  <p className="text-xs text-slate-500 md:col-span-2">{t('profileHelpPlatformManagedAreas')}</p>
+                  <Field icon={<ProfileAssignmentIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldManagedPlatformAreasSummary')} value={selfDraft.managedPlatformAreasSummary ?? ''} disabled invalid={Boolean(fieldErrors.managedPlatformAreasSummary)} errorText={fieldErrors.managedPlatformAreasSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, managedPlatformAreasSummary: value }))} />
+                </>
+              ) : null}
+
+              {activePlatformAdminTab === 'administrativeOverview' ? (
+                <>
+                  <p className="text-xs text-slate-500 md:col-span-2">{t('profileHelpPlatformAdministrativeOverview')}</p>
+                  <Field icon={<ProfileRoleIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldAdministrativeBoundarySummary')} value={selfDraft.administrativeBoundarySummary ?? ''} disabled invalid={Boolean(fieldErrors.administrativeBoundarySummary)} errorText={fieldErrors.administrativeBoundarySummary} onChange={(value) => setSelfDraft((v) => ({ ...v, administrativeBoundarySummary: value }))} />
+                </>
+              ) : null}
+            </div>
+          </>
+        ) : isSchoolAdministratorScopedProfile ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('basic')}>{t('profileTabSchoolAdminBasic')}</button>
@@ -732,6 +803,14 @@ export function IdentityParityPage({
               <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.communicationPreferencesSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, communicationPreferencesSummary: value }))} />
               <Field label={t('profileFieldPublicContactNote')} value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
               <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
+              {adminUserType === 'SupportStaff' ? (
+                <>
+                  <Field label={t('profileFieldAdministrativeWorkDesignation')} value={adminDraft.administrativeWorkDesignation ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, administrativeWorkDesignation: value }))} />
+                  <Field label={t('profileFieldPlatformRoleContextSummary')} value={adminDraft.platformRoleContextSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, platformRoleContextSummary: value }))} />
+                  <Field label={t('profileFieldManagedPlatformAreasSummary')} value={adminDraft.managedPlatformAreasSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, managedPlatformAreasSummary: value }))} />
+                  <Field label={t('profileFieldAdministrativeBoundarySummary')} value={adminDraft.administrativeBoundarySummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, administrativeBoundarySummary: value }))} />
+                </>
+              ) : null}
             </div>
           ) : null}
 

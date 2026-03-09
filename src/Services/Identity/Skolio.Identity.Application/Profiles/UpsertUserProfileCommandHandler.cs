@@ -50,7 +50,10 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.PublicContactNote,
                 request.PreferredContactNote,
                 request.AdministrativeWorkDesignation,
-                request.AdministrativeOrganizationSummary);
+                request.AdministrativeOrganizationSummary,
+                request.PlatformRoleContextSummary,
+                request.ManagedPlatformAreasSummary,
+                request.AdministrativeBoundarySummary);
         }
         else
         {
@@ -89,7 +92,10 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.PublicContactNote,
                 request.PreferredContactNote,
                 request.AdministrativeWorkDesignation,
-                request.AdministrativeOrganizationSummary);
+                request.AdministrativeOrganizationSummary,
+                request.PlatformRoleContextSummary,
+                request.ManagedPlatformAreasSummary,
+                request.AdministrativeBoundarySummary);
         }
 
         await commandStore.UpsertUserProfileAsync(profile, cancellationToken);

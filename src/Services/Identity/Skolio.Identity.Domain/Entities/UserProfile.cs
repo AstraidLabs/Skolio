@@ -40,7 +40,10 @@ public sealed class UserProfile
         string? publicContactNote,
         string? preferredContactNote,
         string? administrativeWorkDesignation,
-        string? administrativeOrganizationSummary)
+        string? administrativeOrganizationSummary,
+        string? platformRoleContextSummary,
+        string? managedPlatformAreasSummary,
+        string? administrativeBoundarySummary)
     {
         Id = id;
         FirstName = firstName.Trim();
@@ -77,6 +80,9 @@ public sealed class UserProfile
         PreferredContactNote = NormalizeOptional(preferredContactNote);
         AdministrativeWorkDesignation = NormalizeOptional(administrativeWorkDesignation);
         AdministrativeOrganizationSummary = NormalizeOptional(administrativeOrganizationSummary);
+        PlatformRoleContextSummary = NormalizeOptional(platformRoleContextSummary);
+        ManagedPlatformAreasSummary = NormalizeOptional(managedPlatformAreasSummary);
+        AdministrativeBoundarySummary = NormalizeOptional(administrativeBoundarySummary);
         IsActive = true;
     }
 
@@ -115,6 +121,9 @@ public sealed class UserProfile
     public string? PreferredContactNote { get; private set; }
     public string? AdministrativeWorkDesignation { get; private set; }
     public string? AdministrativeOrganizationSummary { get; private set; }
+    public string? PlatformRoleContextSummary { get; private set; }
+    public string? ManagedPlatformAreasSummary { get; private set; }
+    public string? AdministrativeBoundarySummary { get; private set; }
     public bool IsActive { get; private set; }
 
     public static UserProfile Create(
@@ -152,7 +161,10 @@ public sealed class UserProfile
         string? publicContactNote = null,
         string? preferredContactNote = null,
         string? administrativeWorkDesignation = null,
-        string? administrativeOrganizationSummary = null)
+        string? administrativeOrganizationSummary = null,
+        string? platformRoleContextSummary = null,
+        string? managedPlatformAreasSummary = null,
+        string? administrativeBoundarySummary = null)
     {
         if (id == Guid.Empty)
             throw new IdentityDomainException("User profile id is required.");
@@ -194,7 +206,10 @@ public sealed class UserProfile
             publicContactNote,
             preferredContactNote,
             administrativeWorkDesignation,
-            administrativeOrganizationSummary);
+            administrativeOrganizationSummary,
+            platformRoleContextSummary,
+            managedPlatformAreasSummary,
+            administrativeBoundarySummary);
     }
 
     public void Update(
@@ -231,7 +246,10 @@ public sealed class UserProfile
         string? publicContactNote,
         string? preferredContactNote,
         string? administrativeWorkDesignation,
-        string? administrativeOrganizationSummary)
+        string? administrativeOrganizationSummary,
+        string? platformRoleContextSummary,
+        string? managedPlatformAreasSummary,
+        string? administrativeBoundarySummary)
     {
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email))
             throw new IdentityDomainException("User profile first name, last name and email are required.");
@@ -270,6 +288,9 @@ public sealed class UserProfile
         PreferredContactNote = NormalizeOptional(preferredContactNote);
         AdministrativeWorkDesignation = NormalizeOptional(administrativeWorkDesignation);
         AdministrativeOrganizationSummary = NormalizeOptional(administrativeOrganizationSummary);
+        PlatformRoleContextSummary = NormalizeOptional(platformRoleContextSummary);
+        ManagedPlatformAreasSummary = NormalizeOptional(managedPlatformAreasSummary);
+        AdministrativeBoundarySummary = NormalizeOptional(administrativeBoundarySummary);
     }
 
     public void Activate() => IsActive = true;

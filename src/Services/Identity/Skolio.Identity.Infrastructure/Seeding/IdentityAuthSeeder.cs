@@ -347,7 +347,10 @@ public sealed class IdentityAuthSeeder(
                 BuildPublicContactNote(seedUser.UserType),
                 BuildPreferredContactNote(seedUser.UserType),
                 BuildAdministrativeWorkDesignation(seedUser.UserType),
-                BuildAdministrativeOrganizationSummary(seedUser.UserType)));
+                BuildAdministrativeOrganizationSummary(seedUser.UserType),
+                BuildPlatformRoleContextSummary(seedUser.UserType),
+                BuildManagedPlatformAreasSummary(seedUser.UserType),
+                BuildAdministrativeBoundarySummary(seedUser.UserType)));
 
             logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
             return;
@@ -387,7 +390,10 @@ public sealed class IdentityAuthSeeder(
             BuildPublicContactNote(seedUser.UserType),
             BuildPreferredContactNote(seedUser.UserType),
             BuildAdministrativeWorkDesignation(seedUser.UserType),
-            BuildAdministrativeOrganizationSummary(seedUser.UserType));
+            BuildAdministrativeOrganizationSummary(seedUser.UserType),
+            BuildPlatformRoleContextSummary(seedUser.UserType),
+            BuildManagedPlatformAreasSummary(seedUser.UserType),
+            BuildAdministrativeBoundarySummary(seedUser.UserType));
 
         profile.Activate();
         logger.LogInformation("Seed user profile already exists and was refreshed: {Email}", seedUser.Email);
@@ -577,14 +583,39 @@ public sealed class IdentityAuthSeeder(
         => userType == UserType.Parent ? "School communication preferred via email notifications." : null;
 
     private static string? BuildPublicContactNote(UserType userType)
-        => userType == UserType.Teacher ? "Consultation hours via school communication channel." : null;
+        => userType switch
+        {
+            UserType.Teacher => "Consultation hours via school communication channel.",
+            UserType.SupportStaff => "Platform administration contact through central operations channel.",
+            _ => null
+        };
 
     private static string? BuildAdministrativeWorkDesignation(UserType userType)
-        => userType == UserType.SchoolAdministrator ? "School administrative coordinator" : null;
+        => userType switch
+        {
+            UserType.SchoolAdministrator => "School administrative coordinator",
+            UserType.SupportStaff => "Platform administrator",
+            _ => null
+        };
 
     private static string? BuildAdministrativeOrganizationSummary(UserType userType)
         => userType == UserType.SchoolAdministrator
             ? "School-administrator-scoped profile summary for delegated administration and managed schools overview."
+            : null;
+
+    private static string? BuildPlatformRoleContextSummary(UserType userType)
+        => userType == UserType.SupportStaff
+            ? "Platform administrator profile context for cross-service governance boundaries."
+            : null;
+
+    private static string? BuildManagedPlatformAreasSummary(UserType userType)
+        => userType == UserType.SupportStaff
+            ? "Managed areas summary: schools directory read scope, system settings read scope, feature toggles read scope, audit and operations overview scope, lifecycle and housekeeping policy overview."
+            : null;
+
+    private static string? BuildAdministrativeBoundarySummary(UserType userType)
+        => userType == UserType.SupportStaff
+            ? "Read-only boundary overview for platform administration; operational edits remain in Administration and Organization services."
             : null;
 
     private static string? BuildPreferredContactNote(UserType userType)
@@ -602,10 +633,20 @@ public sealed class IdentityAuthSeeder(
     private static string BuildBirthPlace() => "Brno";
 
     private static string? BuildPermanentAddress(UserType userType)
-        => userType == UserType.Student ? "Brno, Czech Republic" : null;
+        => userType switch
+        {
+            UserType.Student => "Brno, Czech Republic",
+            UserType.SupportStaff => "Brno, Czech Republic",
+            _ => null
+        };
 
     private static string? BuildCorrespondenceAddress(UserType userType)
-        => userType == UserType.Student ? "Brno, Czech Republic" : null;
+        => userType switch
+        {
+            UserType.Student => "Brno, Czech Republic",
+            UserType.SupportStaff => "Brno, Czech Republic",
+            _ => null
+        };
 
     private static string? BuildLegalGuardian1(UserType userType)
         => userType == UserType.Student ? "Primary Parent Contact" : null;

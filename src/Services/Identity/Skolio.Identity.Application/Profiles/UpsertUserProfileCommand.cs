@@ -39,4 +39,7 @@ public sealed record UpsertUserProfileCommand(
     string? PublicContactNote,
     string? PreferredContactNote,
     string? AdministrativeWorkDesignation,
-    string? AdministrativeOrganizationSummary) : IRequest<UserProfileContract>;
+    string? AdministrativeOrganizationSummary,
+    string? PlatformRoleContextSummary,
+    string? ManagedPlatformAreasSummary,
+    string? AdministrativeBoundarySummary) : IRequest<UserProfileContract>;
