@@ -105,7 +105,12 @@ export type SecuritySummary = {
   recoveryCodesLeft: number;
 };
 export type MfaStatus = { enabled: boolean; hasAuthenticatorKey: boolean; recoveryCodesLeft: number };
-export type MfaSetupStart = { sharedKey: string; authenticatorUri: string };
+export type MfaSetupStart = {
+  sharedKey: string;
+  authenticatorUri: string;
+  issuer: string;
+  accountLabel: string;
+};
 export type RecoveryCodeResult = { recoveryCodes: string[] };
 
 export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import type { createIdentityApi, MfaSetupStart, SecuritySummary } from './api';
 import { Card } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
@@ -16,6 +17,9 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
   const [summary, setSummary] = useState<SecuritySummary | null>(null);
   const [mfaSetup, setMfaSetup] = useState<MfaSetupStart | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [mfaQrCodeDataUrl, setMfaQrCodeDataUrl] = useState('');
+  const [mfaQrLoading, setMfaQrLoading] = useState(false);
+  const [mfaQrError, setMfaQrError] = useState('');
 
   const [changePasswordDraft, setChangePasswordDraft] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
   const [changeEmailDraft, setChangeEmailDraft] = useState({ currentPassword: '', newEmail: '' });
@@ -68,6 +72,26 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
     const timer = window.setTimeout(() => setFeedbackSuccess(''), 5000);
     return () => window.clearTimeout(timer);
   }, [feedbackSuccess]);
+
+  useEffect(() => {
+    if (!mfaSetup?.authenticatorUri) {
+      setMfaQrCodeDataUrl('');
+      setMfaQrError('');
+      setMfaQrLoading(false);
+      return;
+    }
+
+    setMfaQrLoading(true);
+    setMfaQrError('');
+    void QRCode.toDataURL(mfaSetup.authenticatorUri, {
+      width: 224,
+      margin: 1,
+      errorCorrectionLevel: 'M'
+    })
+      .then((dataUrl) => setMfaQrCodeDataUrl(dataUrl))
+      .catch(() => setMfaQrError(t('securityMfaQrRenderError')))
+      .finally(() => setMfaQrLoading(false));
+  }, [mfaSetup?.authenticatorUri, t]);
 
   const resetFeedback = () => {
     setFeedbackError('');
@@ -132,6 +156,8 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
       .then((response) => {
         setMfaSetup(response);
         setRecoveryCodes([]);
+        setMfaConfirmCode('');
+        setMfaConfirmError('');
       })
       .catch((e: unknown) => setFeedbackError(mapValidationMessage(e, t)))
       .finally(() => setStartingMfa(false));
@@ -314,11 +340,25 @@ export function SecuritySelfServicePage({ api }: { api: ReturnType<typeof create
           {mfaSetup ? (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <SectionTitle icon={<StatusIcon className="h-4 w-4 text-slate-500" />} title={t('securityConfirmMfaAction')} />
+              <p className="mt-2 text-xs text-slate-600">{t('securityMfaScanQr')}</p>
+              <div className="mt-2 flex min-h-56 items-center justify-center rounded-lg border border-slate-200 bg-white p-3">
+                {mfaQrLoading ? <p className="text-sm text-slate-600">{t('securityMfaQrLoading')}</p> : null}
+                {!mfaQrLoading && mfaQrCodeDataUrl ? (
+                  <img src={mfaQrCodeDataUrl} alt={t('securityMfaQrAlt')} className="h-56 w-56 rounded-md border border-slate-100" />
+                ) : null}
+                {!mfaQrLoading && !mfaQrCodeDataUrl && mfaQrError ? <p className="text-sm text-red-700">{mfaQrError}</p> : null}
+              </div>
+
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <ReadOnlyField label={t('securityMfaIssuer')} value={mfaSetup.issuer} />
+                <ReadOnlyField label={t('securityMfaAccountLabel')} value={mfaSetup.accountLabel} />
+              </div>
+
+              <p className="mt-3 text-xs text-slate-600">{t('securityMfaManualEntryHelp')}</p>
               <p className="mt-2 text-xs text-slate-600">{t('securitySharedKey')}</p>
               <code className="mt-1 block rounded bg-white px-2 py-1 text-xs text-slate-900">{mfaSetup.sharedKey}</code>
-              <p className="mt-2 text-xs text-slate-600">{t('securityAuthenticatorUri')}</p>
-              <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-[11px] text-slate-900">{mfaSetup.authenticatorUri}</code>
-              <div className="mt-2 grid gap-2 md:grid-cols-2">
+
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <InputField
                   type="text"
                   label={t('securityVerificationCode')}
@@ -461,9 +501,16 @@ function InputField({
 
 function mapValidationMessage(e: unknown, t: ReturnType<typeof useI18n>['t']) {
   const mapped = extractValidationErrors(e);
+  const normalizedFormErrors = mapped.formErrors.map((x) => x.toLowerCase());
+  if (normalizedFormErrors.some((x) => x.includes('verification code is invalid'))) return t('securityInvalidVerificationCode');
+
+  const normalizedFieldErrors = Object.values(mapped.fieldErrors).flat().map((x) => x.toLowerCase());
+  if (normalizedFieldErrors.some((x) => x.includes('verification code is invalid'))) return t('securityInvalidVerificationCode');
+
   if (mapped.formErrors.length > 0) return mapped.formErrors[0];
   const firstField = Object.values(mapped.fieldErrors)[0];
   if (firstField && firstField.length > 0) return firstField[0];
+  if (e instanceof Error && e.message.toLowerCase().includes('verification code is invalid')) return t('securityInvalidVerificationCode');
   return e instanceof Error ? e.message : t('errorUnexpected');
 }
 

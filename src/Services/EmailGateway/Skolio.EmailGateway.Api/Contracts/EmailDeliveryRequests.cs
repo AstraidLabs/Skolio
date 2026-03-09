@@ -20,11 +20,20 @@ public sealed record SecurityNotificationRequest(
     [property: Required, MinLength(1)] string NotificationTitle,
     [property: Required, MinLength(1)] string NotificationMessage);
 
-public sealed record MfaChangedRequest(
-    [property: Required, EmailAddress] string RecipientEmail,
-    [property: Required, MinLength(1)] string RecipientDisplayName,
-    [property: Required, MinLength(1)] string ChangedAtUtc,
-    [property: Required, MinLength(1)] string ChangedByIpMasked);
+public sealed class MfaChangedRequest
+{
+    [Required, EmailAddress]
+    public string RecipientEmail { get; init; } = string.Empty;
+
+    [Required, MinLength(1)]
+    public string RecipientDisplayName { get; init; } = string.Empty;
+
+    [Required, MinLength(1)]
+    public string ChangedAtUtc { get; init; } = string.Empty;
+
+    [Required, MinLength(1)]
+    public string ChangedByIpMasked { get; init; } = string.Empty;
+}
 
 public sealed record AccountConfirmationRequest(
     [property: Required, EmailAddress] string RecipientEmail,

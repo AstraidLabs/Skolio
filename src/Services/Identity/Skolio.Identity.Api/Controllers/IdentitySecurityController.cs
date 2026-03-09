@@ -203,10 +203,12 @@ public sealed class IdentitySecurityController(
         await userManager.ResetAuthenticatorKeyAsync(user);
         var unformattedKey = await userManager.GetAuthenticatorKeyAsync(user) ?? string.Empty;
         var sharedKey = FormatKey(unformattedKey);
-        var authenticatorUri = $"otpauth://totp/Skolio:{Uri.EscapeDataString(user.Email ?? user.UserName ?? user.Id)}?secret={Uri.EscapeDataString(unformattedKey)}&issuer=Skolio&digits=6";
+        var issuer = "Skolio";
+        var accountLabel = BuildMfaAccountLabel(user);
+        var authenticatorUri = $"otpauth://totp/{Uri.EscapeDataString($"{issuer}:{accountLabel}")}?secret={Uri.EscapeDataString(unformattedKey)}&issuer={Uri.EscapeDataString(issuer)}&digits=6";
 
         Audit("identity.security.mfa.setup-started", user.Id, new { action = "mfa-setup-started" });
-        return Ok(new MfaSetupStartContract(sharedKey, authenticatorUri));
+        return Ok(new MfaSetupStartContract(sharedKey, authenticatorUri, issuer, accountLabel));
     }
 
     [HttpPost("mfa/setup/confirm")]
@@ -339,6 +341,13 @@ public sealed class IdentitySecurityController(
         return user.Id;
     }
 
+    private static string BuildMfaAccountLabel(SkolioIdentityUser user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.Email)) return user.Email;
+        if (!string.IsNullOrWhiteSpace(user.UserName)) return user.UserName;
+        return user.Id;
+    }
+
     private static string MaskEmail(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || !value.Contains('@')) return "masked";
@@ -392,7 +401,7 @@ public sealed class IdentitySecurityController(
     public sealed record RequestEmailChangeRequest(string CurrentPassword, string NewEmail);
     public sealed record ConfirmEmailChangeRequest(string UserId, string NewEmail, string Token);
     public sealed record MfaStatusContract(bool Enabled, bool HasAuthenticatorKey, int RecoveryCodesLeft);
-    public sealed record MfaSetupStartContract(string SharedKey, string AuthenticatorUri);
+    public sealed record MfaSetupStartContract(string SharedKey, string AuthenticatorUri, string Issuer, string AccountLabel);
     public sealed record ConfirmMfaSetupRequest(string VerificationCode);
     public sealed record MfaSetupConfirmContract(IReadOnlyCollection<string> RecoveryCodes);
     public sealed record DisableMfaRequest(string CurrentPassword, string VerificationCode);
