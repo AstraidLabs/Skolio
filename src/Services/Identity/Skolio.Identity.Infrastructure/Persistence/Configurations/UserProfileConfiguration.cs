@@ -43,6 +43,8 @@ public sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserProf
         builder.Property(x => x.CommunicationPreferencesSummary).HasColumnName("communication_preferences_summary").HasMaxLength(500);
         builder.Property(x => x.PublicContactNote).HasColumnName("public_contact_note").HasMaxLength(240);
         builder.Property(x => x.PreferredContactNote).HasColumnName("preferred_contact_note").HasMaxLength(240);
+        builder.Property(x => x.AdministrativeWorkDesignation).HasColumnName("administrative_work_designation").HasMaxLength(120);
+        builder.Property(x => x.AdministrativeOrganizationSummary).HasColumnName("administrative_organization_summary").HasMaxLength(500);
         builder.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true).IsRequired();
         builder.HasIndex(x => x.IsActive);
     }

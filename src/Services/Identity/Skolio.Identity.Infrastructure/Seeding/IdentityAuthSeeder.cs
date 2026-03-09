@@ -345,7 +345,9 @@ public sealed class IdentityAuthSeeder(
                 BuildPreferredContactChannel(seedUser.UserType),
                 BuildCommunicationPreferencesSummary(seedUser.UserType),
                 BuildPublicContactNote(seedUser.UserType),
-                BuildPreferredContactNote(seedUser.UserType)));
+                BuildPreferredContactNote(seedUser.UserType),
+                BuildAdministrativeWorkDesignation(seedUser.UserType),
+                BuildAdministrativeOrganizationSummary(seedUser.UserType)));
 
             logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
             return;
@@ -383,7 +385,9 @@ public sealed class IdentityAuthSeeder(
             BuildPreferredContactChannel(seedUser.UserType),
             BuildCommunicationPreferencesSummary(seedUser.UserType),
             BuildPublicContactNote(seedUser.UserType),
-            BuildPreferredContactNote(seedUser.UserType));
+            BuildPreferredContactNote(seedUser.UserType),
+            BuildAdministrativeWorkDesignation(seedUser.UserType),
+            BuildAdministrativeOrganizationSummary(seedUser.UserType));
 
         profile.Activate();
         logger.LogInformation("Seed user profile already exists and was refreshed: {Email}", seedUser.Email);
@@ -574,6 +578,14 @@ public sealed class IdentityAuthSeeder(
 
     private static string? BuildPublicContactNote(UserType userType)
         => userType == UserType.Teacher ? "Consultation hours via school communication channel." : null;
+
+    private static string? BuildAdministrativeWorkDesignation(UserType userType)
+        => userType == UserType.SchoolAdministrator ? "School administrative coordinator" : null;
+
+    private static string? BuildAdministrativeOrganizationSummary(UserType userType)
+        => userType == UserType.SchoolAdministrator
+            ? "School-administrator-scoped profile summary for delegated administration and managed schools overview."
+            : null;
 
     private static string? BuildPreferredContactNote(UserType userType)
         => userType == UserType.Parent ? "Preferred communication in Czech language." : null;
