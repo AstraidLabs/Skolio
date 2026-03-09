@@ -43,6 +43,33 @@ public sealed class IdentityAuthSeeder(
         "SchoolAdministrator",
         KindergartenSchoolId);
 
+    private static readonly SeedUserDefinition KindergartenTeacher = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000102"),
+        "kindergarten.teacher@skolio.local",
+        "Kindergarten",
+        "Teacher",
+        UserType.Teacher,
+        "Teacher",
+        KindergartenSchoolId);
+
+    private static readonly SeedUserDefinition KindergartenParent = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000103"),
+        "kindergarten.parent@skolio.local",
+        "Kindergarten",
+        "Parent",
+        UserType.Parent,
+        "Parent",
+        KindergartenSchoolId);
+
+    private static readonly SeedUserDefinition KindergartenStudent = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000104"),
+        "kindergarten.child@skolio.local",
+        "Kindergarten",
+        "Child",
+        UserType.Student,
+        "Student",
+        KindergartenSchoolId);
+
     private static readonly SeedUserDefinition ElementarySchoolAdministrator = new(
         Guid.Parse("10000000-0000-0000-0000-000000000201"),
         "elementary.admin@skolio.local",
@@ -50,6 +77,33 @@ public sealed class IdentityAuthSeeder(
         "Administrator",
         UserType.SchoolAdministrator,
         "SchoolAdministrator",
+        ElementarySchoolId);
+
+    private static readonly SeedUserDefinition ElementaryTeacher = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000202"),
+        "elementary.teacher@skolio.local",
+        "Elementary",
+        "Teacher",
+        UserType.Teacher,
+        "Teacher",
+        ElementarySchoolId);
+
+    private static readonly SeedUserDefinition ElementaryParent = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000203"),
+        "elementary.parent@skolio.local",
+        "Elementary",
+        "Parent",
+        UserType.Parent,
+        "Parent",
+        ElementarySchoolId);
+
+    private static readonly SeedUserDefinition ElementaryStudent = new(
+        Guid.Parse("10000000-0000-0000-0000-000000000204"),
+        "elementary.student@skolio.local",
+        "Elementary",
+        "Student",
+        UserType.Student,
+        "Student",
         ElementarySchoolId);
 
     private static readonly SeedUserDefinition SecondarySchoolAdministrator = new(
@@ -61,24 +115,6 @@ public sealed class IdentityAuthSeeder(
         "SchoolAdministrator",
         SecondarySchoolId);
 
-    private static readonly SeedUserDefinition KindergartenTeacher = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000102"),
-        "kindergarten.teacher@skolio.local",
-        "Kindergarten",
-        "Teacher",
-        UserType.Teacher,
-        "Teacher",
-        KindergartenSchoolId);
-
-    private static readonly SeedUserDefinition ElementaryTeacher = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000202"),
-        "elementary.teacher@skolio.local",
-        "Elementary",
-        "Teacher",
-        UserType.Teacher,
-        "Teacher",
-        ElementarySchoolId);
-
     private static readonly SeedUserDefinition SecondaryTeacher = new(
         Guid.Parse("10000000-0000-0000-0000-000000000302"),
         "secondary.teacher@skolio.local",
@@ -87,24 +123,6 @@ public sealed class IdentityAuthSeeder(
         UserType.Teacher,
         "Teacher",
         SecondarySchoolId);
-
-    private static readonly SeedUserDefinition KindergartenParent = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000103"),
-        "kindergarten.parent@skolio.local",
-        "Kindergarten",
-        "Parent",
-        UserType.Parent,
-        "Parent",
-        KindergartenSchoolId);
-
-    private static readonly SeedUserDefinition ElementaryParent = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000203"),
-        "elementary.parent@skolio.local",
-        "Elementary",
-        "Parent",
-        UserType.Parent,
-        "Parent",
-        ElementarySchoolId);
 
     private static readonly SeedUserDefinition SecondaryParent = new(
         Guid.Parse("10000000-0000-0000-0000-000000000303"),
@@ -115,15 +133,6 @@ public sealed class IdentityAuthSeeder(
         "Parent",
         SecondarySchoolId);
 
-    private static readonly SeedUserDefinition ElementaryStudent = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000204"),
-        "elementary.student@skolio.local",
-        "Elementary",
-        "Student",
-        UserType.Student,
-        "Student",
-        ElementarySchoolId);
-
     private static readonly SeedUserDefinition SecondaryStudent = new(
         Guid.Parse("10000000-0000-0000-0000-000000000304"),
         "secondary.student@skolio.local",
@@ -132,13 +141,6 @@ public sealed class IdentityAuthSeeder(
         UserType.Student,
         "Student",
         SecondarySchoolId);
-
-    private static readonly SeedProfileDefinition KindergartenChildProfile = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000104"),
-        "Kindergarten",
-        "Child",
-        UserType.Student,
-        "kindergarten.child@skolio.local");
 
     private static readonly string[] SeedRoles =
     [
@@ -153,16 +155,24 @@ public sealed class IdentityAuthSeeder(
     [
         PlatformAdministrator,
         KindergartenSchoolAdministrator,
-        ElementarySchoolAdministrator,
-        SecondarySchoolAdministrator,
         KindergartenTeacher,
-        ElementaryTeacher,
-        SecondaryTeacher,
         KindergartenParent,
+        KindergartenStudent,
+        ElementarySchoolAdministrator,
+        ElementaryTeacher,
         ElementaryParent,
-        SecondaryParent,
         ElementaryStudent,
+        SecondarySchoolAdministrator,
+        SecondaryTeacher,
+        SecondaryParent,
         SecondaryStudent
+    ];
+
+    private static readonly ParentStudentLinkDefinition[] SeedParentStudentLinks =
+    [
+        new(KindergartenParent.UserProfileId, KindergartenStudent.UserProfileId, "Parent"),
+        new(ElementaryParent.UserProfileId, ElementaryStudent.UserProfileId, "Parent"),
+        new(SecondaryParent.UserProfileId, SecondaryStudent.UserProfileId, "Parent")
     ];
 
     public async Task SeedAsync(CancellationToken cancellationToken)
@@ -175,11 +185,13 @@ public sealed class IdentityAuthSeeder(
         }
 
         logger.LogInformation("Identity seed started.");
+
         await EnsureRolesAsync(cancellationToken);
         await EnsureUsersAndProfilesAsync(cancellationToken);
         await EnsureRoleAssignmentsAsync(cancellationToken);
         await EnsureParentStudentLinksAsync(cancellationToken);
         await EnsureOidcClientAsync(cancellationToken);
+
         logger.LogInformation("Identity seed completed.");
     }
 
@@ -209,199 +221,172 @@ public sealed class IdentityAuthSeeder(
 
         foreach (var seedUser in SeedUsers)
         {
-            var user = await userManager.FindByEmailAsync(seedUser.Email);
-            if (user is null)
-            {
-                user = new SkolioIdentityUser
-                {
-                    Id = seedUser.UserProfileId.ToString(),
-                    UserName = seedUser.Email,
-                    Email = seedUser.Email,
-                    EmailConfirmed = true
-                };
-
-                var createResult = await userManager.CreateAsync(user, seedPassword);
-                if (!createResult.Succeeded)
-                {
-                    throw new InvalidOperationException($"Failed to create seed user {seedUser.Email}: {string.Join(",", createResult.Errors.Select(x => x.Code))}");
-                }
-
-                logger.LogInformation("Seed identity account created: {Email}", seedUser.Email);
-            }
-            else
-            {
-                logger.LogInformation("Seed identity account already exists: {Email}", seedUser.Email);
-            }
-
-            if (!await userManager.IsInRoleAsync(user, seedUser.RoleCode))
-            {
-                var roleResult = await userManager.AddToRoleAsync(user, seedUser.RoleCode);
-                if (!roleResult.Succeeded)
-                {
-                    throw new InvalidOperationException($"Failed to assign role {seedUser.RoleCode} for {seedUser.Email}: {string.Join(",", roleResult.Errors.Select(x => x.Code))}");
-                }
-
-                logger.LogInformation("Seed identity role assigned: {Email} -> {RoleCode}", seedUser.Email, seedUser.RoleCode);
-            }
-
-            var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == seedUser.UserProfileId, cancellationToken);
-            if (profile is null)
-            {
-                dbContext.UserProfiles.Add(UserProfile.Create(
-                    seedUser.UserProfileId,
-                    seedUser.FirstName,
-                    seedUser.LastName,
-                    seedUser.UserType,
-                    seedUser.Email,
-                    BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
-                    BuildPreferredLanguage(seedUser.UserType),
-                    BuildPhoneNumber(seedUser.UserType),
-                    BuildGender(seedUser.UserType),
-                    BuildDateOfBirth(seedUser.UserType),
-                    BuildNationalIdNumber(seedUser.UserType),
-                    BuildBirthPlace(),
-                    BuildPermanentAddress(seedUser.UserType),
-                    BuildCorrespondenceAddress(seedUser.UserType),
-                    seedUser.Email,
-                    BuildLegalGuardian1(seedUser.UserType),
-                    BuildLegalGuardian2(seedUser.UserType),
-                    BuildSchoolPlacement(seedUser.UserType),
-                    BuildHealthInsuranceProvider(seedUser.UserType),
-                    BuildPediatrician(seedUser.UserType),
-                    BuildHealthSafetyNotes(seedUser.UserType),
-                    BuildSupportMeasuresSummary(seedUser.UserType),
-                    BuildPositionTitle(seedUser.UserType),
-                    BuildTeacherRoleLabel(seedUser.UserType),
-                    BuildQualificationSummary(seedUser.UserType),
-                    BuildSchoolContextSummary(seedUser.UserType),
-                    BuildParentRelationshipSummary(seedUser.UserType),
-                    BuildDeliveryContactName(seedUser.UserType),
-                    BuildDeliveryContactPhone(seedUser.UserType),
-                    BuildPreferredContactChannel(seedUser.UserType),
-                    BuildCommunicationPreferencesSummary(seedUser.UserType),
-                    BuildPublicContactNote(seedUser.UserType),
-                    BuildPreferredContactNote(seedUser.UserType)));
-                logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
-            }
-            else
-            {
-                profile.Update(
-                    seedUser.FirstName,
-                    seedUser.LastName,
-                    seedUser.UserType,
-                    seedUser.Email,
-                    BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
-                    BuildPreferredLanguage(seedUser.UserType),
-                    BuildPhoneNumber(seedUser.UserType),
-                    BuildGender(seedUser.UserType),
-                    BuildDateOfBirth(seedUser.UserType),
-                    BuildNationalIdNumber(seedUser.UserType),
-                    BuildBirthPlace(),
-                    BuildPermanentAddress(seedUser.UserType),
-                    BuildCorrespondenceAddress(seedUser.UserType),
-                    seedUser.Email,
-                    BuildLegalGuardian1(seedUser.UserType),
-                    BuildLegalGuardian2(seedUser.UserType),
-                    BuildSchoolPlacement(seedUser.UserType),
-                    BuildHealthInsuranceProvider(seedUser.UserType),
-                    BuildPediatrician(seedUser.UserType),
-                    BuildHealthSafetyNotes(seedUser.UserType),
-                    BuildSupportMeasuresSummary(seedUser.UserType),
-                    BuildPositionTitle(seedUser.UserType),
-                    BuildTeacherRoleLabel(seedUser.UserType),
-                    BuildQualificationSummary(seedUser.UserType),
-                    BuildSchoolContextSummary(seedUser.UserType),
-                    BuildParentRelationshipSummary(seedUser.UserType),
-                    BuildDeliveryContactName(seedUser.UserType),
-                    BuildDeliveryContactPhone(seedUser.UserType),
-                    BuildPreferredContactChannel(seedUser.UserType),
-                    BuildCommunicationPreferencesSummary(seedUser.UserType),
-                    BuildPublicContactNote(seedUser.UserType),
-                    BuildPreferredContactNote(seedUser.UserType));
-                profile.Activate();
-                logger.LogInformation("Seed user profile already exists and was refreshed: {Email}", seedUser.Email);
-            }
-        }
-
-        var kindergartenChild = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == KindergartenChildProfile.UserProfileId, cancellationToken);
-        if (kindergartenChild is null)
-        {
-            dbContext.UserProfiles.Add(UserProfile.Create(
-                KindergartenChildProfile.UserProfileId,
-                KindergartenChildProfile.FirstName,
-                KindergartenChildProfile.LastName,
-                KindergartenChildProfile.UserType,
-                KindergartenChildProfile.Email,
-                BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
-                "cs-CZ",
-                null,
-                "Female",
-                new DateOnly(2019, 5, 20),
-                "190520/1122",
-                "Brno",
-                "Brno, CZ",
-                "Brno, CZ",
-                KindergartenChildProfile.Email,
-                "Kindergarten Parent",
-                null,
-                "Kindergarten Group A",
-                "VZP",
-                "MUDr. Novotna",
-                "No known allergies.",
-                "Introductory adaptation support.",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
-            logger.LogInformation("Seed kindergarten child profile created for parent-child link coverage.");
-        }
-        else
-        {
-            kindergartenChild.Update(
-                KindergartenChildProfile.FirstName,
-                KindergartenChildProfile.LastName,
-                KindergartenChildProfile.UserType,
-                KindergartenChildProfile.Email,
-                BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
-                "cs-CZ",
-                null,
-                "Female",
-                new DateOnly(2019, 5, 20),
-                "190520/1122",
-                "Brno",
-                "Brno, CZ",
-                "Brno, CZ",
-                KindergartenChildProfile.Email,
-                "Kindergarten Parent",
-                null,
-                "Kindergarten Group A",
-                "VZP",
-                "MUDr. Novotna",
-                "No known allergies.",
-                "Introductory adaptation support.",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null);
-            kindergartenChild.Activate();
-            logger.LogInformation("Seed kindergarten child profile already exists and was refreshed.");
+            var identityUser = await EnsureIdentityUserAsync(seedUser, seedPassword);
+            await EnsureRoleMembershipAsync(identityUser, seedUser);
+            await EnsureUserProfileAsync(seedUser, cancellationToken);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<SkolioIdentityUser> EnsureIdentityUserAsync(SeedUserDefinition seedUser, string seedPassword)
+    {
+        var user = await userManager.FindByEmailAsync(seedUser.Email);
+        if (user is null)
+        {
+            user = new SkolioIdentityUser
+            {
+                Id = seedUser.UserProfileId.ToString(),
+                UserName = seedUser.Email,
+                Email = seedUser.Email,
+                EmailConfirmed = true
+            };
+
+            var createResult = await userManager.CreateAsync(user, seedPassword);
+            if (!createResult.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to create seed user {seedUser.Email}: {string.Join(",", createResult.Errors.Select(x => x.Code))}");
+            }
+
+            logger.LogInformation("Seed identity account created: {Email}", seedUser.Email);
+            return user;
+        }
+
+        var requiresUpdate = false;
+        if (!string.Equals(user.UserName, seedUser.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            user.UserName = seedUser.Email;
+            requiresUpdate = true;
+        }
+
+        if (!string.Equals(user.Email, seedUser.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            user.Email = seedUser.Email;
+            requiresUpdate = true;
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            user.EmailConfirmed = true;
+            requiresUpdate = true;
+        }
+
+        if (requiresUpdate)
+        {
+            var updateResult = await userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to update seed user {seedUser.Email}: {string.Join(",", updateResult.Errors.Select(x => x.Code))}");
+            }
+
+            logger.LogInformation("Seed identity account normalized: {Email}", seedUser.Email);
+        }
+        else
+        {
+            logger.LogInformation("Seed identity account already exists: {Email}", seedUser.Email);
+        }
+
+        return user;
+    }
+
+    private async Task EnsureRoleMembershipAsync(SkolioIdentityUser user, SeedUserDefinition seedUser)
+    {
+        if (await userManager.IsInRoleAsync(user, seedUser.RoleCode))
+        {
+            logger.LogInformation("Seed identity role already assigned: {Email} -> {RoleCode}", seedUser.Email, seedUser.RoleCode);
+            return;
+        }
+
+        var roleResult = await userManager.AddToRoleAsync(user, seedUser.RoleCode);
+        if (!roleResult.Succeeded)
+        {
+            throw new InvalidOperationException($"Failed to assign role {seedUser.RoleCode} for {seedUser.Email}: {string.Join(",", roleResult.Errors.Select(x => x.Code))}");
+        }
+
+        logger.LogInformation("Seed identity role assigned: {Email} -> {RoleCode}", seedUser.Email, seedUser.RoleCode);
+    }
+
+    private async Task EnsureUserProfileAsync(SeedUserDefinition seedUser, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == seedUser.UserProfileId, cancellationToken);
+
+        if (profile is null)
+        {
+            dbContext.UserProfiles.Add(UserProfile.Create(
+                seedUser.UserProfileId,
+                seedUser.FirstName,
+                seedUser.LastName,
+                seedUser.UserType,
+                seedUser.Email,
+                BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
+                BuildPreferredLanguage(seedUser.UserType),
+                BuildPhoneNumber(seedUser.UserType),
+                BuildGender(seedUser.UserType),
+                BuildDateOfBirth(seedUser.UserType),
+                BuildNationalIdNumber(seedUser.UserType),
+                BuildBirthPlace(),
+                BuildPermanentAddress(seedUser.UserType),
+                BuildCorrespondenceAddress(seedUser.UserType),
+                seedUser.Email,
+                BuildLegalGuardian1(seedUser.UserType),
+                BuildLegalGuardian2(seedUser.UserType),
+                BuildSchoolPlacement(seedUser.UserType),
+                BuildHealthInsuranceProvider(seedUser.UserType),
+                BuildPediatrician(seedUser.UserType),
+                BuildHealthSafetyNotes(seedUser.UserType),
+                BuildSupportMeasuresSummary(seedUser.UserType),
+                BuildPositionTitle(seedUser.UserType),
+                BuildTeacherRoleLabel(seedUser.UserType),
+                BuildQualificationSummary(seedUser.UserType),
+                BuildSchoolContextSummary(seedUser.UserType),
+                BuildParentRelationshipSummary(seedUser.UserType),
+                BuildDeliveryContactName(seedUser.UserType),
+                BuildDeliveryContactPhone(seedUser.UserType),
+                BuildPreferredContactChannel(seedUser.UserType),
+                BuildCommunicationPreferencesSummary(seedUser.UserType),
+                BuildPublicContactNote(seedUser.UserType),
+                BuildPreferredContactNote(seedUser.UserType)));
+
+            logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
+            return;
+        }
+
+        profile.Update(
+            seedUser.FirstName,
+            seedUser.LastName,
+            seedUser.UserType,
+            seedUser.Email,
+            BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
+            BuildPreferredLanguage(seedUser.UserType),
+            BuildPhoneNumber(seedUser.UserType),
+            BuildGender(seedUser.UserType),
+            BuildDateOfBirth(seedUser.UserType),
+            BuildNationalIdNumber(seedUser.UserType),
+            BuildBirthPlace(),
+            BuildPermanentAddress(seedUser.UserType),
+            BuildCorrespondenceAddress(seedUser.UserType),
+            seedUser.Email,
+            BuildLegalGuardian1(seedUser.UserType),
+            BuildLegalGuardian2(seedUser.UserType),
+            BuildSchoolPlacement(seedUser.UserType),
+            BuildHealthInsuranceProvider(seedUser.UserType),
+            BuildPediatrician(seedUser.UserType),
+            BuildHealthSafetyNotes(seedUser.UserType),
+            BuildSupportMeasuresSummary(seedUser.UserType),
+            BuildPositionTitle(seedUser.UserType),
+            BuildTeacherRoleLabel(seedUser.UserType),
+            BuildQualificationSummary(seedUser.UserType),
+            BuildSchoolContextSummary(seedUser.UserType),
+            BuildParentRelationshipSummary(seedUser.UserType),
+            BuildDeliveryContactName(seedUser.UserType),
+            BuildDeliveryContactPhone(seedUser.UserType),
+            BuildPreferredContactChannel(seedUser.UserType),
+            BuildCommunicationPreferencesSummary(seedUser.UserType),
+            BuildPublicContactNote(seedUser.UserType),
+            BuildPreferredContactNote(seedUser.UserType));
+
+        profile.Activate();
+        logger.LogInformation("Seed user profile already exists and was refreshed: {Email}", seedUser.Email);
     }
 
     private async Task EnsureRoleAssignmentsAsync(CancellationToken cancellationToken)
@@ -422,7 +407,7 @@ public sealed class IdentityAuthSeeder(
 
             if (exists)
             {
-                logger.LogInformation("Seed role assignment already exists: {Email} -> {RoleCode} ({SchoolId})", seedUser.Email, seedUser.RoleCode, seedUser.SchoolId);
+                logger.LogInformation("Seed role assignment already exists: {Email} -> {RoleCode} ({SchoolId})", seedUser.Email, seedUser.RoleCode, schoolId);
                 continue;
             }
 
@@ -435,27 +420,20 @@ public sealed class IdentityAuthSeeder(
 
     private async Task EnsureParentStudentLinksAsync(CancellationToken cancellationToken)
     {
-        var links = new[]
-        {
-            new { Parent = ElementaryParent.UserProfileId, Student = ElementaryStudent.UserProfileId, Relationship = "Parent" },
-            new { Parent = SecondaryParent.UserProfileId, Student = SecondaryStudent.UserProfileId, Relationship = "Parent" },
-            new { Parent = KindergartenParent.UserProfileId, Student = KindergartenChildProfile.UserProfileId, Relationship = "Parent" }
-        };
-
-        foreach (var link in links)
+        foreach (var link in SeedParentStudentLinks)
         {
             var exists = await dbContext.ParentStudentLinks.AnyAsync(
-                x => x.ParentUserProfileId == link.Parent && x.StudentUserProfileId == link.Student,
+                x => x.ParentUserProfileId == link.ParentUserProfileId && x.StudentUserProfileId == link.StudentUserProfileId,
                 cancellationToken);
 
             if (exists)
             {
-                logger.LogInformation("Seed parent-student link already exists: {Parent} -> {Student}", link.Parent, link.Student);
+                logger.LogInformation("Seed parent-student link already exists: {Parent} -> {Student}", link.ParentUserProfileId, link.StudentUserProfileId);
                 continue;
             }
 
-            dbContext.ParentStudentLinks.Add(ParentStudentLink.Create(Guid.NewGuid(), link.Parent, link.Student, link.Relationship));
-            logger.LogInformation("Seed parent-student link created: {Parent} -> {Student}", link.Parent, link.Student);
+            dbContext.ParentStudentLinks.Add(ParentStudentLink.Create(Guid.NewGuid(), link.ParentUserProfileId, link.StudentUserProfileId, link.Relationship));
+            logger.LogInformation("Seed parent-student link created: {Parent} -> {Student}", link.ParentUserProfileId, link.StudentUserProfileId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -516,12 +494,10 @@ public sealed class IdentityAuthSeeder(
         string RoleCode,
         Guid? SchoolId);
 
-    private sealed record SeedProfileDefinition(
-        Guid UserProfileId,
-        string FirstName,
-        string LastName,
-        UserType UserType,
-        string Email);
+    private sealed record ParentStudentLinkDefinition(
+        Guid ParentUserProfileId,
+        Guid StudentUserProfileId,
+        string Relationship);
 
     private static string BuildPreferredDisplayName(string firstName, string lastName) => $"{firstName} {lastName}";
 
