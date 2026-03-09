@@ -28,5 +28,8 @@ public sealed record UpsertUserProfileCommand(
     string? HealthSafetyNotes,
     string? SupportMeasuresSummary,
     string? PositionTitle,
+    string? TeacherRoleLabel,
+    string? QualificationSummary,
+    string? SchoolContextSummary,
     string? PublicContactNote,
     string? PreferredContactNote) : IRequest<UserProfileContract>;

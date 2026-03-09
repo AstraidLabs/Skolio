@@ -25,6 +25,9 @@ export type UserProfile = {
   healthSafetyNotes?: string | null;
   supportMeasuresSummary?: string | null;
   positionTitle?: string | null;
+  teacherRoleLabel?: string | null;
+  qualificationSummary?: string | null;
+  schoolContextSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
 };
@@ -64,6 +67,9 @@ export type SelfProfileUpdatePayload = {
   healthSafetyNotes?: string | null;
   supportMeasuresSummary?: string | null;
   positionTitle?: string | null;
+  teacherRoleLabel?: string | null;
+  qualificationSummary?: string | null;
+  schoolContextSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
 };
@@ -87,6 +93,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     myProfile: () => http<UserProfile>('identity', '/api/identity/user-profiles/me'),
     myProfileSummary: () => http<MyProfileSummary>('identity', '/api/identity/user-profiles/me/summary'),
     mySchoolPositionOptions: (schoolId?: string) => http<SchoolPositionOption[]>('identity', `/api/identity/user-profiles/me/school-position-options${schoolId ? `?schoolId=${schoolId}` : ''}`),
+    userSchoolPositionOptions: (id: string, schoolId?: string) => http<SchoolPositionOption[]>('identity', `/api/identity/user-profiles/${id}/school-position-options${schoolId ? `?schoolId=${schoolId}` : ''}`),
     studentContext: () => http<StudentIdentityContext>('identity', '/api/identity/user-profiles/student-context'),
     updateMyProfile: (payload: SelfProfileUpdatePayload) => http<UserProfile>('identity', '/api/identity/user-profiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
     linkedStudents: () => http<UserProfile[]>('identity', '/api/identity/user-profiles/linked-students'),

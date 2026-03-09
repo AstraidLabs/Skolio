@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
@@ -8,6 +8,7 @@ import { localeLabels, supportedLocales, useI18n } from '../i18n';
 import { extractValidationErrors } from '../shared/http/httpClient';
 
 type ProfileDraft = SelfProfileUpdatePayload;
+type TeacherProfileTab = 'basic' | 'address' | 'employment' | 'schoolContext' | 'teachingAssignments';
 
 const EMPTY_DRAFT: ProfileDraft = {
   firstName: '',
@@ -30,6 +31,9 @@ const EMPTY_DRAFT: ProfileDraft = {
   healthSafetyNotes: '',
   supportMeasuresSummary: '',
   positionTitle: '',
+  teacherRoleLabel: '',
+  qualificationSummary: '',
+  schoolContextSummary: '',
   publicContactNote: '',
   preferredContactNote: ''
 };
@@ -58,6 +62,10 @@ export function IdentityParityPage({
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
+  const [activeTeacherTab, setActiveTeacherTab] = useState<TeacherProfileTab>('basic');
+  const [adminUserType, setAdminUserType] = useState('');
+  const [adminSchoolPositionOptions, setAdminSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
+  const [adminSchoolPositionLoading, setAdminSchoolPositionLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const isPlatformAdministrator = session.roles.includes('PlatformAdministrator');
@@ -75,6 +83,8 @@ export function IdentityParityPage({
   const selfEditRules = useMemo(() => ({
     canEditName: !isStudentOnly,
     canEditSchoolPosition: isSchoolAdministrator || isTeacher || isPlatformAdministrator,
+    canEditTeacherSection: isSchoolAdministrator || isTeacher || isPlatformAdministrator,
+    canEditSchoolContextSummary: isSchoolAdministrator || isPlatformAdministrator,
     canEditPublicContactNote: isTeacher,
     canEditPreferredContactNote: isParent
   }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
@@ -103,6 +113,9 @@ export function IdentityParityPage({
     healthSafetyNotes: profile.healthSafetyNotes ?? '',
     supportMeasuresSummary: profile.supportMeasuresSummary ?? '',
     positionTitle: profile.positionTitle ?? '',
+    teacherRoleLabel: profile.teacherRoleLabel ?? '',
+    qualificationSummary: profile.qualificationSummary ?? '',
+    schoolContextSummary: profile.schoolContextSummary ?? '',
     publicContactNote: profile.publicContactNote ?? '',
     preferredContactNote: profile.preferredContactNote ?? ''
   });
@@ -135,6 +148,9 @@ export function IdentityParityPage({
           setUsers([]);
           setSelectedUserId('');
           setAdminDraft(EMPTY_DRAFT);
+          setAdminUserType('');
+          setAdminSchoolPositionOptions([]);
+          setAdminSchoolPositionLoading(false);
         }
 
         if (selfEditRules.canEditSchoolPosition && selectedSchoolId) {
@@ -179,6 +195,21 @@ export function IdentityParityPage({
     if (selfDraft.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(selfDraft.dateOfBirth)) {
       nextFieldErrors.dateOfBirth = t('profileValidationDate');
     }
+    if (selfDraft.teacherRoleLabel && selfDraft.teacherRoleLabel.length > 120) {
+      nextFieldErrors.teacherRoleLabel = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.qualificationSummary && selfDraft.qualificationSummary.length > 1000) {
+      nextFieldErrors.qualificationSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.schoolContextSummary && selfDraft.schoolContextSummary.length > 1000) {
+      nextFieldErrors.schoolContextSummary = t('profileSaveErrorValidation');
+    }
+    if (selfEditRules.canEditSchoolPosition
+      && selfDraft.positionTitle
+      && schoolPositionOptions.length > 0
+      && !schoolPositionOptions.some((x) => x.code === selfDraft.positionTitle)) {
+      nextFieldErrors.positionTitle = t('profileSaveErrorInvalidSchoolPosition');
+    }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) {
       setFormError(t('profileSaveErrorValidation'));
@@ -191,6 +222,9 @@ export function IdentityParityPage({
       firstName: selfEditRules.canEditName ? selfDraft.firstName : (summary?.profile.firstName ?? ''),
       lastName: selfEditRules.canEditName ? selfDraft.lastName : (summary?.profile.lastName ?? ''),
       positionTitle: selfEditRules.canEditSchoolPosition ? selfDraft.positionTitle : (summary?.profile.positionTitle ?? ''),
+      teacherRoleLabel: selfEditRules.canEditTeacherSection ? selfDraft.teacherRoleLabel : (summary?.profile.teacherRoleLabel ?? ''),
+      qualificationSummary: selfEditRules.canEditTeacherSection ? selfDraft.qualificationSummary : (summary?.profile.qualificationSummary ?? ''),
+      schoolContextSummary: selfEditRules.canEditSchoolContextSummary ? selfDraft.schoolContextSummary : (summary?.profile.schoolContextSummary ?? ''),
       publicContactNote: selfEditRules.canEditPublicContactNote ? selfDraft.publicContactNote : (summary?.profile.publicContactNote ?? ''),
       preferredContactNote: selfEditRules.canEditPreferredContactNote ? selfDraft.preferredContactNote : (summary?.profile.preferredContactNote ?? '')
     };
@@ -206,6 +240,9 @@ export function IdentityParityPage({
 
   const loadAdminTarget = (userId: string) => {
     setSelectedUserId(userId);
+    setAdminUserType('');
+    setAdminSchoolPositionOptions([]);
+    setAdminSchoolPositionLoading(false);
     if (!userId) {
       setAdminDraft(EMPTY_DRAFT);
       return;
@@ -213,7 +250,22 @@ export function IdentityParityPage({
 
     setFormError('');
     void api.userProfile(userId)
-      .then((profile) => setAdminDraft(mapToDraft(profile)))
+      .then(async (profile) => {
+        setAdminDraft(mapToDraft(profile));
+        setAdminUserType(profile.userType);
+
+        if (profile.userType !== 'Teacher' && profile.userType !== 'SchoolAdministrator') {
+          return;
+        }
+
+        setAdminSchoolPositionLoading(true);
+        try {
+          const options = await api.userSchoolPositionOptions(userId, selectedSchoolId || undefined);
+          setAdminSchoolPositionOptions(options);
+        } finally {
+          setAdminSchoolPositionLoading(false);
+        }
+      })
       .catch((e: Error) => setFormError(mapProfileError(e, t)));
   };
 
@@ -243,6 +295,7 @@ export function IdentityParityPage({
     || `${summary.profile.firstName} ${summary.profile.lastName}`.trim()
     || summary.profile.email
   );
+  const isTeacherScopedProfile = summary.profile.userType === 'Teacher' || isTeacher;
 
   return (
     <section className="space-y-4">
@@ -310,42 +363,86 @@ export function IdentityParityPage({
             onDismiss={() => setFormError('')}
           />
         ) : null}
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
-          <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
-          <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldGender')} value={selfDraft.gender ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, gender: value }))} />
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldDateOfBirth')} value={selfDraft.dateOfBirth ?? ''} disabled={isStudentOnly || savingSelf} invalid={Boolean(fieldErrors.dateOfBirth)} errorText={fieldErrors.dateOfBirth} onChange={(value) => setSelfDraft((v) => ({ ...v, dateOfBirth: value }))} />
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldNationalIdNumber')} value={selfDraft.nationalIdNumber ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, nationalIdNumber: value }))} />
-          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldBirthPlace')} value={selfDraft.birthPlace ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, birthPlace: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPermanentAddress')} value={selfDraft.permanentAddress ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, permanentAddress: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={isStudentOnly || savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => setSelfDraft((v) => ({ ...v, contactEmail: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLegalGuardian1')} value={selfDraft.legalGuardian1 ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, legalGuardian1: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLegalGuardian2')} value={selfDraft.legalGuardian2 ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, legalGuardian2: value }))} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSchoolPlacement')} value={selfDraft.schoolPlacement ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, schoolPlacement: value }))} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldHealthInsuranceProvider')} value={selfDraft.healthInsuranceProvider ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, healthInsuranceProvider: value }))} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPediatrician')} value={selfDraft.pediatrician ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, pediatrician: value }))} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldHealthSafetyNotes')} value={selfDraft.healthSafetyNotes ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, healthSafetyNotes: value }))} />
-          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSupportMeasuresSummary')} value={selfDraft.supportMeasuresSummary ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, supportMeasuresSummary: value }))} />
-          {canShowSchoolPositionField ? (
-            <SchoolPositionField
-              icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />}
-              label={t('profileFieldSchoolPosition')}
-              value={selfDraft.positionTitle ?? ''}
-              options={schoolPositionOptions}
-              loading={schoolPositionLoading || savingSelf}
-              onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))}
-              loadingText={t('profileSchoolPositionLoading')}
-              placeholder={t('profileSelectSchoolPositionPlaceholder')}
-              unavailableText={t('profileSchoolPositionUnavailable')}
-            />
-          ) : null}
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
-          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
-        </div>
+        {isTeacherScopedProfile ? (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className={`sk-btn ${activeTeacherTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('basic')}>{t('myProfile.accountOverview')}</button>
+              <button type="button" className={`sk-btn ${activeTeacherTab === 'address' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('address')}>{t('profileFieldCorrespondenceAddress')}</button>
+              <button type="button" className={`sk-btn ${activeTeacherTab === 'employment' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('employment')}>{t('profileFieldSchoolPosition')}</button>
+              <button type="button" className={`sk-btn ${activeTeacherTab === 'schoolContext' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('schoolContext')}>{t('profileLabelSchoolContext')}</button>
+              <button type="button" className={`sk-btn ${activeTeacherTab === 'teachingAssignments' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('teachingAssignments')}>{t('profileTeacherAssignmentsTitle')}</button>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {activeTeacherTab === 'basic' ? (
+                <>
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
+                  <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+                  <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+                  <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldDateOfBirth')} value={selfDraft.dateOfBirth ?? ''} disabled={isStudentOnly || savingSelf} invalid={Boolean(fieldErrors.dateOfBirth)} errorText={fieldErrors.dateOfBirth} onChange={(value) => setSelfDraft((v) => ({ ...v, dateOfBirth: value }))} />
+                </>
+              ) : null}
+              {activeTeacherTab === 'address' ? (
+                <>
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPermanentAddress')} value={selfDraft.permanentAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, permanentAddress: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => setSelfDraft((v) => ({ ...v, contactEmail: value }))} />
+                </>
+              ) : null}
+              {activeTeacherTab === 'employment' ? (
+                <>
+                  {canShowSchoolPositionField ? (
+                    <SchoolPositionField
+                      icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />}
+                      label={t('profileFieldSchoolPosition')}
+                      value={selfDraft.positionTitle ?? ''}
+                      options={schoolPositionOptions}
+                      loading={schoolPositionLoading || savingSelf}
+                      onChange={(value) => setSelfDraft((v) => ({ ...v, positionTitle: value }))}
+                      loadingText={t('profileSchoolPositionLoading')}
+                      placeholder={t('profileSelectSchoolPositionPlaceholder')}
+                      unavailableText={t('profileSchoolPositionUnavailable')}
+                      invalid={Boolean(fieldErrors.positionTitle)}
+                      errorText={fieldErrors.positionTitle}
+                    />
+                  ) : null}
+                  <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelRole')} value={selfDraft.teacherRoleLabel ?? ''} disabled={!selfEditRules.canEditTeacherSection || savingSelf} invalid={Boolean(fieldErrors.teacherRoleLabel)} errorText={fieldErrors.teacherRoleLabel} onChange={(value) => setSelfDraft((v) => ({ ...v, teacherRoleLabel: value }))} />
+                  <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSupportMeasuresSummary')} value={selfDraft.qualificationSummary ?? ''} disabled={!selfEditRules.canEditTeacherSection || savingSelf} invalid={Boolean(fieldErrors.qualificationSummary)} errorText={fieldErrors.qualificationSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, qualificationSummary: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={!selfEditRules.canEditPublicContactNote || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+                </>
+              ) : null}
+              {activeTeacherTab === 'schoolContext' ? (
+                <>
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelSchoolContext')} value={selectedSchoolId || '-'} disabled />
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('routeOrganization')} value={session.schoolType} disabled />
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelAssignedSchools')} value={summary.schoolIds.length.toString()} disabled />
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSchoolPlacement')} value={selfDraft.schoolContextSummary ?? ''} disabled={!selfEditRules.canEditSchoolContextSummary || savingSelf} invalid={Boolean(fieldErrors.schoolContextSummary)} errorText={fieldErrors.schoolContextSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, schoolContextSummary: value }))} />
+                </>
+              ) : null}
+            </div>
+            {activeTeacherTab === 'teachingAssignments' ? (
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-slate-500">{t('profileAdminEditDescription')}</p>
+                {teacherAssignments.length === 0 ? <EmptyState text={t('profileNoTeacherAssignments')} /> : (
+                  <ul className="sk-list">
+                    {teacherAssignments.map((assignment) => (
+                      <li key={assignment.id} className="sk-list-item">{assignment.scope} | {t('profileLabelClass')}: {assignment.classRoomId ?? '-'} | {t('profileLabelGroup')}: {assignment.teachingGroupId ?? '-'} | {t('profileLabelSubject')}: {assignment.subjectId ?? '-'}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
+            <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
+            <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+            <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+            <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+          </div>
+        )}
         <div className="mt-3 flex gap-2">
           <button className={`sk-btn sk-btn-primary gap-2 ${savingSelf ? 'sk-btn-busy' : ''}`} onClick={saveSelfProfile} type="button" disabled={savingSelf} aria-busy={savingSelf}>
             <SaveDiskIcon className="h-4 w-4 shrink-0" />
@@ -424,7 +521,23 @@ export function IdentityParityPage({
               <Field label={t('profileFieldPreferredDisplayName')} value={adminDraft.preferredDisplayName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredDisplayName: value }))} />
               <LanguageField label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={adminDraft.preferredLanguage ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredLanguage: value }))} />
               <Field label={t('profileFieldPhoneNumber')} value={adminDraft.phoneNumber ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, phoneNumber: value }))} />
-              <Field label={t('profileFieldPositionTitle')} value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
+              {(adminUserType === 'Teacher' || adminUserType === 'SchoolAdministrator') ? (
+                <SchoolPositionField
+                  label={t('profileFieldSchoolPosition')}
+                  value={adminDraft.positionTitle ?? ''}
+                  options={adminSchoolPositionOptions}
+                  loading={adminSchoolPositionLoading}
+                  onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))}
+                  loadingText={t('profileSchoolPositionLoading')}
+                  placeholder={t('profileSelectSchoolPositionPlaceholder')}
+                  unavailableText={t('profileSchoolPositionUnavailable')}
+                />
+              ) : (
+                <Field label={t('profileFieldPositionTitle')} value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
+              )}
+              <Field label={t('profileLabelRole')} value={adminDraft.teacherRoleLabel ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, teacherRoleLabel: value }))} />
+              <Field label={t('profileFieldSupportMeasuresSummary')} value={adminDraft.qualificationSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, qualificationSummary: value }))} />
+              <Field label={t('profileFieldSchoolPlacement')} value={adminDraft.schoolContextSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, schoolContextSummary: value }))} />
               <Field label={t('profileFieldPublicContactNote')} value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
               <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
             </div>
@@ -521,7 +634,9 @@ function SchoolPositionField({
   onChange,
   loadingText,
   placeholder,
-  unavailableText
+  unavailableText,
+  invalid = false,
+  errorText
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -532,6 +647,8 @@ function SchoolPositionField({
   loadingText: string;
   placeholder: string;
   unavailableText: string;
+  invalid?: boolean;
+  errorText?: string;
 }) {
   const disabled = loading || options.length === 0;
 
@@ -542,9 +659,10 @@ function SchoolPositionField({
         <span>{label}</span>
       </label>
       <select
-        className="sk-input"
+        className={`sk-input ${invalid ? 'sk-input-invalid' : ''}`}
         value={value}
         disabled={disabled}
+        aria-invalid={invalid}
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">
@@ -556,6 +674,7 @@ function SchoolPositionField({
           </option>
         ))}
       </select>
+      {errorText ? <span className="text-xs text-red-700">{errorText}</span> : null}
     </div>
   );
 }

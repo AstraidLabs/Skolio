@@ -27,6 +27,9 @@ public sealed record UserProfileContract(
     string? HealthSafetyNotes,
     string? SupportMeasuresSummary,
     string? PositionTitle,
+    string? TeacherRoleLabel,
+    string? QualificationSummary,
+    string? SchoolContextSummary,
     string? PublicContactNote,
     string? PreferredContactNote);
 public sealed record SchoolRoleAssignmentContract(Guid Id, Guid UserProfileId, Guid SchoolId, string RoleCode);

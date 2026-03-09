@@ -33,6 +33,9 @@ public sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserProf
         builder.Property(x => x.HealthSafetyNotes).HasColumnName("health_safety_notes").HasMaxLength(1000);
         builder.Property(x => x.SupportMeasuresSummary).HasColumnName("support_measures_summary").HasMaxLength(1000);
         builder.Property(x => x.PositionTitle).HasColumnName("position_title").HasMaxLength(120);
+        builder.Property(x => x.TeacherRoleLabel).HasColumnName("teacher_role_label").HasMaxLength(120);
+        builder.Property(x => x.QualificationSummary).HasColumnName("qualification_summary").HasMaxLength(1000);
+        builder.Property(x => x.SchoolContextSummary).HasColumnName("school_context_summary").HasMaxLength(1000);
         builder.Property(x => x.PublicContactNote).HasColumnName("public_contact_note").HasMaxLength(240);
         builder.Property(x => x.PreferredContactNote).HasColumnName("preferred_contact_note").HasMaxLength(240);
         builder.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true).IsRequired();

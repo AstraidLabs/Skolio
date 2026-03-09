@@ -29,6 +29,9 @@ public sealed class UserProfile
         string? healthSafetyNotes,
         string? supportMeasuresSummary,
         string? positionTitle,
+        string? teacherRoleLabel,
+        string? qualificationSummary,
+        string? schoolContextSummary,
         string? publicContactNote,
         string? preferredContactNote)
     {
@@ -55,6 +58,9 @@ public sealed class UserProfile
         HealthSafetyNotes = NormalizeOptional(healthSafetyNotes);
         SupportMeasuresSummary = NormalizeOptional(supportMeasuresSummary);
         PositionTitle = NormalizeOptional(positionTitle);
+        TeacherRoleLabel = NormalizeOptional(teacherRoleLabel);
+        QualificationSummary = NormalizeOptional(qualificationSummary);
+        SchoolContextSummary = NormalizeOptional(schoolContextSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
         IsActive = true;
@@ -83,6 +89,9 @@ public sealed class UserProfile
     public string? HealthSafetyNotes { get; private set; }
     public string? SupportMeasuresSummary { get; private set; }
     public string? PositionTitle { get; private set; }
+    public string? TeacherRoleLabel { get; private set; }
+    public string? QualificationSummary { get; private set; }
+    public string? SchoolContextSummary { get; private set; }
     public string? PublicContactNote { get; private set; }
     public string? PreferredContactNote { get; private set; }
     public bool IsActive { get; private set; }
@@ -111,6 +120,9 @@ public sealed class UserProfile
         string? healthSafetyNotes = null,
         string? supportMeasuresSummary = null,
         string? positionTitle = null,
+        string? teacherRoleLabel = null,
+        string? qualificationSummary = null,
+        string? schoolContextSummary = null,
         string? publicContactNote = null,
         string? preferredContactNote = null)
     {
@@ -143,6 +155,9 @@ public sealed class UserProfile
             healthSafetyNotes,
             supportMeasuresSummary,
             positionTitle,
+            teacherRoleLabel,
+            qualificationSummary,
+            schoolContextSummary,
             publicContactNote,
             preferredContactNote);
     }
@@ -170,6 +185,9 @@ public sealed class UserProfile
         string? healthSafetyNotes,
         string? supportMeasuresSummary,
         string? positionTitle,
+        string? teacherRoleLabel,
+        string? qualificationSummary,
+        string? schoolContextSummary,
         string? publicContactNote,
         string? preferredContactNote)
     {
@@ -198,6 +216,9 @@ public sealed class UserProfile
         HealthSafetyNotes = NormalizeOptional(healthSafetyNotes);
         SupportMeasuresSummary = NormalizeOptional(supportMeasuresSummary);
         PositionTitle = NormalizeOptional(positionTitle);
+        TeacherRoleLabel = NormalizeOptional(teacherRoleLabel);
+        QualificationSummary = NormalizeOptional(qualificationSummary);
+        SchoolContextSummary = NormalizeOptional(schoolContextSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
     }

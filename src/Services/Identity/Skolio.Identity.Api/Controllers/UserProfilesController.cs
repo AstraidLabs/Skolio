@@ -105,6 +105,28 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         return Ok(options);
     }
 
+    [HttpGet("{id:guid}/school-position-options")]
+    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    public async Task<ActionResult<IReadOnlyCollection<SchoolPositionOptionContract>>> UserSchoolPositionOptions(Guid id, [FromQuery] Guid? schoolId, CancellationToken cancellationToken)
+    {
+        if (!await HasProfileAccess(id, cancellationToken)) return Forbid();
+
+        var query = dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == id);
+
+        if (schoolId.HasValue && schoolId.Value != Guid.Empty)
+        {
+            query = query.Where(x => x.SchoolId == schoolId.Value);
+        }
+
+        var roleCodes = await query
+            .Select(x => x.RoleCode)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return Ok(BuildSchoolPositionOptions(roleCodes));
+    }
+
     [HttpPut("me")]
     [Authorize]
     public async Task<ActionResult<UserProfileContract>> UpdateMe([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken)
@@ -126,7 +148,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
 
         if (positionTitleChanged && !string.IsNullOrWhiteSpace(normalizedRequest.PositionTitle))
         {
-            var allowedCodes = await ResolveAllowedSchoolPositionCodesForActor(profile.Id, cancellationToken);
+            var allowedCodes = await ResolveAllowedSchoolPositionCodesForProfile(profile.Id, cancellationToken);
             if (!allowedCodes.Contains(normalizedRequest.PositionTitle))
             {
                 return this.ValidationField("positionTitle", "Selected school position is not allowed for current school context.");
@@ -159,6 +181,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.HealthSafetyNotes,
             normalizedRequest.SupportMeasuresSummary,
             normalizedRequest.PositionTitle,
+            normalizedRequest.TeacherRoleLabel,
+            normalizedRequest.QualificationSummary,
+            normalizedRequest.SchoolContextSummary,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
 
@@ -212,6 +237,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.HealthSafetyNotes,
                 x.SupportMeasuresSummary,
                 x.PositionTitle,
+                x.TeacherRoleLabel,
+                x.QualificationSummary,
+                x.SchoolContextSummary,
                 x.PublicContactNote,
                 x.PreferredContactNote))
             .ToListAsync(cancellationToken);
@@ -290,6 +318,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.HealthSafetyNotes,
                 x.SupportMeasuresSummary,
                 x.PositionTitle,
+                x.TeacherRoleLabel,
+                x.QualificationSummary,
+                x.SchoolContextSummary,
                 x.PublicContactNote,
                 x.PreferredContactNote))
             .ToListAsync(cancellationToken);
@@ -321,6 +352,19 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (validationResult is not null) return validationResult;
 
         var changedFields = CollectChangedFields(profile, normalizedRequest);
+        var positionTitleChanged = !string.Equals(
+            profile.PositionTitle?.Trim(),
+            normalizedRequest.PositionTitle?.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+
+        if (positionTitleChanged && !string.IsNullOrWhiteSpace(normalizedRequest.PositionTitle))
+        {
+            var allowedCodes = await ResolveAllowedSchoolPositionCodesForProfile(profile.Id, cancellationToken);
+            if (!allowedCodes.Contains(normalizedRequest.PositionTitle))
+            {
+                return this.ValidationField("positionTitle", "Selected school position is not allowed for current school context.");
+            }
+        }
 
         var result = await mediator.Send(new UpsertUserProfileCommand(
             profile.Id,
@@ -346,6 +390,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.HealthSafetyNotes,
             normalizedRequest.SupportMeasuresSummary,
             normalizedRequest.PositionTitle,
+            normalizedRequest.TeacherRoleLabel,
+            normalizedRequest.QualificationSummary,
+            normalizedRequest.SchoolContextSummary,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
 
@@ -389,6 +436,8 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
 
         var canEditName = !isStudentOnly;
         var canEditPositionTitle = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Teacher");
+        var canEditTeacherSection = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Teacher");
+        var canEditSchoolContextSummary = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator");
         var canEditPublicContactNote = User.IsInRole("Teacher");
         var canEditPreferredContactNote = User.IsInRole("Parent");
 
@@ -411,6 +460,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             HealthSafetyNotes = canEditPositionTitle ? request.HealthSafetyNotes : profile.HealthSafetyNotes,
             SupportMeasuresSummary = canEditPositionTitle ? request.SupportMeasuresSummary : profile.SupportMeasuresSummary,
             PositionTitle = canEditPositionTitle ? request.PositionTitle : profile.PositionTitle,
+            TeacherRoleLabel = canEditTeacherSection ? request.TeacherRoleLabel : profile.TeacherRoleLabel,
+            QualificationSummary = canEditTeacherSection ? request.QualificationSummary : profile.QualificationSummary,
+            SchoolContextSummary = canEditSchoolContextSummary ? request.SchoolContextSummary : profile.SchoolContextSummary,
             PublicContactNote = canEditPublicContactNote ? request.PublicContactNote : profile.PublicContactNote,
             PreferredContactNote = canEditPreferredContactNote ? request.PreferredContactNote : profile.PreferredContactNote
         };
@@ -454,6 +506,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (!string.Equals(profile.HealthSafetyNotes, request.HealthSafetyNotes, StringComparison.Ordinal)) changed.Add("healthSafetyNotes");
         if (!string.Equals(profile.SupportMeasuresSummary, request.SupportMeasuresSummary, StringComparison.Ordinal)) changed.Add("supportMeasuresSummary");
         if (!string.Equals(profile.PositionTitle, request.PositionTitle, StringComparison.Ordinal)) changed.Add("positionTitle");
+        if (!string.Equals(profile.TeacherRoleLabel, request.TeacherRoleLabel, StringComparison.Ordinal)) changed.Add("teacherRoleLabel");
+        if (!string.Equals(profile.QualificationSummary, request.QualificationSummary, StringComparison.Ordinal)) changed.Add("qualificationSummary");
+        if (!string.Equals(profile.SchoolContextSummary, request.SchoolContextSummary, StringComparison.Ordinal)) changed.Add("schoolContextSummary");
         if (!string.Equals(profile.PublicContactNote, request.PublicContactNote, StringComparison.Ordinal)) changed.Add("publicContactNote");
         if (!string.Equals(profile.PreferredContactNote, request.PreferredContactNote, StringComparison.Ordinal)) changed.Add("preferredContactNote");
 
@@ -473,6 +528,12 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             return this.ValidationField("healthSafetyNotes", "Health and safety notes are too long.");
         if (!string.IsNullOrWhiteSpace(values.SupportMeasuresSummary) && values.SupportMeasuresSummary.Length > 1000)
             return this.ValidationField("supportMeasuresSummary", "Support measures summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.TeacherRoleLabel) && values.TeacherRoleLabel.Length > 120)
+            return this.ValidationField("teacherRoleLabel", "Teacher role label is too long.");
+        if (!string.IsNullOrWhiteSpace(values.QualificationSummary) && values.QualificationSummary.Length > 1000)
+            return this.ValidationField("qualificationSummary", "Qualification summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.SchoolContextSummary) && values.SchoolContextSummary.Length > 1000)
+            return this.ValidationField("schoolContextSummary", "School context summary is too long.");
 
         return null;
     }
@@ -503,13 +564,16 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             profile.HealthSafetyNotes,
             profile.SupportMeasuresSummary,
             profile.PositionTitle,
+            profile.TeacherRoleLabel,
+            profile.QualificationSummary,
+            profile.SchoolContextSummary,
             profile.PublicContactNote,
             profile.PreferredContactNote);
 
-    private async Task<HashSet<string>> ResolveAllowedSchoolPositionCodesForActor(Guid actorUserId, CancellationToken cancellationToken)
+    private async Task<HashSet<string>> ResolveAllowedSchoolPositionCodesForProfile(Guid profileId, CancellationToken cancellationToken)
     {
         var roleCodes = await dbContext.SchoolRoleAssignments
-            .Where(x => x.UserProfileId == actorUserId)
+            .Where(x => x.UserProfileId == profileId)
             .Select(x => x.RoleCode)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -568,8 +632,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? HealthSafetyNotes,
         string? SupportMeasuresSummary,
         string? PositionTitle,
+        string? TeacherRoleLabel,
+        string? QualificationSummary,
+        string? SchoolContextSummary,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, PublicContactNote, PreferredContactNote);
 
     public sealed record UpdateAdminProfileRequest(
         string FirstName,
@@ -592,8 +659,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? HealthSafetyNotes,
         string? SupportMeasuresSummary,
         string? PositionTitle,
+        string? TeacherRoleLabel,
+        string? QualificationSummary,
+        string? SchoolContextSummary,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, PublicContactNote, PreferredContactNote);
 
     public abstract record ProfileEditableValues(
         string FirstName,
@@ -616,6 +686,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? HealthSafetyNotes,
         string? SupportMeasuresSummary,
         string? PositionTitle,
+        string? TeacherRoleLabel,
+        string? QualificationSummary,
+        string? SchoolContextSummary,
         string? PublicContactNote,
         string? PreferredContactNote);
 

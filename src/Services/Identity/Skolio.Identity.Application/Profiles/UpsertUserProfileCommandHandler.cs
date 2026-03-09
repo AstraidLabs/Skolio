@@ -39,6 +39,9 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.HealthSafetyNotes,
                 request.SupportMeasuresSummary,
                 request.PositionTitle,
+                request.TeacherRoleLabel,
+                request.QualificationSummary,
+                request.SchoolContextSummary,
                 request.PublicContactNote,
                 request.PreferredContactNote);
         }
@@ -68,6 +71,9 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.HealthSafetyNotes,
                 request.SupportMeasuresSummary,
                 request.PositionTitle,
+                request.TeacherRoleLabel,
+                request.QualificationSummary,
+                request.SchoolContextSummary,
                 request.PublicContactNote,
                 request.PreferredContactNote);
         }

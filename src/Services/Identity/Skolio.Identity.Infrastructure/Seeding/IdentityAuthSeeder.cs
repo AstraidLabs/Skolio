@@ -271,6 +271,9 @@ public sealed class IdentityAuthSeeder(
                     BuildHealthSafetyNotes(seedUser.UserType),
                     BuildSupportMeasuresSummary(seedUser.UserType),
                     BuildPositionTitle(seedUser.UserType),
+                    BuildTeacherRoleLabel(seedUser.UserType),
+                    BuildQualificationSummary(seedUser.UserType),
+                    BuildSchoolContextSummary(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType)));
                 logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
@@ -300,6 +303,9 @@ public sealed class IdentityAuthSeeder(
                     BuildHealthSafetyNotes(seedUser.UserType),
                     BuildSupportMeasuresSummary(seedUser.UserType),
                     BuildPositionTitle(seedUser.UserType),
+                    BuildTeacherRoleLabel(seedUser.UserType),
+                    BuildQualificationSummary(seedUser.UserType),
+                    BuildSchoolContextSummary(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType));
                 profile.Activate();
@@ -335,6 +341,9 @@ public sealed class IdentityAuthSeeder(
                 "Introductory adaptation support.",
                 null,
                 null,
+                null,
+                null,
+                null,
                 null));
             logger.LogInformation("Seed kindergarten child profile created for parent-child link coverage.");
         }
@@ -362,6 +371,9 @@ public sealed class IdentityAuthSeeder(
                 "MUDr. Novotna",
                 "No known allergies.",
                 "Introductory adaptation support.",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null);
@@ -518,9 +530,32 @@ public sealed class IdentityAuthSeeder(
     private static string? BuildPositionTitle(UserType userType)
         => userType switch
         {
-            UserType.SupportStaff => "Platform Administrator",
-            UserType.SchoolAdministrator => "School Administrator",
-            UserType.Teacher => "Teacher",
+            UserType.SchoolAdministrator => "SCHOOL_ADMINISTRATOR",
+            UserType.Teacher => "TEACHER",
+            _ => null
+        };
+
+    private static string? BuildTeacherRoleLabel(UserType userType)
+        => userType switch
+        {
+            UserType.SchoolAdministrator => "School administration lead",
+            UserType.Teacher => "Classroom and subject teacher",
+            _ => null
+        };
+
+    private static string? BuildQualificationSummary(UserType userType)
+        => userType switch
+        {
+            UserType.Teacher => "Pedagogical qualification validated by school administration.",
+            UserType.SchoolAdministrator => "School management qualification validated by platform governance.",
+            _ => null
+        };
+
+    private static string? BuildSchoolContextSummary(UserType userType)
+        => userType switch
+        {
+            UserType.Teacher => "Assigned to active school context and teaching assignments maintained in Organization service.",
+            UserType.SchoolAdministrator => "Responsible for school-scoped administration in active context.",
             _ => null
         };
 
