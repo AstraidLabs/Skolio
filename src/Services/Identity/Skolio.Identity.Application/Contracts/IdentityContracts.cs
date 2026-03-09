@@ -30,6 +30,11 @@ public sealed record UserProfileContract(
     string? TeacherRoleLabel,
     string? QualificationSummary,
     string? SchoolContextSummary,
+    string? ParentRelationshipSummary,
+    string? DeliveryContactName,
+    string? DeliveryContactPhone,
+    string? PreferredContactChannel,
+    string? CommunicationPreferencesSummary,
     string? PublicContactNote,
     string? PreferredContactNote);
 public sealed record SchoolRoleAssignmentContract(Guid Id, Guid UserProfileId, Guid SchoolId, string RoleCode);

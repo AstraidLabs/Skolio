@@ -9,6 +9,7 @@ import { extractValidationErrors } from '../shared/http/httpClient';
 
 type ProfileDraft = SelfProfileUpdatePayload;
 type TeacherProfileTab = 'basic' | 'address' | 'employment' | 'schoolContext' | 'teachingAssignments';
+type ParentProfileTab = 'basic' | 'addressContact' | 'delivery' | 'linkedStudents' | 'relationshipsContext' | 'communication';
 
 const EMPTY_DRAFT: ProfileDraft = {
   firstName: '',
@@ -34,6 +35,11 @@ const EMPTY_DRAFT: ProfileDraft = {
   teacherRoleLabel: '',
   qualificationSummary: '',
   schoolContextSummary: '',
+  parentRelationshipSummary: '',
+  deliveryContactName: '',
+  deliveryContactPhone: '',
+  preferredContactChannel: '',
+  communicationPreferencesSummary: '',
   publicContactNote: '',
   preferredContactNote: ''
 };
@@ -63,6 +69,7 @@ export function IdentityParityPage({
   const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [activeTeacherTab, setActiveTeacherTab] = useState<TeacherProfileTab>('basic');
+  const [activeParentTab, setActiveParentTab] = useState<ParentProfileTab>('basic');
   const [adminUserType, setAdminUserType] = useState('');
   const [adminSchoolPositionOptions, setAdminSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [adminSchoolPositionLoading, setAdminSchoolPositionLoading] = useState(false);
@@ -85,6 +92,8 @@ export function IdentityParityPage({
     canEditSchoolPosition: isSchoolAdministrator || isTeacher || isPlatformAdministrator,
     canEditTeacherSection: isSchoolAdministrator || isTeacher || isPlatformAdministrator,
     canEditSchoolContextSummary: isSchoolAdministrator || isPlatformAdministrator,
+    canEditParentSection: isParent || isSchoolAdministrator || isPlatformAdministrator,
+    canEditParentCommunication: isParent || isSchoolAdministrator || isPlatformAdministrator,
     canEditPublicContactNote: isTeacher,
     canEditPreferredContactNote: isParent
   }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
@@ -116,6 +125,11 @@ export function IdentityParityPage({
     teacherRoleLabel: profile.teacherRoleLabel ?? '',
     qualificationSummary: profile.qualificationSummary ?? '',
     schoolContextSummary: profile.schoolContextSummary ?? '',
+    parentRelationshipSummary: profile.parentRelationshipSummary ?? '',
+    deliveryContactName: profile.deliveryContactName ?? '',
+    deliveryContactPhone: profile.deliveryContactPhone ?? '',
+    preferredContactChannel: profile.preferredContactChannel ?? '',
+    communicationPreferencesSummary: profile.communicationPreferencesSummary ?? '',
     publicContactNote: profile.publicContactNote ?? '',
     preferredContactNote: profile.preferredContactNote ?? ''
   });
@@ -204,6 +218,22 @@ export function IdentityParityPage({
     if (selfDraft.schoolContextSummary && selfDraft.schoolContextSummary.length > 1000) {
       nextFieldErrors.schoolContextSummary = t('profileSaveErrorValidation');
     }
+    if (selfDraft.parentRelationshipSummary && selfDraft.parentRelationshipSummary.length > 500) {
+      nextFieldErrors.parentRelationshipSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.communicationPreferencesSummary && selfDraft.communicationPreferencesSummary.length > 500) {
+      nextFieldErrors.communicationPreferencesSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.deliveryContactName && selfDraft.deliveryContactName.length > 160) {
+      nextFieldErrors.deliveryContactName = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.deliveryContactPhone && selfDraft.deliveryContactPhone.length > 32) {
+      nextFieldErrors.deliveryContactPhone = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.preferredContactChannel
+      && !['EMAIL', 'PHONE', 'APP'].includes(selfDraft.preferredContactChannel.toUpperCase())) {
+      nextFieldErrors.preferredContactChannel = t('profileSaveErrorValidation');
+    }
     if (selfEditRules.canEditSchoolPosition
       && selfDraft.positionTitle
       && schoolPositionOptions.length > 0
@@ -225,6 +255,11 @@ export function IdentityParityPage({
       teacherRoleLabel: selfEditRules.canEditTeacherSection ? selfDraft.teacherRoleLabel : (summary?.profile.teacherRoleLabel ?? ''),
       qualificationSummary: selfEditRules.canEditTeacherSection ? selfDraft.qualificationSummary : (summary?.profile.qualificationSummary ?? ''),
       schoolContextSummary: selfEditRules.canEditSchoolContextSummary ? selfDraft.schoolContextSummary : (summary?.profile.schoolContextSummary ?? ''),
+      parentRelationshipSummary: selfEditRules.canEditParentSection ? selfDraft.parentRelationshipSummary : (summary?.profile.parentRelationshipSummary ?? ''),
+      deliveryContactName: selfEditRules.canEditParentSection ? selfDraft.deliveryContactName : (summary?.profile.deliveryContactName ?? ''),
+      deliveryContactPhone: selfEditRules.canEditParentSection ? selfDraft.deliveryContactPhone : (summary?.profile.deliveryContactPhone ?? ''),
+      preferredContactChannel: selfEditRules.canEditParentCommunication ? selfDraft.preferredContactChannel : (summary?.profile.preferredContactChannel ?? ''),
+      communicationPreferencesSummary: selfEditRules.canEditParentCommunication ? selfDraft.communicationPreferencesSummary : (summary?.profile.communicationPreferencesSummary ?? ''),
       publicContactNote: selfEditRules.canEditPublicContactNote ? selfDraft.publicContactNote : (summary?.profile.publicContactNote ?? ''),
       preferredContactNote: selfEditRules.canEditPreferredContactNote ? selfDraft.preferredContactNote : (summary?.profile.preferredContactNote ?? '')
     };
@@ -296,6 +331,7 @@ export function IdentityParityPage({
     || summary.profile.email
   );
   const isTeacherScopedProfile = summary.profile.userType === 'Teacher' || isTeacher;
+  const isParentScopedProfile = summary.profile.userType === 'Parent' || isParent;
 
   return (
     <section className="space-y-4">
@@ -434,6 +470,85 @@ export function IdentityParityPage({
               </div>
             ) : null}
           </>
+        ) : isParentScopedProfile ? (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className={`sk-btn ${activeParentTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('basic')}>{t('myProfile.accountOverview')}</button>
+              <button type="button" className={`sk-btn ${activeParentTab === 'addressContact' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('addressContact')}>{t('profileFieldCorrespondenceAddress')}</button>
+              <button type="button" className={`sk-btn ${activeParentTab === 'delivery' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('delivery')}>{t('profileFieldSchoolPlacement')}</button>
+              <button type="button" className={`sk-btn ${activeParentTab === 'linkedStudents' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('linkedStudents')}>{t('profileLinkedStudentsTitle')}</button>
+              <button type="button" className={`sk-btn ${activeParentTab === 'relationshipsContext' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('relationshipsContext')}>{t('profileParentStudentLinksTitle')}</button>
+              <button type="button" className={`sk-btn ${activeParentTab === 'communication' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveParentTab('communication')}>{t('profileFieldPreferredContactNote')}</button>
+            </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {activeParentTab === 'basic' ? (
+                <>
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
+                  <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
+                  <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+                  <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+                </>
+              ) : null}
+
+              {activeParentTab === 'addressContact' ? (
+                <>
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPermanentAddress')} value={selfDraft.permanentAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, permanentAddress: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => setSelfDraft((v) => ({ ...v, contactEmail: value }))} />
+                  <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+                </>
+              ) : null}
+
+              {activeParentTab === 'delivery' ? (
+                <>
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.deliveryContactName ?? ''} disabled={!selfEditRules.canEditParentSection || savingSelf} invalid={Boolean(fieldErrors.deliveryContactName)} errorText={fieldErrors.deliveryContactName} onChange={(value) => setSelfDraft((v) => ({ ...v, deliveryContactName: value }))} />
+                  <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.deliveryContactPhone ?? ''} disabled={!selfEditRules.canEditParentSection || savingSelf} invalid={Boolean(fieldErrors.deliveryContactPhone)} errorText={fieldErrors.deliveryContactPhone} onChange={(value) => setSelfDraft((v) => ({ ...v, deliveryContactPhone: value }))} />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredContactNote')} value={selfDraft.preferredContactNote ?? ''} disabled={!selfEditRules.canEditPreferredContactNote || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactNote: value }))} />
+                </>
+              ) : null}
+
+              {activeParentTab === 'relationshipsContext' ? (
+                <>
+                  <Field icon={<ProfileRoleIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileParentStudentLinksTitle')} value={selfDraft.parentRelationshipSummary ?? ''} disabled={!selfEditRules.canEditParentSection || savingSelf} invalid={Boolean(fieldErrors.parentRelationshipSummary)} errorText={fieldErrors.parentRelationshipSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, parentRelationshipSummary: value }))} />
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelAssignedSchools')} value={summary.schoolIds.length.toString()} disabled />
+                  <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelSchoolContext')} value={selectedSchoolId || '-'} disabled />
+                </>
+              ) : null}
+
+              {activeParentTab === 'communication' ? (
+                <>
+                  <ParentContactChannelField
+                    icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />}
+                    label={t('profileFieldPreferredLanguage')}
+                    value={selfDraft.preferredContactChannel ?? ''}
+                    disabled={!selfEditRules.canEditParentCommunication || savingSelf}
+                    invalid={Boolean(fieldErrors.preferredContactChannel)}
+                    errorText={fieldErrors.preferredContactChannel}
+                    onChange={(value) => setSelfDraft((v) => ({ ...v, preferredContactChannel: value }))}
+                    placeholder={t('profileSelectLanguagePlaceholder')}
+                    emailLabel={t('email')}
+                    phoneLabel={t('profileFieldPhoneNumber')}
+                    appLabel={t('routeCommunication')}
+                  />
+                  <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredContactNote')} value={selfDraft.communicationPreferencesSummary ?? ''} disabled={!selfEditRules.canEditParentCommunication || savingSelf} invalid={Boolean(fieldErrors.communicationPreferencesSummary)} errorText={fieldErrors.communicationPreferencesSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, communicationPreferencesSummary: value }))} />
+                </>
+              ) : null}
+            </div>
+
+            {activeParentTab === 'linkedStudents' ? (
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-slate-500">{t('profileAdminEditDescription')}</p>
+                {linkedStudents.length === 0 ? <EmptyState text={t('profileNoLinkedStudents')} /> : (
+                  <ul className="sk-list">
+                    {linkedStudents.map((student) => (
+                      <li key={student.id} className="sk-list-item">{student.firstName} {student.lastName} ({student.email})</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
@@ -538,6 +653,19 @@ export function IdentityParityPage({
               <Field label={t('profileLabelRole')} value={adminDraft.teacherRoleLabel ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, teacherRoleLabel: value }))} />
               <Field label={t('profileFieldSupportMeasuresSummary')} value={adminDraft.qualificationSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, qualificationSummary: value }))} />
               <Field label={t('profileFieldSchoolPlacement')} value={adminDraft.schoolContextSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, schoolContextSummary: value }))} />
+              <Field label={t('profileParentStudentLinksTitle')} value={adminDraft.parentRelationshipSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, parentRelationshipSummary: value }))} />
+              <Field label={t('profileFieldPreferredDisplayName')} value={adminDraft.deliveryContactName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, deliveryContactName: value }))} />
+              <Field label={t('profileFieldPhoneNumber')} value={adminDraft.deliveryContactPhone ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, deliveryContactPhone: value }))} />
+              <ParentContactChannelField
+                label={t('profileFieldPreferredLanguage')}
+                value={adminDraft.preferredContactChannel ?? ''}
+                onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactChannel: value }))}
+                placeholder={t('profileSelectLanguagePlaceholder')}
+                emailLabel={t('email')}
+                phoneLabel={t('profileFieldPhoneNumber')}
+                appLabel={t('routeCommunication')}
+              />
+              <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.communicationPreferencesSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, communicationPreferencesSummary: value }))} />
               <Field label={t('profileFieldPublicContactNote')} value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
               <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
             </div>
@@ -673,6 +801,54 @@ function SchoolPositionField({
             {option.label}
           </option>
         ))}
+      </select>
+      {errorText ? <span className="text-xs text-red-700">{errorText}</span> : null}
+    </div>
+  );
+}
+
+function ParentContactChannelField({
+  icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  emailLabel,
+  phoneLabel,
+  appLabel,
+  disabled = false,
+  invalid = false,
+  errorText
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  emailLabel: string;
+  phoneLabel: string;
+  appLabel: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  errorText?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="sk-label inline-flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+      </label>
+      <select
+        className={`sk-input ${invalid ? 'sk-input-invalid' : ''}`}
+        value={value}
+        disabled={disabled}
+        aria-invalid={invalid}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">{placeholder}</option>
+        <option value="EMAIL">{emailLabel}</option>
+        <option value="PHONE">{phoneLabel}</option>
+        <option value="APP">{appLabel}</option>
       </select>
       {errorText ? <span className="text-xs text-red-700">{errorText}</span> : null}
     </div>

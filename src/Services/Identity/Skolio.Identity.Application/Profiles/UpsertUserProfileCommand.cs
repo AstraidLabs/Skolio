@@ -31,5 +31,10 @@ public sealed record UpsertUserProfileCommand(
     string? TeacherRoleLabel,
     string? QualificationSummary,
     string? SchoolContextSummary,
+    string? ParentRelationshipSummary,
+    string? DeliveryContactName,
+    string? DeliveryContactPhone,
+    string? PreferredContactChannel,
+    string? CommunicationPreferencesSummary,
     string? PublicContactNote,
     string? PreferredContactNote) : IRequest<UserProfileContract>;

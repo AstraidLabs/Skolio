@@ -32,6 +32,11 @@ public sealed class UserProfile
         string? teacherRoleLabel,
         string? qualificationSummary,
         string? schoolContextSummary,
+        string? parentRelationshipSummary,
+        string? deliveryContactName,
+        string? deliveryContactPhone,
+        string? preferredContactChannel,
+        string? communicationPreferencesSummary,
         string? publicContactNote,
         string? preferredContactNote)
     {
@@ -61,6 +66,11 @@ public sealed class UserProfile
         TeacherRoleLabel = NormalizeOptional(teacherRoleLabel);
         QualificationSummary = NormalizeOptional(qualificationSummary);
         SchoolContextSummary = NormalizeOptional(schoolContextSummary);
+        ParentRelationshipSummary = NormalizeOptional(parentRelationshipSummary);
+        DeliveryContactName = NormalizeOptional(deliveryContactName);
+        DeliveryContactPhone = NormalizeOptional(deliveryContactPhone);
+        PreferredContactChannel = NormalizeOptional(preferredContactChannel);
+        CommunicationPreferencesSummary = NormalizeOptional(communicationPreferencesSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
         IsActive = true;
@@ -92,6 +102,11 @@ public sealed class UserProfile
     public string? TeacherRoleLabel { get; private set; }
     public string? QualificationSummary { get; private set; }
     public string? SchoolContextSummary { get; private set; }
+    public string? ParentRelationshipSummary { get; private set; }
+    public string? DeliveryContactName { get; private set; }
+    public string? DeliveryContactPhone { get; private set; }
+    public string? PreferredContactChannel { get; private set; }
+    public string? CommunicationPreferencesSummary { get; private set; }
     public string? PublicContactNote { get; private set; }
     public string? PreferredContactNote { get; private set; }
     public bool IsActive { get; private set; }
@@ -123,6 +138,11 @@ public sealed class UserProfile
         string? teacherRoleLabel = null,
         string? qualificationSummary = null,
         string? schoolContextSummary = null,
+        string? parentRelationshipSummary = null,
+        string? deliveryContactName = null,
+        string? deliveryContactPhone = null,
+        string? preferredContactChannel = null,
+        string? communicationPreferencesSummary = null,
         string? publicContactNote = null,
         string? preferredContactNote = null)
     {
@@ -158,6 +178,11 @@ public sealed class UserProfile
             teacherRoleLabel,
             qualificationSummary,
             schoolContextSummary,
+            parentRelationshipSummary,
+            deliveryContactName,
+            deliveryContactPhone,
+            preferredContactChannel,
+            communicationPreferencesSummary,
             publicContactNote,
             preferredContactNote);
     }
@@ -188,6 +213,11 @@ public sealed class UserProfile
         string? teacherRoleLabel,
         string? qualificationSummary,
         string? schoolContextSummary,
+        string? parentRelationshipSummary,
+        string? deliveryContactName,
+        string? deliveryContactPhone,
+        string? preferredContactChannel,
+        string? communicationPreferencesSummary,
         string? publicContactNote,
         string? preferredContactNote)
     {
@@ -219,6 +249,11 @@ public sealed class UserProfile
         TeacherRoleLabel = NormalizeOptional(teacherRoleLabel);
         QualificationSummary = NormalizeOptional(qualificationSummary);
         SchoolContextSummary = NormalizeOptional(schoolContextSummary);
+        ParentRelationshipSummary = NormalizeOptional(parentRelationshipSummary);
+        DeliveryContactName = NormalizeOptional(deliveryContactName);
+        DeliveryContactPhone = NormalizeOptional(deliveryContactPhone);
+        PreferredContactChannel = NormalizeOptional(preferredContactChannel);
+        CommunicationPreferencesSummary = NormalizeOptional(communicationPreferencesSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
     }

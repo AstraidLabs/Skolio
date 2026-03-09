@@ -16,6 +16,13 @@ namespace Skolio.Identity.Api.Controllers;
 [Route("api/identity/user-profiles")]
 public sealed class UserProfilesController(IMediator mediator, IdentityDbContext dbContext, ILogger<UserProfilesController> logger) : ControllerBase
 {
+    private static readonly string[] AllowedParentContactChannels =
+    [
+        "EMAIL",
+        "PHONE",
+        "APP"
+    ];
+
     private static readonly SchoolPositionOptionContract[] SchoolAdministratorPositionOptions =
     [
         new("SCHOOL_ADMINISTRATOR", "School Administrator"),
@@ -184,6 +191,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.TeacherRoleLabel,
             normalizedRequest.QualificationSummary,
             normalizedRequest.SchoolContextSummary,
+            normalizedRequest.ParentRelationshipSummary,
+            normalizedRequest.DeliveryContactName,
+            normalizedRequest.DeliveryContactPhone,
+            normalizedRequest.PreferredContactChannel,
+            normalizedRequest.CommunicationPreferencesSummary,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
 
@@ -240,6 +252,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.TeacherRoleLabel,
                 x.QualificationSummary,
                 x.SchoolContextSummary,
+                x.ParentRelationshipSummary,
+                x.DeliveryContactName,
+                x.DeliveryContactPhone,
+                x.PreferredContactChannel,
+                x.CommunicationPreferencesSummary,
                 x.PublicContactNote,
                 x.PreferredContactNote))
             .ToListAsync(cancellationToken);
@@ -321,6 +338,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.TeacherRoleLabel,
                 x.QualificationSummary,
                 x.SchoolContextSummary,
+                x.ParentRelationshipSummary,
+                x.DeliveryContactName,
+                x.DeliveryContactPhone,
+                x.PreferredContactChannel,
+                x.CommunicationPreferencesSummary,
                 x.PublicContactNote,
                 x.PreferredContactNote))
             .ToListAsync(cancellationToken);
@@ -393,6 +415,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.TeacherRoleLabel,
             normalizedRequest.QualificationSummary,
             normalizedRequest.SchoolContextSummary,
+            normalizedRequest.ParentRelationshipSummary,
+            normalizedRequest.DeliveryContactName,
+            normalizedRequest.DeliveryContactPhone,
+            normalizedRequest.PreferredContactChannel,
+            normalizedRequest.CommunicationPreferencesSummary,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
 
@@ -438,6 +465,8 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         var canEditPositionTitle = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Teacher");
         var canEditTeacherSection = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Teacher");
         var canEditSchoolContextSummary = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator");
+        var canEditParentSection = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Parent");
+        var canEditParentCommunication = User.IsInRole("PlatformAdministrator") || User.IsInRole("SchoolAdministrator") || User.IsInRole("Parent");
         var canEditPublicContactNote = User.IsInRole("Teacher");
         var canEditPreferredContactNote = User.IsInRole("Parent");
 
@@ -463,6 +492,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             TeacherRoleLabel = canEditTeacherSection ? request.TeacherRoleLabel : profile.TeacherRoleLabel,
             QualificationSummary = canEditTeacherSection ? request.QualificationSummary : profile.QualificationSummary,
             SchoolContextSummary = canEditSchoolContextSummary ? request.SchoolContextSummary : profile.SchoolContextSummary,
+            ParentRelationshipSummary = canEditParentSection ? request.ParentRelationshipSummary : profile.ParentRelationshipSummary,
+            DeliveryContactName = canEditParentSection ? request.DeliveryContactName : profile.DeliveryContactName,
+            DeliveryContactPhone = canEditParentSection ? request.DeliveryContactPhone : profile.DeliveryContactPhone,
+            PreferredContactChannel = canEditParentCommunication ? request.PreferredContactChannel : profile.PreferredContactChannel,
+            CommunicationPreferencesSummary = canEditParentCommunication ? request.CommunicationPreferencesSummary : profile.CommunicationPreferencesSummary,
             PublicContactNote = canEditPublicContactNote ? request.PublicContactNote : profile.PublicContactNote,
             PreferredContactNote = canEditPreferredContactNote ? request.PreferredContactNote : profile.PreferredContactNote
         };
@@ -509,6 +543,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (!string.Equals(profile.TeacherRoleLabel, request.TeacherRoleLabel, StringComparison.Ordinal)) changed.Add("teacherRoleLabel");
         if (!string.Equals(profile.QualificationSummary, request.QualificationSummary, StringComparison.Ordinal)) changed.Add("qualificationSummary");
         if (!string.Equals(profile.SchoolContextSummary, request.SchoolContextSummary, StringComparison.Ordinal)) changed.Add("schoolContextSummary");
+        if (!string.Equals(profile.ParentRelationshipSummary, request.ParentRelationshipSummary, StringComparison.Ordinal)) changed.Add("parentRelationshipSummary");
+        if (!string.Equals(profile.DeliveryContactName, request.DeliveryContactName, StringComparison.Ordinal)) changed.Add("deliveryContactName");
+        if (!string.Equals(profile.DeliveryContactPhone, request.DeliveryContactPhone, StringComparison.Ordinal)) changed.Add("deliveryContactPhone");
+        if (!string.Equals(profile.PreferredContactChannel, request.PreferredContactChannel, StringComparison.Ordinal)) changed.Add("preferredContactChannel");
+        if (!string.Equals(profile.CommunicationPreferencesSummary, request.CommunicationPreferencesSummary, StringComparison.Ordinal)) changed.Add("communicationPreferencesSummary");
         if (!string.Equals(profile.PublicContactNote, request.PublicContactNote, StringComparison.Ordinal)) changed.Add("publicContactNote");
         if (!string.Equals(profile.PreferredContactNote, request.PreferredContactNote, StringComparison.Ordinal)) changed.Add("preferredContactNote");
 
@@ -534,6 +573,17 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             return this.ValidationField("qualificationSummary", "Qualification summary is too long.");
         if (!string.IsNullOrWhiteSpace(values.SchoolContextSummary) && values.SchoolContextSummary.Length > 1000)
             return this.ValidationField("schoolContextSummary", "School context summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.ParentRelationshipSummary) && values.ParentRelationshipSummary.Length > 500)
+            return this.ValidationField("parentRelationshipSummary", "Parent relationship summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.DeliveryContactName) && values.DeliveryContactName.Length > 160)
+            return this.ValidationField("deliveryContactName", "Delivery contact name is too long.");
+        if (!string.IsNullOrWhiteSpace(values.DeliveryContactPhone) && values.DeliveryContactPhone.Length > 32)
+            return this.ValidationField("deliveryContactPhone", "Delivery contact phone is too long.");
+        if (!string.IsNullOrWhiteSpace(values.CommunicationPreferencesSummary) && values.CommunicationPreferencesSummary.Length > 500)
+            return this.ValidationField("communicationPreferencesSummary", "Communication preferences summary is too long.");
+        if (!string.IsNullOrWhiteSpace(values.PreferredContactChannel)
+            && !AllowedParentContactChannels.Contains(values.PreferredContactChannel, StringComparer.OrdinalIgnoreCase))
+            return this.ValidationField("preferredContactChannel", "Preferred contact channel is invalid.");
 
         return null;
     }
@@ -567,6 +617,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             profile.TeacherRoleLabel,
             profile.QualificationSummary,
             profile.SchoolContextSummary,
+            profile.ParentRelationshipSummary,
+            profile.DeliveryContactName,
+            profile.DeliveryContactPhone,
+            profile.PreferredContactChannel,
+            profile.CommunicationPreferencesSummary,
             profile.PublicContactNote,
             profile.PreferredContactNote);
 
@@ -635,8 +690,13 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? TeacherRoleLabel,
         string? QualificationSummary,
         string? SchoolContextSummary,
+        string? ParentRelationshipSummary,
+        string? DeliveryContactName,
+        string? DeliveryContactPhone,
+        string? PreferredContactChannel,
+        string? CommunicationPreferencesSummary,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote);
 
     public sealed record UpdateAdminProfileRequest(
         string FirstName,
@@ -662,8 +722,13 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? TeacherRoleLabel,
         string? QualificationSummary,
         string? SchoolContextSummary,
+        string? ParentRelationshipSummary,
+        string? DeliveryContactName,
+        string? DeliveryContactPhone,
+        string? PreferredContactChannel,
+        string? CommunicationPreferencesSummary,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, TeacherRoleLabel, QualificationSummary, SchoolContextSummary, ParentRelationshipSummary, DeliveryContactName, DeliveryContactPhone, PreferredContactChannel, CommunicationPreferencesSummary, PublicContactNote, PreferredContactNote);
 
     public abstract record ProfileEditableValues(
         string FirstName,
@@ -689,6 +754,11 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? TeacherRoleLabel,
         string? QualificationSummary,
         string? SchoolContextSummary,
+        string? ParentRelationshipSummary,
+        string? DeliveryContactName,
+        string? DeliveryContactPhone,
+        string? PreferredContactChannel,
+        string? CommunicationPreferencesSummary,
         string? PublicContactNote,
         string? PreferredContactNote);
 

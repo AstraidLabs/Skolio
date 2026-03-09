@@ -274,6 +274,11 @@ public sealed class IdentityAuthSeeder(
                     BuildTeacherRoleLabel(seedUser.UserType),
                     BuildQualificationSummary(seedUser.UserType),
                     BuildSchoolContextSummary(seedUser.UserType),
+                    BuildParentRelationshipSummary(seedUser.UserType),
+                    BuildDeliveryContactName(seedUser.UserType),
+                    BuildDeliveryContactPhone(seedUser.UserType),
+                    BuildPreferredContactChannel(seedUser.UserType),
+                    BuildCommunicationPreferencesSummary(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType)));
                 logger.LogInformation("Seed user profile created: {Email}", seedUser.Email);
@@ -306,6 +311,11 @@ public sealed class IdentityAuthSeeder(
                     BuildTeacherRoleLabel(seedUser.UserType),
                     BuildQualificationSummary(seedUser.UserType),
                     BuildSchoolContextSummary(seedUser.UserType),
+                    BuildParentRelationshipSummary(seedUser.UserType),
+                    BuildDeliveryContactName(seedUser.UserType),
+                    BuildDeliveryContactPhone(seedUser.UserType),
+                    BuildPreferredContactChannel(seedUser.UserType),
+                    BuildCommunicationPreferencesSummary(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType));
                 profile.Activate();
@@ -344,6 +354,11 @@ public sealed class IdentityAuthSeeder(
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null));
             logger.LogInformation("Seed kindergarten child profile created for parent-child link coverage.");
         }
@@ -371,6 +386,11 @@ public sealed class IdentityAuthSeeder(
                 "MUDr. Novotna",
                 "No known allergies.",
                 "Introductory adaptation support.",
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -558,6 +578,23 @@ public sealed class IdentityAuthSeeder(
             UserType.SchoolAdministrator => "Responsible for school-scoped administration in active context.",
             _ => null
         };
+
+    private static string? BuildParentRelationshipSummary(UserType userType)
+        => userType == UserType.Parent
+            ? "Parent profile linked to students through identity-managed parent-student relationships."
+            : null;
+
+    private static string? BuildDeliveryContactName(UserType userType)
+        => userType == UserType.Parent ? "Primary Parent Contact" : null;
+
+    private static string? BuildDeliveryContactPhone(UserType userType)
+        => userType == UserType.Parent ? "+420700100301" : null;
+
+    private static string? BuildPreferredContactChannel(UserType userType)
+        => userType == UserType.Parent ? "EMAIL" : null;
+
+    private static string? BuildCommunicationPreferencesSummary(UserType userType)
+        => userType == UserType.Parent ? "School communication preferred via email notifications." : null;
 
     private static string? BuildPublicContactNote(UserType userType)
         => userType == UserType.Teacher ? "Consultation hours via school communication channel." : null;

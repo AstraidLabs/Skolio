@@ -42,6 +42,11 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.TeacherRoleLabel,
                 request.QualificationSummary,
                 request.SchoolContextSummary,
+                request.ParentRelationshipSummary,
+                request.DeliveryContactName,
+                request.DeliveryContactPhone,
+                request.PreferredContactChannel,
+                request.CommunicationPreferencesSummary,
                 request.PublicContactNote,
                 request.PreferredContactNote);
         }
@@ -74,6 +79,11 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.TeacherRoleLabel,
                 request.QualificationSummary,
                 request.SchoolContextSummary,
+                request.ParentRelationshipSummary,
+                request.DeliveryContactName,
+                request.DeliveryContactPhone,
+                request.PreferredContactChannel,
+                request.CommunicationPreferencesSummary,
                 request.PublicContactNote,
                 request.PreferredContactNote);
         }

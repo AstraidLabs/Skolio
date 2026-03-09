@@ -28,6 +28,11 @@ export type UserProfile = {
   teacherRoleLabel?: string | null;
   qualificationSummary?: string | null;
   schoolContextSummary?: string | null;
+  parentRelationshipSummary?: string | null;
+  deliveryContactName?: string | null;
+  deliveryContactPhone?: string | null;
+  preferredContactChannel?: string | null;
+  communicationPreferencesSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
 };
@@ -70,6 +75,11 @@ export type SelfProfileUpdatePayload = {
   teacherRoleLabel?: string | null;
   qualificationSummary?: string | null;
   schoolContextSummary?: string | null;
+  parentRelationshipSummary?: string | null;
+  deliveryContactName?: string | null;
+  deliveryContactPhone?: string | null;
+  preferredContactChannel?: string | null;
+  communicationPreferencesSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
 };
