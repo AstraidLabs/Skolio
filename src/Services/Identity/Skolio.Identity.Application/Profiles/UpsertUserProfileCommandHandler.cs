@@ -48,7 +48,9 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.PreferredContactChannel,
                 request.CommunicationPreferencesSummary,
                 request.PublicContactNote,
-                request.PreferredContactNote);
+                request.PreferredContactNote,
+                request.AdministrativeWorkDesignation,
+                request.AdministrativeOrganizationSummary);
         }
         else
         {
@@ -85,7 +87,9 @@ public sealed class UpsertUserProfileCommandHandler(IIdentityCommandStore comman
                 request.PreferredContactChannel,
                 request.CommunicationPreferencesSummary,
                 request.PublicContactNote,
-                request.PreferredContactNote);
+                request.PreferredContactNote,
+                request.AdministrativeWorkDesignation,
+                request.AdministrativeOrganizationSummary);
         }
 
         await commandStore.UpsertUserProfileAsync(profile, cancellationToken);

@@ -37,4 +37,6 @@ public sealed record UpsertUserProfileCommand(
     string? PreferredContactChannel,
     string? CommunicationPreferencesSummary,
     string? PublicContactNote,
-    string? PreferredContactNote) : IRequest<UserProfileContract>;
+    string? PreferredContactNote,
+    string? AdministrativeWorkDesignation,
+    string? AdministrativeOrganizationSummary) : IRequest<UserProfileContract>;

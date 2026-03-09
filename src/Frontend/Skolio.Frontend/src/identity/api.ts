@@ -35,6 +35,8 @@ export type UserProfile = {
   communicationPreferencesSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
+  administrativeWorkDesignation?: string | null;
+  administrativeOrganizationSummary?: string | null;
 };
 export type RoleAssignment = { id: string; userProfileId: string; schoolId: string; roleCode: string };
 export type ParentStudentLink = { id: string; parentUserProfileId: string; studentUserProfileId: string; relationship: string };
@@ -82,6 +84,8 @@ export type SelfProfileUpdatePayload = {
   communicationPreferencesSummary?: string | null;
   publicContactNote?: string | null;
   preferredContactNote?: string | null;
+  administrativeWorkDesignation?: string | null;
+  administrativeOrganizationSummary?: string | null;
 };
 
 export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;

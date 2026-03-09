@@ -38,7 +38,9 @@ public sealed class UserProfile
         string? preferredContactChannel,
         string? communicationPreferencesSummary,
         string? publicContactNote,
-        string? preferredContactNote)
+        string? preferredContactNote,
+        string? administrativeWorkDesignation,
+        string? administrativeOrganizationSummary)
     {
         Id = id;
         FirstName = firstName.Trim();
@@ -73,6 +75,8 @@ public sealed class UserProfile
         CommunicationPreferencesSummary = NormalizeOptional(communicationPreferencesSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
+        AdministrativeWorkDesignation = NormalizeOptional(administrativeWorkDesignation);
+        AdministrativeOrganizationSummary = NormalizeOptional(administrativeOrganizationSummary);
         IsActive = true;
     }
 
@@ -109,6 +113,8 @@ public sealed class UserProfile
     public string? CommunicationPreferencesSummary { get; private set; }
     public string? PublicContactNote { get; private set; }
     public string? PreferredContactNote { get; private set; }
+    public string? AdministrativeWorkDesignation { get; private set; }
+    public string? AdministrativeOrganizationSummary { get; private set; }
     public bool IsActive { get; private set; }
 
     public static UserProfile Create(
@@ -144,7 +150,9 @@ public sealed class UserProfile
         string? preferredContactChannel = null,
         string? communicationPreferencesSummary = null,
         string? publicContactNote = null,
-        string? preferredContactNote = null)
+        string? preferredContactNote = null,
+        string? administrativeWorkDesignation = null,
+        string? administrativeOrganizationSummary = null)
     {
         if (id == Guid.Empty)
             throw new IdentityDomainException("User profile id is required.");
@@ -184,7 +192,9 @@ public sealed class UserProfile
             preferredContactChannel,
             communicationPreferencesSummary,
             publicContactNote,
-            preferredContactNote);
+            preferredContactNote,
+            administrativeWorkDesignation,
+            administrativeOrganizationSummary);
     }
 
     public void Update(
@@ -219,7 +229,9 @@ public sealed class UserProfile
         string? preferredContactChannel,
         string? communicationPreferencesSummary,
         string? publicContactNote,
-        string? preferredContactNote)
+        string? preferredContactNote,
+        string? administrativeWorkDesignation,
+        string? administrativeOrganizationSummary)
     {
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email))
             throw new IdentityDomainException("User profile first name, last name and email are required.");
@@ -256,6 +268,8 @@ public sealed class UserProfile
         CommunicationPreferencesSummary = NormalizeOptional(communicationPreferencesSummary);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
+        AdministrativeWorkDesignation = NormalizeOptional(administrativeWorkDesignation);
+        AdministrativeOrganizationSummary = NormalizeOptional(administrativeOrganizationSummary);
     }
 
     public void Activate() => IsActive = true;

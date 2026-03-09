@@ -36,6 +36,8 @@ public sealed record UserProfileContract(
     string? PreferredContactChannel,
     string? CommunicationPreferencesSummary,
     string? PublicContactNote,
-    string? PreferredContactNote);
+    string? PreferredContactNote,
+    string? AdministrativeWorkDesignation,
+    string? AdministrativeOrganizationSummary);
 public sealed record SchoolRoleAssignmentContract(Guid Id, Guid UserProfileId, Guid SchoolId, string RoleCode);
 public sealed record ParentStudentLinkContract(Guid Id, Guid ParentUserProfileId, Guid StudentUserProfileId, string Relationship);

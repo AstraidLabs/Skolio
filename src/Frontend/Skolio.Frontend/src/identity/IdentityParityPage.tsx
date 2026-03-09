@@ -9,6 +9,7 @@ import { extractValidationErrors } from '../shared/http/httpClient';
 
 type ProfileDraft = SelfProfileUpdatePayload;
 type TeacherProfileTab = 'basic' | 'address' | 'employment' | 'schoolContext' | 'teachingAssignments';
+type SchoolAdministratorProfileTab = 'basic' | 'addressContact' | 'employment' | 'schoolContext' | 'managedSchools' | 'administrativeOverview';
 type ParentProfileTab = 'basic' | 'addressContact' | 'delivery' | 'linkedStudents' | 'relationshipsContext' | 'communication';
 
 const EMPTY_DRAFT: ProfileDraft = {
@@ -41,7 +42,9 @@ const EMPTY_DRAFT: ProfileDraft = {
   preferredContactChannel: '',
   communicationPreferencesSummary: '',
   publicContactNote: '',
-  preferredContactNote: ''
+  preferredContactNote: '',
+  administrativeWorkDesignation: '',
+  administrativeOrganizationSummary: ''
 };
 
 export function IdentityParityPage({
@@ -69,6 +72,7 @@ export function IdentityParityPage({
   const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [activeTeacherTab, setActiveTeacherTab] = useState<TeacherProfileTab>('basic');
+  const [activeSchoolAdminTab, setActiveSchoolAdminTab] = useState<SchoolAdministratorProfileTab>('basic');
   const [activeParentTab, setActiveParentTab] = useState<ParentProfileTab>('basic');
   const [adminUserType, setAdminUserType] = useState('');
   const [adminSchoolPositionOptions, setAdminSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
@@ -94,7 +98,7 @@ export function IdentityParityPage({
     canEditSchoolContextSummary: isSchoolAdministrator || isPlatformAdministrator,
     canEditParentSection: isParent || isSchoolAdministrator || isPlatformAdministrator,
     canEditParentCommunication: isParent || isSchoolAdministrator || isPlatformAdministrator,
-    canEditPublicContactNote: isTeacher,
+    canEditPublicContactNote: isTeacher || isSchoolAdministrator || isPlatformAdministrator,
     canEditPreferredContactNote: isParent
   }), [isParent, isPlatformAdministrator, isSchoolAdministrator, isStudentOnly, isTeacher]);
 
@@ -131,7 +135,9 @@ export function IdentityParityPage({
     preferredContactChannel: profile.preferredContactChannel ?? '',
     communicationPreferencesSummary: profile.communicationPreferencesSummary ?? '',
     publicContactNote: profile.publicContactNote ?? '',
-    preferredContactNote: profile.preferredContactNote ?? ''
+    preferredContactNote: profile.preferredContactNote ?? '',
+    administrativeWorkDesignation: profile.administrativeWorkDesignation ?? '',
+    administrativeOrganizationSummary: profile.administrativeOrganizationSummary ?? ''
   });
 
   const load = () => {
@@ -223,6 +229,12 @@ export function IdentityParityPage({
     }
     if (selfDraft.communicationPreferencesSummary && selfDraft.communicationPreferencesSummary.length > 500) {
       nextFieldErrors.communicationPreferencesSummary = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.administrativeWorkDesignation && selfDraft.administrativeWorkDesignation.length > 120) {
+      nextFieldErrors.administrativeWorkDesignation = t('profileSaveErrorValidation');
+    }
+    if (selfDraft.administrativeOrganizationSummary && selfDraft.administrativeOrganizationSummary.length > 500) {
+      nextFieldErrors.administrativeOrganizationSummary = t('profileSaveErrorValidation');
     }
     if (selfDraft.deliveryContactName && selfDraft.deliveryContactName.length > 160) {
       nextFieldErrors.deliveryContactName = t('profileSaveErrorValidation');
@@ -330,6 +342,7 @@ export function IdentityParityPage({
     || `${summary.profile.firstName} ${summary.profile.lastName}`.trim()
     || summary.profile.email
   );
+  const isSchoolAdministratorScopedProfile = summary.profile.userType === 'SchoolAdministrator' || isSchoolAdministrator;
   const isTeacherScopedProfile = summary.profile.userType === 'Teacher' || isTeacher;
   const isParentScopedProfile = summary.profile.userType === 'Parent' || isParent;
 
@@ -399,7 +412,58 @@ export function IdentityParityPage({
             onDismiss={() => setFormError('')}
           />
         ) : null}
-        {isTeacherScopedProfile ? (
+        {isSchoolAdministratorScopedProfile ? (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('basic')}>{t('profileTabSchoolAdminBasic')}</button>
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'addressContact' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('addressContact')}>{t('profileTabSchoolAdminAddressContact')}</button>
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'employment' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('employment')}>{t('profileTabSchoolAdminEmployment')}</button>
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'schoolContext' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('schoolContext')}>{t('profileTabSchoolAdminSchoolContext')}</button>
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'managedSchools' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('managedSchools')}>{t('profileTabSchoolAdminManagedSchools')}</button>
+              <button type="button" className={`sk-btn ${activeSchoolAdminTab === 'administrativeOverview' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveSchoolAdminTab('administrativeOverview')}>{t('profileTabSchoolAdminAdministrativeOverview')}</button>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {activeSchoolAdminTab === 'basic' ? (<>
+                <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldFirstName')} value={selfDraft.firstName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.firstName)} errorText={fieldErrors.firstName} onChange={(value) => { setFieldErrors((v) => ({ ...v, firstName: undefined })); setSelfDraft((v) => ({ ...v, firstName: value })); }} />
+                <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLastName')} value={selfDraft.lastName} disabled={!selfEditRules.canEditName || savingSelf} invalid={Boolean(fieldErrors.lastName)} errorText={fieldErrors.lastName} onChange={(value) => { setFieldErrors((v) => ({ ...v, lastName: undefined })); setSelfDraft((v) => ({ ...v, lastName: value })); }} />
+                <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
+                <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
+              </>) : null}
+              {activeSchoolAdminTab === 'addressContact' ? (<>
+                <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
+                <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => { setFieldErrors((v) => ({ ...v, contactEmail: undefined })); setSelfDraft((v) => ({ ...v, contactEmail: value })); }} />
+                <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+              </>) : null}
+              {activeSchoolAdminTab === 'employment' ? (<>
+                {canShowSchoolPositionField ? (
+                  <SchoolPositionField icon={<ProfileBriefcaseIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSchoolPosition')} value={selfDraft.positionTitle ?? ''} placeholder={t('profileSelectSchoolPositionPlaceholder')} disabled={!selfEditRules.canEditSchoolPosition || savingSelf || schoolPositionLoading} options={schoolPositionOptions} loadingLabel={t('profileSchoolPositionLoading')} unavailableLabel={t('profileSchoolPositionUnavailable')} invalid={Boolean(fieldErrors.positionTitle)} errorText={fieldErrors.positionTitle} onChange={(value) => { setFieldErrors((v) => ({ ...v, positionTitle: undefined })); setSelfDraft((v) => ({ ...v, positionTitle: value })); }} />
+                ) : null}
+                <Field icon={<ProfileBriefcaseIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldAdministrativeWorkDesignation')} value={selfDraft.administrativeWorkDesignation ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.administrativeWorkDesignation)} errorText={fieldErrors.administrativeWorkDesignation} onChange={(value) => setSelfDraft((v) => ({ ...v, administrativeWorkDesignation: value }))} />
+                <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPublicContactNote')} value={selfDraft.publicContactNote ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, publicContactNote: value }))} />
+              </>) : null}
+              {activeSchoolAdminTab === 'schoolContext' ? (<>
+                <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileLabelSchoolContext')} value={selfDraft.schoolContextSummary ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, schoolContextSummary: value }))} />
+                <Field icon={<ProfileSchoolIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldAdministrativeOrganizationSummary')} value={selfDraft.administrativeOrganizationSummary ?? ''} disabled={savingSelf} invalid={Boolean(fieldErrors.administrativeOrganizationSummary)} errorText={fieldErrors.administrativeOrganizationSummary} onChange={(value) => setSelfDraft((v) => ({ ...v, administrativeOrganizationSummary: value }))} />
+              </>) : null}
+            </div>
+            {activeSchoolAdminTab === 'managedSchools' ? (
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-slate-500">{t('profileSchoolAdminManagedSchoolsHelp')}</p>
+                {summary.schoolIds.length === 0 ? <EmptyState text={t('profileNoRoleAssignments')} /> : <ul className="sk-list">{summary.schoolIds.map((schoolId) => <li key={schoolId} className="sk-list-item">{schoolId}</li>)}</ul>}
+              </div>
+            ) : null}
+            {activeSchoolAdminTab === 'administrativeOverview' ? (
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-slate-500">{t('profileSchoolAdminAdministrativeOverviewHelp')}</p>
+                <ul className="sk-list">
+                  <li className="sk-list-item">{t('profileRoleAssignmentsTitle')}: {summary.roleAssignments.length}</li>
+                  <li className="sk-list-item">{t('profileParentStudentLinksTitle')}: {summary.parentStudentLinks.length}</li>
+                  <li className="sk-list-item">{t('profileLabelAssignedSchools')}: {summary.schoolIds.length}</li>
+                </ul>
+              </div>
+            ) : null}
+          </>
+        ) : isTeacherScopedProfile ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className={`sk-btn ${activeTeacherTab === 'basic' ? 'sk-btn-primary' : 'sk-btn-secondary'}`} onClick={() => setActiveTeacherTab('basic')}>{t('myProfile.accountOverview')}</button>
