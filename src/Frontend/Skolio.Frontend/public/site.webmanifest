@@ -1,0 +1,10 @@
+{
+  "name": "Skolio",
+  "short_name": "Skolio",
+  "description": "Školní platforma pro organizaci, výuku a komunikaci.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#1d4ed8",
+  "lang": "cs"
+}

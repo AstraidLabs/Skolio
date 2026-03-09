@@ -1,7 +1,70 @@
 <!doctype html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Skolio Frontend</title>  <script type="module" crossorigin src="/assets/index.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index.css">
-</head>
-  <body><div id="root"></div></body>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Skolio | Školní platforma pro organizaci, výuku a komunikaci</title>
+    <meta
+      name="description"
+      content="Skolio je moderní školní platforma pro organizaci školy, akademickou agendu, komunikaci a administraci."
+    />
+    <meta
+      name="keywords"
+      content="Skolio, školní systém, platforma pro školy, školní administrativa, výuka, komunikace školy"
+    />
+    <meta name="application-name" content="Skolio" />
+    <meta name="theme-color" content="#1d4ed8" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <link rel="canonical" href="/" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Skolio" />
+    <meta property="og:title" content="Skolio | Školní platforma pro organizaci, výuku a komunikaci" />
+    <meta
+      property="og:description"
+      content="Jednotná platforma pro školy: organizace, akademická agenda, komunikace a administrace."
+    />
+    <meta property="og:url" content="/" />
+    <meta property="og:locale" content="cs_CZ" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Skolio | Školní platforma" />
+    <meta
+      name="twitter:description"
+      content="Skolio propojuje organizaci školy, výuku, komunikaci a administraci v jedné platformě."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Skolio",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description": "Moderní školní platforma pro organizaci školy, výuku, komunikaci a administraci.",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Skolio"
+        }
+      }
+    </script>
+
+    <script>
+      (function () {
+        var origin = window.location.origin;
+        var canonical = document.querySelector('link[rel="canonical"]');
+        if (canonical) canonical.setAttribute('href', origin + '/');
+        var ogUrl = document.querySelector('meta[property="og:url"]');
+        if (ogUrl) ogUrl.setAttribute('content', origin + '/');
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

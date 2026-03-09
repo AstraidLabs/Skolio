@@ -1077,7 +1077,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
 
   return (
     <section className="sk-auth-shell min-h-screen px-4 py-8">
-      <div className="sk-auth-card w-full max-w-md sk-panel">
+      <div className="sk-auth-card w-full max-w-md md:max-w-lg sk-panel">
         <div className="sk-auth-decor" aria-hidden="true">
           <span className="sk-auth-decor-orb sk-auth-decor-orb-1" />
           <span className="sk-auth-decor-orb sk-auth-decor-orb-2" />
@@ -1091,7 +1091,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
           </div>
         </div>
         <h1 className="mt-5 text-2xl font-bold text-slate-900">{loginTitle}</h1>
-        <p className="mt-2 text-sm text-slate-600">{loginSubtitle}</p>
+        <p className="mt-2 text-sm text-slate-700">{loginSubtitle}</p>
 
         {idleLogoutInfo ? (
           <div className="sk-auth-alert mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
@@ -1145,7 +1145,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
             {busy ? (
               <div className="sk-auth-busy mt-3" role="status" aria-live="polite">
                 <LoginEntryWave />
-                <p className="text-sm text-slate-600">{t('loginEnteringPlatform')}</p>
+                <p className="text-sm text-slate-700">{t('loginEnteringPlatform')}</p>
               </div>
             ) : null}
           </form>
@@ -1175,7 +1175,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
             {busy ? (
               <div className="sk-auth-busy mt-3" role="status" aria-live="polite">
                 <LoginEntryWave />
-                <p className="text-sm text-slate-600">{t('loginEnteringPlatform')}</p>
+                <p className="text-sm text-slate-700">{t('loginEnteringPlatform')}</p>
               </div>
             ) : null}
 
@@ -1202,7 +1202,7 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
           <div className="flex justify-center">
             <LanguageSwitcher />
           </div>
-          <p className="mt-4 text-center text-xs text-slate-400">{t('loginCopyright', { platform: 'Skolio', year: copyrightYear })}</p>
+          <p className="mt-4 text-center text-xs text-slate-500">{t('loginCopyright', { platform: 'Skolio', year: copyrightYear })}</p>
         </div>
       </div>
     </section>
