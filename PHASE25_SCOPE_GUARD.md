@@ -1,14 +1,17 @@
 # PHASE 25 SCOPE GUARD
 
 Allowed:
-- Extend existing Identity/Profile flow for Teacher Profile only.
-- Add conservative teacher-scoped fields to existing `UserProfile`.
-- Extend existing identity API contracts and existing profile UI sections/tabs.
+- Redesign only Security UI page in `Skolio.Frontend`.
+- Align composition, spacing, cards and UX feedback model with `Mùj profil` page.
+- Keep existing security backend flows unchanged (change password, change email, MFA, recovery codes, forgot/reset).
+- Update i18n resources and frontend-only documentation for Security page redesign.
 
 Not allowed:
-- New teacher business module.
-- New standalone profile page/route outside existing identity profile flow.
-- HR or payroll domain logic.
-- Ownership transfer from Organization/Academics.
+- New auth framework.
+- New security module.
+- New notification engine.
+- New frontend framework.
+- Backend security flow rewrite.
 - Tests/quizzes/assessment/exams/automated grading.
 - University model.
+- Second frontend.
