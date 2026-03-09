@@ -19,6 +19,7 @@ builder.Services.AddOptions<IdentityServiceOptions>().Bind(builder.Configuration
 builder.Services.AddIdentityApplication();
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -66,6 +67,20 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
     options.AddFixedWindowLimiter("identity-security-mfa-verify", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 12;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+    options.AddFixedWindowLimiter("identity-login-primary", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 10;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+    options.AddFixedWindowLimiter("identity-login-mfa-challenge", limiterOptions =>
     {
         limiterOptions.PermitLimit = 12;
         limiterOptions.Window = TimeSpan.FromMinutes(1);

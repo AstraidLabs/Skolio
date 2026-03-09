@@ -914,12 +914,29 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   const { t } = useI18n();
   const query = new URLSearchParams(window.location.search);
   const returnUrl = query.get('returnUrl');
+  const mfaRequired = query.get('mfa') === 'required';
+  const challengeId = query.get('challengeId') ?? '';
+  const loginError = query.get('error') ?? '';
+  const [useRecoveryCode, setUseRecoveryCode] = useState(loginError === 'login_mfa_invalid_recovery_code');
+  const [busy, setBusy] = useState(false);
+  const errorText = mapLoginError(loginError, t);
 
   useEffect(() => {
     if (!returnUrl) {
       void beginLogin(config);
     }
   }, [config, returnUrl]);
+
+  useEffect(() => {
+    if (loginError === 'login_mfa_invalid_recovery_code') {
+      setUseRecoveryCode(true);
+      return;
+    }
+
+    if (loginError === 'login_mfa_invalid_code') {
+      setUseRecoveryCode(false);
+    }
+  }, [loginError]);
 
   if (!returnUrl) {
     return (
@@ -929,7 +946,74 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
     );
   }
 
-  return <section className="min-h-[70vh] grid place-items-center px-4"><div className="w-full max-w-md sk-panel"><div className="flex items-center justify-between gap-3"><h1 className="text-2xl font-bold text-slate-900">{t('loginTitle')}</h1><LanguageSwitcher /></div><p className="mt-2 text-sm text-slate-600">{t('loginSubtitle')}</p><form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login`}><input type="hidden" name="returnUrl" value={returnUrl} /><div className="sk-field"><label className="sk-label" htmlFor="username">{t('email')}</label><input id="username" name="username" type="text" autoComplete="username" required className="sk-input" /></div><div className="sk-field"><label className="sk-label" htmlFor="password">{t('password')}</label><input id="password" name="password" type="password" autoComplete="current-password" required className="sk-input" /></div><button type="submit" className="sk-btn sk-btn-primary w-full">{t('signIn')}</button></form></div></section>;
+  return (
+    <section className="min-h-[70vh] grid place-items-center px-4">
+      <div className="w-full max-w-md sk-panel">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-slate-900">{mfaRequired ? t('loginMfaTitle') : t('loginTitle')}</h1>
+          <LanguageSwitcher />
+        </div>
+        <p className="mt-2 text-sm text-slate-600">{mfaRequired ? t('loginMfaSubtitle') : t('loginSubtitle')}</p>
+
+        {errorText ? (
+          <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {errorText}
+          </div>
+        ) : null}
+
+        {!mfaRequired ? (
+          <form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login`} onSubmit={() => setBusy(true)}>
+            <input type="hidden" name="returnUrl" value={returnUrl} />
+            <div className="sk-field">
+              <label className="sk-label" htmlFor="username">{t('email')}</label>
+              <input id="username" name="username" type="text" autoComplete="username" required className="sk-input" />
+            </div>
+            <div className="sk-field">
+              <label className="sk-label" htmlFor="password">{t('password')}</label>
+              <input id="password" name="password" type="password" autoComplete="current-password" required className="sk-input" />
+            </div>
+            <button type="submit" className="sk-btn sk-btn-primary w-full" disabled={busy}>
+              {busy ? t('loginMfaBusy') : t('signIn')}
+            </button>
+          </form>
+        ) : (
+          <form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login/mfa/verify`} onSubmit={() => setBusy(true)}>
+            <input type="hidden" name="returnUrl" value={returnUrl} />
+            <input type="hidden" name="challengeId" value={challengeId} />
+            <input type="hidden" name="useRecoveryCode" value={useRecoveryCode ? 'true' : 'false'} />
+
+            <div className="sk-field">
+              <label className="sk-label" htmlFor="mfa-code">{useRecoveryCode ? t('loginMfaRecoveryCodeLabel') : t('loginMfaCodeLabel')}</label>
+              <input id="mfa-code" name="code" type="text" autoComplete="one-time-code" required className="sk-input" />
+            </div>
+
+            <button type="submit" className="sk-btn sk-btn-primary w-full" disabled={busy}>
+              {busy ? t('loginMfaBusy') : t('loginMfaConfirmAction')}
+            </button>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="sk-btn sk-btn-secondary" type="button" onClick={() => setUseRecoveryCode((v) => !v)} disabled={busy}>
+                {useRecoveryCode ? t('loginMfaUseAuthenticator') : t('loginMfaUseRecovery')}
+              </button>
+              <a className="sk-btn sk-btn-secondary" href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}>
+                {t('loginMfaRestart')}
+              </a>
+            </div>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function mapLoginError(code: string, t: ReturnType<typeof useI18n>['t']) {
+  if (!code) return '';
+  if (code === 'login_invalid_credentials') return t('loginErrorInvalidCredentials');
+  if (code === 'login_mfa_invalid_code') return t('loginErrorMfaInvalidCode');
+  if (code === 'login_mfa_invalid_recovery_code') return t('loginErrorMfaInvalidRecoveryCode');
+  if (code === 'login_mfa_challenge_expired') return t('loginErrorMfaChallengeExpired');
+  if (code === 'login_mfa_blocked') return t('loginErrorMfaBlocked');
+  return t('loginErrorGeneric');
 }
 
 function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig; onSession: (state: SessionState | null) => void }) {
