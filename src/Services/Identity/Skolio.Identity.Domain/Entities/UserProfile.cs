@@ -14,6 +14,20 @@ public sealed class UserProfile
         string? preferredDisplayName,
         string? preferredLanguage,
         string? phoneNumber,
+        string? gender,
+        DateOnly? dateOfBirth,
+        string? nationalIdNumber,
+        string? birthPlace,
+        string? permanentAddress,
+        string? correspondenceAddress,
+        string? contactEmail,
+        string? legalGuardian1,
+        string? legalGuardian2,
+        string? schoolPlacement,
+        string? healthInsuranceProvider,
+        string? pediatrician,
+        string? healthSafetyNotes,
+        string? supportMeasuresSummary,
         string? positionTitle,
         string? publicContactNote,
         string? preferredContactNote)
@@ -26,6 +40,20 @@ public sealed class UserProfile
         PreferredDisplayName = NormalizeOptional(preferredDisplayName);
         PreferredLanguage = NormalizeOptional(preferredLanguage);
         PhoneNumber = NormalizeOptional(phoneNumber);
+        Gender = NormalizeOptional(gender);
+        DateOfBirth = dateOfBirth;
+        NationalIdNumber = NormalizeOptional(nationalIdNumber);
+        BirthPlace = NormalizeOptional(birthPlace);
+        PermanentAddress = NormalizeOptional(permanentAddress);
+        CorrespondenceAddress = NormalizeOptional(correspondenceAddress);
+        ContactEmail = NormalizeOptional(contactEmail);
+        LegalGuardian1 = NormalizeOptional(legalGuardian1);
+        LegalGuardian2 = NormalizeOptional(legalGuardian2);
+        SchoolPlacement = NormalizeOptional(schoolPlacement);
+        HealthInsuranceProvider = NormalizeOptional(healthInsuranceProvider);
+        Pediatrician = NormalizeOptional(pediatrician);
+        HealthSafetyNotes = NormalizeOptional(healthSafetyNotes);
+        SupportMeasuresSummary = NormalizeOptional(supportMeasuresSummary);
         PositionTitle = NormalizeOptional(positionTitle);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);
@@ -40,6 +68,20 @@ public sealed class UserProfile
     public string? PreferredDisplayName { get; private set; }
     public string? PreferredLanguage { get; private set; }
     public string? PhoneNumber { get; private set; }
+    public string? Gender { get; private set; }
+    public DateOnly? DateOfBirth { get; private set; }
+    public string? NationalIdNumber { get; private set; }
+    public string? BirthPlace { get; private set; }
+    public string? PermanentAddress { get; private set; }
+    public string? CorrespondenceAddress { get; private set; }
+    public string? ContactEmail { get; private set; }
+    public string? LegalGuardian1 { get; private set; }
+    public string? LegalGuardian2 { get; private set; }
+    public string? SchoolPlacement { get; private set; }
+    public string? HealthInsuranceProvider { get; private set; }
+    public string? Pediatrician { get; private set; }
+    public string? HealthSafetyNotes { get; private set; }
+    public string? SupportMeasuresSummary { get; private set; }
     public string? PositionTitle { get; private set; }
     public string? PublicContactNote { get; private set; }
     public string? PreferredContactNote { get; private set; }
@@ -54,6 +96,20 @@ public sealed class UserProfile
         string? preferredDisplayName = null,
         string? preferredLanguage = null,
         string? phoneNumber = null,
+        string? gender = null,
+        DateOnly? dateOfBirth = null,
+        string? nationalIdNumber = null,
+        string? birthPlace = null,
+        string? permanentAddress = null,
+        string? correspondenceAddress = null,
+        string? contactEmail = null,
+        string? legalGuardian1 = null,
+        string? legalGuardian2 = null,
+        string? schoolPlacement = null,
+        string? healthInsuranceProvider = null,
+        string? pediatrician = null,
+        string? healthSafetyNotes = null,
+        string? supportMeasuresSummary = null,
         string? positionTitle = null,
         string? publicContactNote = null,
         string? preferredContactNote = null)
@@ -72,6 +128,20 @@ public sealed class UserProfile
             preferredDisplayName,
             preferredLanguage,
             phoneNumber,
+            gender,
+            dateOfBirth,
+            nationalIdNumber,
+            birthPlace,
+            permanentAddress,
+            correspondenceAddress,
+            contactEmail,
+            legalGuardian1,
+            legalGuardian2,
+            schoolPlacement,
+            healthInsuranceProvider,
+            pediatrician,
+            healthSafetyNotes,
+            supportMeasuresSummary,
             positionTitle,
             publicContactNote,
             preferredContactNote);
@@ -85,6 +155,20 @@ public sealed class UserProfile
         string? preferredDisplayName,
         string? preferredLanguage,
         string? phoneNumber,
+        string? gender,
+        DateOnly? dateOfBirth,
+        string? nationalIdNumber,
+        string? birthPlace,
+        string? permanentAddress,
+        string? correspondenceAddress,
+        string? contactEmail,
+        string? legalGuardian1,
+        string? legalGuardian2,
+        string? schoolPlacement,
+        string? healthInsuranceProvider,
+        string? pediatrician,
+        string? healthSafetyNotes,
+        string? supportMeasuresSummary,
         string? positionTitle,
         string? publicContactNote,
         string? preferredContactNote)
@@ -99,6 +183,20 @@ public sealed class UserProfile
         PreferredDisplayName = NormalizeOptional(preferredDisplayName);
         PreferredLanguage = NormalizeOptional(preferredLanguage);
         PhoneNumber = NormalizeOptional(phoneNumber);
+        Gender = NormalizeOptional(gender);
+        DateOfBirth = dateOfBirth;
+        NationalIdNumber = NormalizeOptional(nationalIdNumber);
+        BirthPlace = NormalizeOptional(birthPlace);
+        PermanentAddress = NormalizeOptional(permanentAddress);
+        CorrespondenceAddress = NormalizeOptional(correspondenceAddress);
+        ContactEmail = NormalizeOptional(contactEmail);
+        LegalGuardian1 = NormalizeOptional(legalGuardian1);
+        LegalGuardian2 = NormalizeOptional(legalGuardian2);
+        SchoolPlacement = NormalizeOptional(schoolPlacement);
+        HealthInsuranceProvider = NormalizeOptional(healthInsuranceProvider);
+        Pediatrician = NormalizeOptional(pediatrician);
+        HealthSafetyNotes = NormalizeOptional(healthSafetyNotes);
+        SupportMeasuresSummary = NormalizeOptional(supportMeasuresSummary);
         PositionTitle = NormalizeOptional(positionTitle);
         PublicContactNote = NormalizeOptional(publicContactNote);
         PreferredContactNote = NormalizeOptional(preferredContactNote);

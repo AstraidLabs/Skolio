@@ -15,6 +15,20 @@ const EMPTY_DRAFT: ProfileDraft = {
   preferredDisplayName: '',
   preferredLanguage: '',
   phoneNumber: '',
+  gender: '',
+  dateOfBirth: '',
+  nationalIdNumber: '',
+  birthPlace: '',
+  permanentAddress: '',
+  correspondenceAddress: '',
+  contactEmail: '',
+  legalGuardian1: '',
+  legalGuardian2: '',
+  schoolPlacement: '',
+  healthInsuranceProvider: '',
+  pediatrician: '',
+  healthSafetyNotes: '',
+  supportMeasuresSummary: '',
   positionTitle: '',
   publicContactNote: '',
   preferredContactNote: ''
@@ -44,7 +58,7 @@ export function IdentityParityPage({
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selfDraft, setSelfDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
   const [adminDraft, setAdminDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
-  const [fieldErrors, setFieldErrors] = useState<{ firstName?: string; lastName?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const isPlatformAdministrator = session.roles.includes('PlatformAdministrator');
   const isSchoolAdministrator = session.roles.includes('SchoolAdministrator');
@@ -74,6 +88,20 @@ export function IdentityParityPage({
     preferredDisplayName: profile.preferredDisplayName ?? '',
     preferredLanguage: profile.preferredLanguage ?? '',
     phoneNumber: profile.phoneNumber ?? '',
+    gender: profile.gender ?? '',
+    dateOfBirth: profile.dateOfBirth ?? '',
+    nationalIdNumber: profile.nationalIdNumber ?? '',
+    birthPlace: profile.birthPlace ?? '',
+    permanentAddress: profile.permanentAddress ?? '',
+    correspondenceAddress: profile.correspondenceAddress ?? '',
+    contactEmail: profile.contactEmail ?? '',
+    legalGuardian1: profile.legalGuardian1 ?? '',
+    legalGuardian2: profile.legalGuardian2 ?? '',
+    schoolPlacement: profile.schoolPlacement ?? '',
+    healthInsuranceProvider: profile.healthInsuranceProvider ?? '',
+    pediatrician: profile.pediatrician ?? '',
+    healthSafetyNotes: profile.healthSafetyNotes ?? '',
+    supportMeasuresSummary: profile.supportMeasuresSummary ?? '',
     positionTitle: profile.positionTitle ?? '',
     publicContactNote: profile.publicContactNote ?? '',
     preferredContactNote: profile.preferredContactNote ?? ''
@@ -138,12 +166,18 @@ export function IdentityParityPage({
   const saveSelfProfile = () => {
     setFormError('');
     setFormSuccess('');
-    const nextFieldErrors: { firstName?: string; lastName?: string } = {};
+    const nextFieldErrors: Record<string, string> = {};
     if (selfEditRules.canEditName && !selfDraft.firstName.trim()) {
       nextFieldErrors.firstName = t('profileFieldRequired');
     }
     if (selfEditRules.canEditName && !selfDraft.lastName.trim()) {
       nextFieldErrors.lastName = t('profileFieldRequired');
+    }
+    if (selfDraft.contactEmail && !selfDraft.contactEmail.includes('@')) {
+      nextFieldErrors.contactEmail = t('profileValidationEmail');
+    }
+    if (selfDraft.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(selfDraft.dateOfBirth)) {
+      nextFieldErrors.dateOfBirth = t('profileValidationDate');
     }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -282,6 +316,20 @@ export function IdentityParityPage({
           <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredDisplayName')} value={selfDraft.preferredDisplayName ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredDisplayName: value }))} />
           <LanguageField icon={<ProfileLanguageIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={selfDraft.preferredLanguage ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, preferredLanguage: value }))} />
           <Field icon={<ProfilePhoneIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPhoneNumber')} value={selfDraft.phoneNumber ?? ''} disabled={savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, phoneNumber: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldGender')} value={selfDraft.gender ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, gender: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldDateOfBirth')} value={selfDraft.dateOfBirth ?? ''} disabled={isStudentOnly || savingSelf} invalid={Boolean(fieldErrors.dateOfBirth)} errorText={fieldErrors.dateOfBirth} onChange={(value) => setSelfDraft((v) => ({ ...v, dateOfBirth: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldNationalIdNumber')} value={selfDraft.nationalIdNumber ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, nationalIdNumber: value }))} />
+          <Field icon={<ProfileIdentityIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldBirthPlace')} value={selfDraft.birthPlace ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, birthPlace: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPermanentAddress')} value={selfDraft.permanentAddress ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, permanentAddress: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldCorrespondenceAddress')} value={selfDraft.correspondenceAddress ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, correspondenceAddress: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldContactEmail')} value={selfDraft.contactEmail ?? ''} disabled={isStudentOnly || savingSelf} invalid={Boolean(fieldErrors.contactEmail)} errorText={fieldErrors.contactEmail} onChange={(value) => setSelfDraft((v) => ({ ...v, contactEmail: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLegalGuardian1')} value={selfDraft.legalGuardian1 ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, legalGuardian1: value }))} />
+          <Field icon={<ProfileContactIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldLegalGuardian2')} value={selfDraft.legalGuardian2 ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, legalGuardian2: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSchoolPlacement')} value={selfDraft.schoolPlacement ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, schoolPlacement: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldHealthInsuranceProvider')} value={selfDraft.healthInsuranceProvider ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, healthInsuranceProvider: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldPediatrician')} value={selfDraft.pediatrician ?? ''} disabled={isStudentOnly || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, pediatrician: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldHealthSafetyNotes')} value={selfDraft.healthSafetyNotes ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, healthSafetyNotes: value }))} />
+          <Field icon={<ProfileCardIcon className="h-4 w-4 shrink-0 text-slate-500" />} label={t('profileFieldSupportMeasuresSummary')} value={selfDraft.supportMeasuresSummary ?? ''} disabled={!selfEditRules.canEditSchoolPosition || savingSelf} onChange={(value) => setSelfDraft((v) => ({ ...v, supportMeasuresSummary: value }))} />
           {canShowSchoolPositionField ? (
             <SchoolPositionField
               icon={<ProfilePositionIcon className="h-4 w-4 shrink-0 text-slate-500" />}

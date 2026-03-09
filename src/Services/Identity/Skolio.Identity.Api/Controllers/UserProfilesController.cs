@@ -116,6 +116,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (profile is null) return NotFound();
 
         var normalizedRequest = NormalizeSelfRequest(profile, request);
+        var validationResult = ValidateProfileEditableValues(normalizedRequest);
+        if (validationResult is not null) return validationResult;
+
         var positionTitleChanged = !string.Equals(
             profile.PositionTitle?.Trim(),
             normalizedRequest.PositionTitle?.Trim(),
@@ -141,6 +144,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.PreferredDisplayName,
             normalizedRequest.PreferredLanguage,
             normalizedRequest.PhoneNumber,
+            normalizedRequest.Gender,
+            normalizedRequest.DateOfBirth,
+            normalizedRequest.NationalIdNumber,
+            normalizedRequest.BirthPlace,
+            normalizedRequest.PermanentAddress,
+            normalizedRequest.CorrespondenceAddress,
+            normalizedRequest.ContactEmail,
+            normalizedRequest.LegalGuardian1,
+            normalizedRequest.LegalGuardian2,
+            normalizedRequest.SchoolPlacement,
+            normalizedRequest.HealthInsuranceProvider,
+            normalizedRequest.Pediatrician,
+            normalizedRequest.HealthSafetyNotes,
+            normalizedRequest.SupportMeasuresSummary,
             normalizedRequest.PositionTitle,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
@@ -180,6 +197,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.PreferredDisplayName,
                 x.PreferredLanguage,
                 x.PhoneNumber,
+                x.Gender,
+                x.DateOfBirth,
+                x.NationalIdNumber,
+                x.BirthPlace,
+                x.PermanentAddress,
+                x.CorrespondenceAddress,
+                x.ContactEmail,
+                x.LegalGuardian1,
+                x.LegalGuardian2,
+                x.SchoolPlacement,
+                x.HealthInsuranceProvider,
+                x.Pediatrician,
+                x.HealthSafetyNotes,
+                x.SupportMeasuresSummary,
                 x.PositionTitle,
                 x.PublicContactNote,
                 x.PreferredContactNote))
@@ -244,6 +275,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
                 x.PreferredDisplayName,
                 x.PreferredLanguage,
                 x.PhoneNumber,
+                x.Gender,
+                x.DateOfBirth,
+                x.NationalIdNumber,
+                x.BirthPlace,
+                x.PermanentAddress,
+                x.CorrespondenceAddress,
+                x.ContactEmail,
+                x.LegalGuardian1,
+                x.LegalGuardian2,
+                x.SchoolPlacement,
+                x.HealthInsuranceProvider,
+                x.Pediatrician,
+                x.HealthSafetyNotes,
+                x.SupportMeasuresSummary,
                 x.PositionTitle,
                 x.PublicContactNote,
                 x.PreferredContactNote))
@@ -272,6 +317,9 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (profile is null) return NotFound();
 
         var normalizedRequest = NormalizeAdminRequest(request);
+        var validationResult = ValidateProfileEditableValues(normalizedRequest);
+        if (validationResult is not null) return validationResult;
+
         var changedFields = CollectChangedFields(profile, normalizedRequest);
 
         var result = await mediator.Send(new UpsertUserProfileCommand(
@@ -283,6 +331,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             normalizedRequest.PreferredDisplayName,
             normalizedRequest.PreferredLanguage,
             normalizedRequest.PhoneNumber,
+            normalizedRequest.Gender,
+            normalizedRequest.DateOfBirth,
+            normalizedRequest.NationalIdNumber,
+            normalizedRequest.BirthPlace,
+            normalizedRequest.PermanentAddress,
+            normalizedRequest.CorrespondenceAddress,
+            normalizedRequest.ContactEmail,
+            normalizedRequest.LegalGuardian1,
+            normalizedRequest.LegalGuardian2,
+            normalizedRequest.SchoolPlacement,
+            normalizedRequest.HealthInsuranceProvider,
+            normalizedRequest.Pediatrician,
+            normalizedRequest.HealthSafetyNotes,
+            normalizedRequest.SupportMeasuresSummary,
             normalizedRequest.PositionTitle,
             normalizedRequest.PublicContactNote,
             normalizedRequest.PreferredContactNote), cancellationToken);
@@ -334,6 +396,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         {
             FirstName = canEditName ? request.FirstName : profile.FirstName,
             LastName = canEditName ? request.LastName : profile.LastName,
+            Gender = isStudentOnly ? profile.Gender : request.Gender,
+            DateOfBirth = isStudentOnly ? profile.DateOfBirth : request.DateOfBirth,
+            NationalIdNumber = isStudentOnly ? profile.NationalIdNumber : request.NationalIdNumber,
+            BirthPlace = isStudentOnly ? profile.BirthPlace : request.BirthPlace,
+            PermanentAddress = isStudentOnly ? profile.PermanentAddress : request.PermanentAddress,
+            CorrespondenceAddress = isStudentOnly ? profile.CorrespondenceAddress : request.CorrespondenceAddress,
+            ContactEmail = isStudentOnly ? profile.ContactEmail : request.ContactEmail,
+            LegalGuardian1 = canEditName ? request.LegalGuardian1 : profile.LegalGuardian1,
+            LegalGuardian2 = canEditName ? request.LegalGuardian2 : profile.LegalGuardian2,
+            SchoolPlacement = canEditPositionTitle ? request.SchoolPlacement : profile.SchoolPlacement,
+            HealthInsuranceProvider = canEditName ? request.HealthInsuranceProvider : profile.HealthInsuranceProvider,
+            Pediatrician = canEditName ? request.Pediatrician : profile.Pediatrician,
+            HealthSafetyNotes = canEditPositionTitle ? request.HealthSafetyNotes : profile.HealthSafetyNotes,
+            SupportMeasuresSummary = canEditPositionTitle ? request.SupportMeasuresSummary : profile.SupportMeasuresSummary,
             PositionTitle = canEditPositionTitle ? request.PositionTitle : profile.PositionTitle,
             PublicContactNote = canEditPublicContactNote ? request.PublicContactNote : profile.PublicContactNote,
             PreferredContactNote = canEditPreferredContactNote ? request.PreferredContactNote : profile.PreferredContactNote
@@ -363,11 +439,42 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         if (!string.Equals(profile.PreferredDisplayName, request.PreferredDisplayName, StringComparison.Ordinal)) changed.Add("preferredDisplayName");
         if (!string.Equals(profile.PreferredLanguage, request.PreferredLanguage, StringComparison.Ordinal)) changed.Add("preferredLanguage");
         if (!string.Equals(profile.PhoneNumber, request.PhoneNumber, StringComparison.Ordinal)) changed.Add("phoneNumber");
+        if (!string.Equals(profile.Gender, request.Gender, StringComparison.Ordinal)) changed.Add("gender");
+        if (profile.DateOfBirth != request.DateOfBirth) changed.Add("dateOfBirth");
+        if (!string.Equals(profile.NationalIdNumber, request.NationalIdNumber, StringComparison.Ordinal)) changed.Add("nationalIdNumber");
+        if (!string.Equals(profile.BirthPlace, request.BirthPlace, StringComparison.Ordinal)) changed.Add("birthPlace");
+        if (!string.Equals(profile.PermanentAddress, request.PermanentAddress, StringComparison.Ordinal)) changed.Add("permanentAddress");
+        if (!string.Equals(profile.CorrespondenceAddress, request.CorrespondenceAddress, StringComparison.Ordinal)) changed.Add("correspondenceAddress");
+        if (!string.Equals(profile.ContactEmail, request.ContactEmail, StringComparison.Ordinal)) changed.Add("contactEmail");
+        if (!string.Equals(profile.LegalGuardian1, request.LegalGuardian1, StringComparison.Ordinal)) changed.Add("legalGuardian1");
+        if (!string.Equals(profile.LegalGuardian2, request.LegalGuardian2, StringComparison.Ordinal)) changed.Add("legalGuardian2");
+        if (!string.Equals(profile.SchoolPlacement, request.SchoolPlacement, StringComparison.Ordinal)) changed.Add("schoolPlacement");
+        if (!string.Equals(profile.HealthInsuranceProvider, request.HealthInsuranceProvider, StringComparison.Ordinal)) changed.Add("healthInsuranceProvider");
+        if (!string.Equals(profile.Pediatrician, request.Pediatrician, StringComparison.Ordinal)) changed.Add("pediatrician");
+        if (!string.Equals(profile.HealthSafetyNotes, request.HealthSafetyNotes, StringComparison.Ordinal)) changed.Add("healthSafetyNotes");
+        if (!string.Equals(profile.SupportMeasuresSummary, request.SupportMeasuresSummary, StringComparison.Ordinal)) changed.Add("supportMeasuresSummary");
         if (!string.Equals(profile.PositionTitle, request.PositionTitle, StringComparison.Ordinal)) changed.Add("positionTitle");
         if (!string.Equals(profile.PublicContactNote, request.PublicContactNote, StringComparison.Ordinal)) changed.Add("publicContactNote");
         if (!string.Equals(profile.PreferredContactNote, request.PreferredContactNote, StringComparison.Ordinal)) changed.Add("preferredContactNote");
 
         return changed;
+    }
+
+
+    private ActionResult? ValidateProfileEditableValues(ProfileEditableValues values)
+    {
+        if (values.DateOfBirth is not null && values.DateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
+            return this.ValidationField("dateOfBirth", "Date of birth cannot be in the future.");
+        if (!string.IsNullOrWhiteSpace(values.ContactEmail) && !values.ContactEmail.Contains('@', StringComparison.Ordinal))
+            return this.ValidationField("contactEmail", "Contact email format is invalid.");
+        if (!string.IsNullOrWhiteSpace(values.NationalIdNumber) && values.NationalIdNumber.Length > 32)
+            return this.ValidationField("nationalIdNumber", "National ID is too long.");
+        if (!string.IsNullOrWhiteSpace(values.HealthSafetyNotes) && values.HealthSafetyNotes.Length > 1000)
+            return this.ValidationField("healthSafetyNotes", "Health and safety notes are too long.");
+        if (!string.IsNullOrWhiteSpace(values.SupportMeasuresSummary) && values.SupportMeasuresSummary.Length > 1000)
+            return this.ValidationField("supportMeasuresSummary", "Support measures summary is too long.");
+
+        return null;
     }
 
     private static UserProfileContract ToContract(UserProfile profile)
@@ -381,6 +488,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
             profile.PreferredDisplayName,
             profile.PreferredLanguage,
             profile.PhoneNumber,
+            profile.Gender,
+            profile.DateOfBirth,
+            profile.NationalIdNumber,
+            profile.BirthPlace,
+            profile.PermanentAddress,
+            profile.CorrespondenceAddress,
+            profile.ContactEmail,
+            profile.LegalGuardian1,
+            profile.LegalGuardian2,
+            profile.SchoolPlacement,
+            profile.HealthInsuranceProvider,
+            profile.Pediatrician,
+            profile.HealthSafetyNotes,
+            profile.SupportMeasuresSummary,
             profile.PositionTitle,
             profile.PublicContactNote,
             profile.PreferredContactNote);
@@ -432,9 +553,23 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PreferredDisplayName,
         string? PreferredLanguage,
         string? PhoneNumber,
+        string? Gender,
+        DateOnly? DateOfBirth,
+        string? NationalIdNumber,
+        string? BirthPlace,
+        string? PermanentAddress,
+        string? CorrespondenceAddress,
+        string? ContactEmail,
+        string? LegalGuardian1,
+        string? LegalGuardian2,
+        string? SchoolPlacement,
+        string? HealthInsuranceProvider,
+        string? Pediatrician,
+        string? HealthSafetyNotes,
+        string? SupportMeasuresSummary,
         string? PositionTitle,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, PositionTitle, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, PublicContactNote, PreferredContactNote);
 
     public sealed record UpdateAdminProfileRequest(
         string FirstName,
@@ -442,9 +577,23 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PreferredDisplayName,
         string? PreferredLanguage,
         string? PhoneNumber,
+        string? Gender,
+        DateOnly? DateOfBirth,
+        string? NationalIdNumber,
+        string? BirthPlace,
+        string? PermanentAddress,
+        string? CorrespondenceAddress,
+        string? ContactEmail,
+        string? LegalGuardian1,
+        string? LegalGuardian2,
+        string? SchoolPlacement,
+        string? HealthInsuranceProvider,
+        string? Pediatrician,
+        string? HealthSafetyNotes,
+        string? SupportMeasuresSummary,
         string? PositionTitle,
         string? PublicContactNote,
-        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, PositionTitle, PublicContactNote, PreferredContactNote);
+        string? PreferredContactNote) : ProfileEditableValues(FirstName, LastName, PreferredDisplayName, PreferredLanguage, PhoneNumber, Gender, DateOfBirth, NationalIdNumber, BirthPlace, PermanentAddress, CorrespondenceAddress, ContactEmail, LegalGuardian1, LegalGuardian2, SchoolPlacement, HealthInsuranceProvider, Pediatrician, HealthSafetyNotes, SupportMeasuresSummary, PositionTitle, PublicContactNote, PreferredContactNote);
 
     public abstract record ProfileEditableValues(
         string FirstName,
@@ -452,6 +601,20 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
         string? PreferredDisplayName,
         string? PreferredLanguage,
         string? PhoneNumber,
+        string? Gender,
+        DateOnly? DateOfBirth,
+        string? NationalIdNumber,
+        string? BirthPlace,
+        string? PermanentAddress,
+        string? CorrespondenceAddress,
+        string? ContactEmail,
+        string? LegalGuardian1,
+        string? LegalGuardian2,
+        string? SchoolPlacement,
+        string? HealthInsuranceProvider,
+        string? Pediatrician,
+        string? HealthSafetyNotes,
+        string? SupportMeasuresSummary,
         string? PositionTitle,
         string? PublicContactNote,
         string? PreferredContactNote);

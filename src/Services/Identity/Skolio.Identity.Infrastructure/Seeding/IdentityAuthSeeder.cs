@@ -256,6 +256,20 @@ public sealed class IdentityAuthSeeder(
                     BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
                     BuildPreferredLanguage(seedUser.UserType),
                     BuildPhoneNumber(seedUser.UserType),
+                    BuildGender(seedUser.UserType),
+                    BuildDateOfBirth(seedUser.UserType),
+                    BuildNationalIdNumber(seedUser.UserType),
+                    BuildBirthPlace(),
+                    BuildPermanentAddress(seedUser.UserType),
+                    BuildCorrespondenceAddress(seedUser.UserType),
+                    seedUser.Email,
+                    BuildLegalGuardian1(seedUser.UserType),
+                    BuildLegalGuardian2(seedUser.UserType),
+                    BuildSchoolPlacement(seedUser.UserType),
+                    BuildHealthInsuranceProvider(seedUser.UserType),
+                    BuildPediatrician(seedUser.UserType),
+                    BuildHealthSafetyNotes(seedUser.UserType),
+                    BuildSupportMeasuresSummary(seedUser.UserType),
                     BuildPositionTitle(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType)));
@@ -271,6 +285,20 @@ public sealed class IdentityAuthSeeder(
                     BuildPreferredDisplayName(seedUser.FirstName, seedUser.LastName),
                     BuildPreferredLanguage(seedUser.UserType),
                     BuildPhoneNumber(seedUser.UserType),
+                    BuildGender(seedUser.UserType),
+                    BuildDateOfBirth(seedUser.UserType),
+                    BuildNationalIdNumber(seedUser.UserType),
+                    BuildBirthPlace(),
+                    BuildPermanentAddress(seedUser.UserType),
+                    BuildCorrespondenceAddress(seedUser.UserType),
+                    seedUser.Email,
+                    BuildLegalGuardian1(seedUser.UserType),
+                    BuildLegalGuardian2(seedUser.UserType),
+                    BuildSchoolPlacement(seedUser.UserType),
+                    BuildHealthInsuranceProvider(seedUser.UserType),
+                    BuildPediatrician(seedUser.UserType),
+                    BuildHealthSafetyNotes(seedUser.UserType),
+                    BuildSupportMeasuresSummary(seedUser.UserType),
                     BuildPositionTitle(seedUser.UserType),
                     BuildPublicContactNote(seedUser.UserType),
                     BuildPreferredContactNote(seedUser.UserType));
@@ -291,6 +319,20 @@ public sealed class IdentityAuthSeeder(
                 BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
                 "cs-CZ",
                 null,
+                "Female",
+                new DateOnly(2019, 5, 20),
+                "190520/1122",
+                "Brno",
+                "Brno, CZ",
+                "Brno, CZ",
+                KindergartenChildProfile.Email,
+                "Kindergarten Parent",
+                null,
+                "Kindergarten Group A",
+                "VZP",
+                "MUDr. Novotna",
+                "No known allergies.",
+                "Introductory adaptation support.",
                 null,
                 null,
                 null));
@@ -306,6 +348,20 @@ public sealed class IdentityAuthSeeder(
                 BuildPreferredDisplayName(KindergartenChildProfile.FirstName, KindergartenChildProfile.LastName),
                 "cs-CZ",
                 null,
+                "Female",
+                new DateOnly(2019, 5, 20),
+                "190520/1122",
+                "Brno",
+                "Brno, CZ",
+                "Brno, CZ",
+                KindergartenChildProfile.Email,
+                "Kindergarten Parent",
+                null,
+                "Kindergarten Group A",
+                "VZP",
+                "MUDr. Novotna",
+                "No known allergies.",
+                "Introductory adaptation support.",
                 null,
                 null,
                 null);
@@ -473,4 +529,42 @@ public sealed class IdentityAuthSeeder(
 
     private static string? BuildPreferredContactNote(UserType userType)
         => userType == UserType.Parent ? "Preferred communication in Czech language." : null;
+
+    private static string? BuildGender(UserType userType)
+        => userType == UserType.Student ? "NotSpecified" : null;
+
+    private static DateOnly? BuildDateOfBirth(UserType userType)
+        => userType == UserType.Student ? new DateOnly(2012, 9, 1) : null;
+
+    private static string? BuildNationalIdNumber(UserType userType)
+        => userType == UserType.Student ? "120901/0001" : null;
+
+    private static string BuildBirthPlace() => "Brno";
+
+    private static string? BuildPermanentAddress(UserType userType)
+        => userType == UserType.Student ? "Brno, Czech Republic" : null;
+
+    private static string? BuildCorrespondenceAddress(UserType userType)
+        => userType == UserType.Student ? "Brno, Czech Republic" : null;
+
+    private static string? BuildLegalGuardian1(UserType userType)
+        => userType == UserType.Student ? "Primary Parent Contact" : null;
+
+    private static string? BuildLegalGuardian2(UserType userType)
+        => userType == UserType.Student ? "Secondary Parent Contact" : null;
+
+    private static string? BuildSchoolPlacement(UserType userType)
+        => userType == UserType.Student ? "Class placement according to school year" : null;
+
+    private static string? BuildHealthInsuranceProvider(UserType userType)
+        => userType == UserType.Student ? "VZP" : null;
+
+    private static string? BuildPediatrician(UserType userType)
+        => userType == UserType.Student ? "MUDr. Novak" : null;
+
+    private static string? BuildHealthSafetyNotes(UserType userType)
+        => userType == UserType.Student ? "No known severe conditions." : null;
+
+    private static string? BuildSupportMeasuresSummary(UserType userType)
+        => userType == UserType.Student ? "Basic in-class support plan." : null;
 }
