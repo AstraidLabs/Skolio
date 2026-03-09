@@ -52,6 +52,7 @@ const idleWarningWindowMs = 2 * 60 * 1000;
 const idleActivityStorageKey = 'skolio.auth.idle.lastActivityUtc';
 const idleLogoutStorageKey = 'skolio.auth.idle.logout';
 const logoutReasonStorageKey = 'skolio.auth.logoutReason';
+const loginSeenStorageKey = 'skolio.auth.hasLoggedIn';
 
 export function RouterShell({ config }: RouterProps) {
   const { t } = useI18n();
@@ -1018,10 +1019,17 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   const returnUrl = query.get('returnUrl');
   const mfaRequired = query.get('mfa') === 'required';
   const challengeId = query.get('challengeId') ?? '';
+  const rememberedFromQuery = query.get('rememberMe') === 'true';
   const loginError = query.get('error') ?? '';
   const [useRecoveryCode, setUseRecoveryCode] = useState(loginError === 'login_mfa_invalid_recovery_code');
+  const [rememberMe, setRememberMe] = useState(rememberedFromQuery);
   const [busy, setBusy] = useState(false);
   const errorText = mapLoginError(loginError, t);
+  const [wordmarkVariant] = useState(() => {
+    const options = ['loginWordmarkVariant1', 'loginWordmarkVariant2', 'loginWordmarkVariant3'] as const;
+    return options[Math.floor(Math.random() * options.length)];
+  });
+  const [hasLoggedInBefore] = useState(() => localStorage.getItem(loginSeenStorageKey) === 'true');
   const [idleLogoutInfo, setIdleLogoutInfo] = useState(() => {
     const queryReason = query.get('logoutReason');
     if (queryReason === 'idle') return true;
@@ -1051,6 +1059,13 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
     }
   }, [loginError]);
 
+  const loginTitle = mfaRequired
+    ? t('loginMfaTitle')
+    : (hasLoggedInBefore ? t('loginTitleReturning') : t('loginTitleFirstTime'));
+  const loginSubtitle = mfaRequired
+    ? t('loginMfaSubtitle')
+    : (hasLoggedInBefore ? t('loginSubtitleReturning') : t('loginSubtitleFirstTime'));
+
   if (!returnUrl) {
     return (
       <section className="min-h-[50vh] grid place-items-center px-4">
@@ -1060,22 +1075,31 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   }
 
   return (
-    <section className="min-h-[70vh] grid place-items-center px-4">
-      <div className="w-full max-w-md sk-panel">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-slate-900">{mfaRequired ? t('loginMfaTitle') : t('loginTitle')}</h1>
-          <LanguageSwitcher />
+    <section className="sk-auth-shell min-h-screen px-4 py-8">
+      <div className="sk-auth-card w-full max-w-md sk-panel">
+        <div className="sk-auth-decor" aria-hidden="true">
+          <span className="sk-auth-decor-orb sk-auth-decor-orb-1" />
+          <span className="sk-auth-decor-orb sk-auth-decor-orb-2" />
+          <span className="sk-auth-decor-grid" />
         </div>
-        <p className="mt-2 text-sm text-slate-600">{mfaRequired ? t('loginMfaSubtitle') : t('loginSubtitle')}</p>
+        <div className="flex items-center gap-3">
+          <span className="sk-auth-brand-icon" aria-hidden="true"><LoginBrandIcon /></span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t(wordmarkVariant)}</p>
+            <p className="text-lg font-semibold text-slate-900">Skolio</p>
+          </div>
+        </div>
+        <h1 className="mt-5 text-2xl font-bold text-slate-900">{loginTitle}</h1>
+        <p className="mt-2 text-sm text-slate-600">{loginSubtitle}</p>
 
         {idleLogoutInfo ? (
-          <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="sk-auth-alert mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
             {t('idleLogoutInfo')}
           </div>
         ) : null}
 
         {errorText ? (
-          <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div className="sk-auth-alert mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
             {errorText}
           </div>
         ) : null}
@@ -1084,42 +1108,90 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
           <form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login`} onSubmit={() => setBusy(true)}>
             <input type="hidden" name="returnUrl" value={returnUrl} />
             <div className="sk-field">
-              <label className="sk-label" htmlFor="username">{t('email')}</label>
-              <input id="username" name="username" type="text" autoComplete="username" required className="sk-input" />
+              <label className="sk-label" htmlFor="username">{t('loginUsernameLabel')}</label>
+              <div className="relative">
+                <span className="sk-auth-field-icon" aria-hidden="true"><LoginEmailIcon /></span>
+                <input id="username" name="username" type="text" autoComplete="username" required placeholder={t('loginUsernamePlaceholder')} className="sk-input pl-10" />
+              </div>
             </div>
             <div className="sk-field">
-              <label className="sk-label" htmlFor="password">{t('password')}</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" required className="sk-input" />
+              <label className="sk-label" htmlFor="password">{t('loginPasswordLabel')}</label>
+              <div className="relative">
+                <span className="sk-auth-field-icon" aria-hidden="true"><LoginPasswordIcon /></span>
+                <input id="password" name="password" type="password" autoComplete="current-password" required placeholder={t('loginPasswordPlaceholder')} className="sk-input pl-10" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                id="rememberMe"
+                name="rememberMe"
+                type="checkbox"
+                value="true"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+              />
+              <label className="text-sm text-slate-700" htmlFor="rememberMe">{t('loginRememberMe')}</label>
             </div>
             <button type="submit" className="sk-btn sk-btn-primary w-full" disabled={busy}>
-              {busy ? t('loginMfaBusy') : t('signIn')}
+              {busy ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoginBusySpinner />
+                  <span>{t('loginBusy')}</span>
+                </span>
+              ) : t('signIn')}
             </button>
+            {busy ? (
+              <div className="sk-auth-busy mt-3" role="status" aria-live="polite">
+                <LoginEntryWave />
+                <p className="text-sm text-slate-600">{t('loginEnteringPlatform')}</p>
+              </div>
+            ) : null}
           </form>
         ) : (
           <form className="sk-form mt-6" method="post" action={`${config.identityAuthority}/account/login/mfa/verify`} onSubmit={() => setBusy(true)}>
             <input type="hidden" name="returnUrl" value={returnUrl} />
             <input type="hidden" name="challengeId" value={challengeId} />
             <input type="hidden" name="useRecoveryCode" value={useRecoveryCode ? 'true' : 'false'} />
+            <input type="hidden" name="rememberMe" value={rememberMe ? 'true' : 'false'} />
 
             <div className="sk-field">
               <label className="sk-label" htmlFor="mfa-code">{useRecoveryCode ? t('loginMfaRecoveryCodeLabel') : t('loginMfaCodeLabel')}</label>
-              <input id="mfa-code" name="code" type="text" autoComplete="one-time-code" required className="sk-input" />
+              <div className="relative">
+                <span className="sk-auth-field-icon" aria-hidden="true"><LoginSecurityIcon /></span>
+                <input id="mfa-code" name="code" type="text" autoComplete="one-time-code" required placeholder={useRecoveryCode ? t('loginMfaRecoveryPlaceholder') : t('loginMfaCodePlaceholder')} className="sk-input pl-10" />
+              </div>
             </div>
 
             <button type="submit" className="sk-btn sk-btn-primary w-full" disabled={busy}>
-              {busy ? t('loginMfaBusy') : t('loginMfaConfirmAction')}
+              {busy ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoginBusySpinner />
+                  <span>{t('loginMfaBusy')}</span>
+                </span>
+              ) : t('loginMfaConfirmAction')}
             </button>
+            {busy ? (
+              <div className="sk-auth-busy mt-3" role="status" aria-live="polite">
+                <LoginEntryWave />
+                <p className="text-sm text-slate-600">{t('loginEnteringPlatform')}</p>
+              </div>
+            ) : null}
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button className="sk-btn sk-btn-secondary" type="button" onClick={() => setUseRecoveryCode((v) => !v)} disabled={busy}>
                 {useRecoveryCode ? t('loginMfaUseAuthenticator') : t('loginMfaUseRecovery')}
               </button>
-              <a className="sk-btn sk-btn-secondary" href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}>
+              <a className="sk-btn sk-btn-secondary" href={`/login?returnUrl=${encodeURIComponent(returnUrl)}&rememberMe=${rememberMe ? 'true' : 'false'}`}>
                 {t('loginMfaRestart')}
               </a>
             </div>
           </form>
         )}
+        <div className="mt-6 border-t border-slate-200 pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('loginLanguageLabel')}</p>
+          <LanguageSwitcher />
+        </div>
       </div>
     </section>
   );
@@ -1167,6 +1239,7 @@ function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig
     setStatus(t('processingCallback'));
     void completeAuthorizationCodeFlow(config, t)
       .then((nextSession) => {
+        localStorage.setItem(loginSeenStorageKey, 'true');
         persistSession(nextSession);
         onSession(nextSession);
         setStatus(t('authCompleted'));
@@ -1197,6 +1270,56 @@ function LanguageSwitcher() {
         </button>
       ))}
     </div>
+  );
+}
+
+function LoginBrandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 12a8 8 0 1 1 14.9 4" />
+      <path d="M12 6v6l4 2" />
+    </svg>
+  );
+}
+
+function LoginEmailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  );
+}
+
+function LoginPasswordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="4" y="11" width="16" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+    </svg>
+  );
+}
+
+function LoginSecurityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3 5 6v6c0 4.2 2.7 7.8 7 9 4.3-1.2 7-4.8 7-9V6z" />
+      <path d="m9.5 12.5 1.8 1.8 3.7-3.7" />
+    </svg>
+  );
+}
+
+function LoginBusySpinner() {
+  return <span className="sk-auth-spinner" aria-hidden="true" />;
+}
+
+function LoginEntryWave() {
+  return (
+    <span className="sk-auth-wave" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
   );
 }
 

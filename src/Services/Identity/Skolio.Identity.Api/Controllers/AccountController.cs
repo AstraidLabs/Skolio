@@ -31,7 +31,7 @@ public sealed class AccountController(
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("identity-login-primary")]
-    public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password, [FromForm] string returnUrl, CancellationToken cancellationToken)
+    public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password, [FromForm] string returnUrl, [FromForm] bool rememberMe, CancellationToken cancellationToken)
     {
         var safeReturnUrl = SafeReturnUrl(returnUrl);
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
@@ -55,21 +55,22 @@ public sealed class AccountController(
 
         if (!await userManager.GetTwoFactorEnabledAsync(user))
         {
-            await signInManager.SignInAsync(user, isPersistent: true);
-            Audit("identity.auth.login.primary.succeeded", user.Id, new { mfaRequired = false });
+            await signInManager.SignInAsync(user, isPersistent: rememberMe);
+            Audit("identity.auth.login.primary.succeeded", user.Id, new { mfaRequired = false, rememberMe });
             return LocalRedirect(safeReturnUrl);
         }
 
         var challengeId = Guid.NewGuid().ToString("N");
         var expiresAt = DateTimeOffset.UtcNow.Add(ChallengeLifetime);
-        challengeCache.Set(CacheKey(challengeId), new MfaLoginChallenge(user.Id, safeReturnUrl, expiresAt, 0), expiresAt);
+        challengeCache.Set(CacheKey(challengeId), new MfaLoginChallenge(user.Id, safeReturnUrl, expiresAt, 0, rememberMe), expiresAt);
 
-        Audit("identity.auth.login.mfa.required", user.Id, new { challengeId, expiresAtUtc = expiresAt.ToString("O") });
+        Audit("identity.auth.login.mfa.required", user.Id, new { challengeId, expiresAtUtc = expiresAt.ToString("O"), rememberMe });
         return Redirect(BuildFrontendLoginUrl(
             safeReturnUrl,
             ("mfa", "required"),
             ("challengeId", challengeId),
-            ("expiresAtUtc", expiresAt.ToString("O"))));
+            ("expiresAtUtc", expiresAt.ToString("O")),
+            ("rememberMe", rememberMe ? "true" : "false")));
     }
 
     [HttpPost("login/mfa/verify")]
@@ -111,7 +112,12 @@ public sealed class AccountController(
 
         if (string.IsNullOrWhiteSpace(code))
         {
-            return Redirect(BuildFrontendLoginUrl(safeReturnUrl, ("mfa", "required"), ("challengeId", challengeId), ("error", useRecoveryCode ? "login_mfa_invalid_recovery_code" : "login_mfa_invalid_code")));
+            return Redirect(BuildFrontendLoginUrl(
+                safeReturnUrl,
+                ("mfa", "required"),
+                ("challengeId", challengeId),
+                ("rememberMe", challenge.RememberMe ? "true" : "false"),
+                ("error", useRecoveryCode ? "login_mfa_invalid_recovery_code" : "login_mfa_invalid_code")));
         }
 
         var valid = useRecoveryCode
@@ -135,12 +141,13 @@ public sealed class AccountController(
                 ("mfa", "required"),
                 ("challengeId", challengeId),
                 ("expiresAtUtc", challenge.ExpiresAtUtc.ToString("O")),
+                ("rememberMe", challenge.RememberMe ? "true" : "false"),
                 ("error", useRecoveryCode ? "login_mfa_invalid_recovery_code" : "login_mfa_invalid_code")));
         }
 
         challengeCache.Remove(CacheKey(challengeId));
-        await signInManager.SignInAsync(user, isPersistent: true);
-        Audit(useRecoveryCode ? "identity.auth.login.mfa.recovery-code.succeeded" : "identity.auth.login.mfa.succeeded", user.Id, new { challengeId });
+        await signInManager.SignInAsync(user, isPersistent: challenge.RememberMe);
+        Audit(useRecoveryCode ? "identity.auth.login.mfa.recovery-code.succeeded" : "identity.auth.login.mfa.succeeded", user.Id, new { challengeId, rememberMe = challenge.RememberMe });
         return LocalRedirect(challenge.ReturnUrl);
     }
 
@@ -210,5 +217,5 @@ public sealed class AccountController(
         logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={TargetId} payload={Payload}", actionCode, actor, targetId, payload);
     }
 
-    private sealed record MfaLoginChallenge(string UserId, string ReturnUrl, DateTimeOffset ExpiresAtUtc, int Attempts);
+    private sealed record MfaLoginChallenge(string UserId, string ReturnUrl, DateTimeOffset ExpiresAtUtc, int Attempts, bool RememberMe);
 }
