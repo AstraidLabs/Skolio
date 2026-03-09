@@ -24,6 +24,7 @@ public static class MigrationExtensions
             var hasMigrations = dbContext.Database.GetMigrations().Any();
             if (hasMigrations)
             {
+                await BootstrapExistingSchemaHistoryAsync(dbContext, logger);
                 await dbContext.Database.MigrateAsync();
                 logger.LogInformation("Database migration completed for {ServiceName}.", serviceName);
             }
@@ -61,6 +62,44 @@ public static class MigrationExtensions
             logger.LogError(exception, "Database migration failed for {ServiceName}.", serviceName);
             throw new InvalidOperationException($"Startup aborted because database migration failed for {serviceName}.", exception);
         }
+    }
+
+    private static async Task BootstrapExistingSchemaHistoryAsync(OrganizationDbContext dbContext, ILogger logger)
+    {
+        var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
+        if (appliedMigrations.Any())
+        {
+            return;
+        }
+
+        var schoolsTableExists = await TableExistsAsync(dbContext, "schools", CancellationToken.None);
+        var schoolOperatorsTableExists = await TableExistsAsync(dbContext, "school_operators", CancellationToken.None);
+        var foundersTableExists = await TableExistsAsync(dbContext, "founders", CancellationToken.None);
+        if (!schoolsTableExists || !schoolOperatorsTableExists || !foundersTableExists)
+        {
+            return;
+        }
+
+        var firstMigration = dbContext.Database.GetMigrations().FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(firstMigration))
+        {
+            return;
+        }
+
+        await dbContext.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                "MigrationId" character varying(150) NOT NULL,
+                "ProductVersion" character varying(32) NOT NULL,
+                CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+            );
+            """);
+
+        await dbContext.Database.ExecuteSqlRawAsync(
+            "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1}) ON CONFLICT (\"MigrationId\") DO NOTHING;",
+            firstMigration,
+            "10.0.3");
+
+        logger.LogInformation("Existing schema detected; bootstrap migration history inserted for migration {MigrationId}.", firstMigration);
     }
 
     private static async Task<bool> TableExistsAsync(OrganizationDbContext dbContext, string tableName, CancellationToken cancellationToken)

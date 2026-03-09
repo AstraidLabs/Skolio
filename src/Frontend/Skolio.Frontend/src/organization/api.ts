@@ -1,6 +1,88 @@
 import type { createHttpClient } from '../shared/http/httpClient';
 
-export type School = { id: string; name: string; schoolType: string; isActive: boolean; schoolAdministratorUserProfileId?: string };
+export type Address = { street: string; city: string; postalCode: string; country: string };
+
+export type SchoolOperator = {
+  id: string;
+  legalEntityName: string;
+  legalForm: string;
+  companyNumberIco?: string;
+  registeredOfficeAddress: Address;
+  resortIdentifier?: string;
+  directorSummary?: string;
+  statutoryBodySummary?: string;
+};
+
+export type Founder = {
+  id: string;
+  founderType: string;
+  founderCategory: string;
+  founderName: string;
+  founderLegalForm: string;
+  founderIco?: string;
+  founderAddress: Address;
+  founderEmail?: string;
+};
+
+export type School = {
+  id: string;
+  name: string;
+  schoolType: string;
+  schoolKind: string;
+  schoolIzo?: string;
+  schoolEmail?: string;
+  schoolPhone?: string;
+  schoolWebsite?: string;
+  mainAddress: Address;
+  educationLocationsSummary?: string;
+  registryEntryDate?: string;
+  educationStartDate?: string;
+  maxStudentCapacity?: number;
+  teachingLanguage?: string;
+  schoolOperatorId?: string;
+  founderId?: string;
+  platformStatus: string;
+  isActive: boolean;
+  schoolAdministratorUserProfileId?: string;
+  schoolOperator?: SchoolOperator;
+  founder?: Founder;
+};
+
+export type SchoolMutation = {
+  name: string;
+  schoolType: string;
+  schoolKind: string;
+  schoolIzo?: string;
+  schoolEmail?: string;
+  schoolPhone?: string;
+  schoolWebsite?: string;
+  mainAddress: Address;
+  educationLocationsSummary?: string;
+  registryEntryDate?: string;
+  educationStartDate?: string;
+  maxStudentCapacity?: number;
+  teachingLanguage?: string;
+  platformStatus: string;
+  schoolOperator: {
+    legalEntityName: string;
+    legalForm: string;
+    companyNumberIco?: string;
+    registeredOfficeAddress: Address;
+    resortIdentifier?: string;
+    directorSummary?: string;
+    statutoryBodySummary?: string;
+  };
+  founder: {
+    founderType: string;
+    founderCategory: string;
+    founderName: string;
+    founderLegalForm: string;
+    founderIco?: string;
+    founderAddress: Address;
+    founderEmail?: string;
+  };
+};
+
 export type SchoolYear = { id: string; schoolId: string; label: string; startDate: string; endDate: string };
 export type GradeLevel = { id: string; schoolId: string; level: number; displayName: string };
 export type ClassRoom = { id: string; schoolId: string; gradeLevelId: string; code: string; displayName: string };
@@ -31,8 +113,8 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
       return result.items;
     },
     school: (id: string) => http<School>('organization', `/api/organization/schools/${id}`),
-    createSchool: (payload: { name: string; schoolType: string }) => http<School>('organization', '/api/organization/schools', { method: 'POST', body: JSON.stringify(payload) }),
-    updateSchool: (id: string, payload: { name: string; schoolType: string }) => http<School>('organization', `/api/organization/schools/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    createSchool: (payload: SchoolMutation) => http<School>('organization', '/api/organization/schools', { method: 'POST', body: JSON.stringify(payload) }),
+    updateSchool: (id: string, payload: SchoolMutation) => http<School>('organization', `/api/organization/schools/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     setSchoolStatus: (id: string, isActive: boolean) => http<School>('organization', `/api/organization/schools/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
     assignSchoolAdministrator: (id: string, userProfileId: string) => http<School>('organization', `/api/organization/schools/${id}/school-administrator`, { method: 'PUT', body: JSON.stringify({ userProfileId }) }),
     createInitialSchoolYear: (id: string, payload: { label: string; startDate: string; endDate: string }) => http<SchoolYear>('organization', `/api/organization/schools/${id}/initial-school-year`, { method: 'POST', body: JSON.stringify(payload) }),

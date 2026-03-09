@@ -8,6 +8,9 @@ public sealed class OrganizationMappingConfig : IRegister
 {
     public void Register(TypeAdapterConfig config)
     {
+        config.NewConfig<Skolio.Organization.Domain.ValueObjects.Address, AddressContract>();
+        config.NewConfig<SchoolOperator, SchoolOperatorContract>();
+        config.NewConfig<Founder, FounderContract>();
         config.NewConfig<School, SchoolContract>();
         config.NewConfig<SchoolYear, SchoolYearContract>()
             .Map(dest => dest.StartDate, src => src.Period.StartDate)

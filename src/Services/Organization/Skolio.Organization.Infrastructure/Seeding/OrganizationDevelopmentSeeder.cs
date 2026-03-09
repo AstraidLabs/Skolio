@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Skolio.Organization.Domain.Entities;
 using Skolio.Organization.Domain.Enums;
+using Skolio.Organization.Domain.ValueObjects;
 using Skolio.Organization.Infrastructure.Persistence;
 
 namespace Skolio.Organization.Infrastructure.Seeding;
@@ -15,6 +16,14 @@ public sealed class OrganizationDevelopmentSeeder(
     private static readonly Guid KindergartenSchoolId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ElementarySchoolId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid SecondarySchoolId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+    private static readonly Guid KindergartenSchoolOperatorId = Guid.Parse("41111111-1111-1111-1111-111111111111");
+    private static readonly Guid ElementarySchoolOperatorId = Guid.Parse("42222222-2222-2222-2222-222222222222");
+    private static readonly Guid SecondarySchoolOperatorId = Guid.Parse("43333333-3333-3333-3333-333333333333");
+
+    private static readonly Guid KindergartenFounderId = Guid.Parse("51111111-1111-1111-1111-111111111111");
+    private static readonly Guid ElementaryFounderId = Guid.Parse("52222222-2222-2222-2222-222222222222");
+    private static readonly Guid SecondaryFounderId = Guid.Parse("53333333-3333-3333-3333-333333333333");
 
     private static readonly Guid KindergartenSchoolAdminProfileId = Guid.Parse("10000000-0000-0000-0000-000000000101");
     private static readonly Guid ElementarySchoolAdminProfileId = Guid.Parse("10000000-0000-0000-0000-000000000201");
@@ -58,10 +67,87 @@ public sealed class OrganizationDevelopmentSeeder(
 
         logger.LogInformation("Organization seed started.");
 
+        var kindergartenOperator = await EnsureSchoolOperatorAsync(
+            KindergartenSchoolOperatorId,
+            "Skolio Kindergarten Operations s.r.o.",
+            LegalForm.LimitedLiabilityCompany,
+            "12345670",
+            Address.Create("Skolkova 1", "Brno", "60200", "CZ"),
+            "RZ-KG-001",
+            "Jana Novakova",
+            "Jednatel", cancellationToken);
+
+        var elementaryOperator = await EnsureSchoolOperatorAsync(
+            ElementarySchoolOperatorId,
+            "Skolio Elementary Operations a.s.",
+            LegalForm.JointStockCompany,
+            "22345671",
+            Address.Create("Skolni 10", "Praha", "11000", "CZ"),
+            "RZ-EL-001",
+            "Petr Svoboda",
+            "Predstavenstvo", cancellationToken);
+
+        var secondaryOperator = await EnsureSchoolOperatorAsync(
+            SecondarySchoolOperatorId,
+            "Skolio Secondary Operations z.u.",
+            LegalForm.NonProfitOrganization,
+            "32345672",
+            Address.Create("Akademicka 5", "Ostrava", "70200", "CZ"),
+            "RZ-SE-001",
+            "Milan Dvorak",
+            "Spravni rada", cancellationToken);
+
+        var kindergartenFounder = await EnsureFounderAsync(
+            KindergartenFounderId,
+            FounderType.Municipality,
+            FounderCategory.Public,
+            "Mesto Brno",
+            LegalForm.Municipality,
+            "44992785",
+            Address.Create("Dominikanske namesti 1", "Brno", "60200", "CZ"),
+            "podatelna@brno.cz",
+            cancellationToken);
+
+        var elementaryFounder = await EnsureFounderAsync(
+            ElementaryFounderId,
+            FounderType.Region,
+            FounderCategory.Public,
+            "Hlavni mesto Praha",
+            LegalForm.Region,
+            "00064581",
+            Address.Create("Marianske namesti 2", "Praha", "11000", "CZ"),
+            "posta@praha.eu",
+            cancellationToken);
+
+        var secondaryFounder = await EnsureFounderAsync(
+            SecondaryFounderId,
+            FounderType.PrivateLegalEntity,
+            FounderCategory.Private,
+            "Skolio Education Foundation",
+            LegalForm.NonProfitOrganization,
+            "27345673",
+            Address.Create("Nadrazni 45", "Ostrava", "70200", "CZ"),
+            "contact@skolio.foundation",
+            cancellationToken);
+
         var kindergarten = await EnsureSchoolAsync(
             KindergartenSchoolId,
             "Skolio Kindergarten Brno",
             SchoolType.Kindergarten,
+            SchoolKind.General,
+            "600001001",
+            "kindergarten.brno@skolio.local",
+            "+420541000101",
+            "https://kindergarten.skolio.local",
+            Address.Create("Skolkova 1", "Brno", "60200", "CZ"),
+            "Main campus Brno-stred",
+            new DateOnly(2018, 9, 1),
+            new DateOnly(2019, 9, 1),
+            220,
+            "cs",
+            kindergartenOperator.Id,
+            kindergartenFounder.Id,
+            PlatformStatus.Active,
             KindergartenSchoolAdminProfileId,
             cancellationToken);
 
@@ -69,6 +155,20 @@ public sealed class OrganizationDevelopmentSeeder(
             ElementarySchoolId,
             "Skolio Elementary Prague",
             SchoolType.ElementarySchool,
+            SchoolKind.General,
+            "600002002",
+            "elementary.prague@skolio.local",
+            "+420221000201",
+            "https://elementary.skolio.local",
+            Address.Create("Skolni 10", "Praha", "11000", "CZ"),
+            "Primary campus Prague 1",
+            new DateOnly(2016, 9, 1),
+            new DateOnly(2017, 9, 1),
+            540,
+            "cs",
+            elementaryOperator.Id,
+            elementaryFounder.Id,
+            PlatformStatus.Active,
             ElementarySchoolAdminProfileId,
             cancellationToken);
 
@@ -76,6 +176,20 @@ public sealed class OrganizationDevelopmentSeeder(
             SecondarySchoolId,
             "Skolio Secondary Ostrava",
             SchoolType.SecondarySchool,
+            SchoolKind.Specialized,
+            "600003003",
+            "secondary.ostrava@skolio.local",
+            "+420591000301",
+            "https://secondary.skolio.local",
+            Address.Create("Akademicka 5", "Ostrava", "70200", "CZ"),
+            "Main campus + technology center",
+            new DateOnly(2015, 9, 1),
+            new DateOnly(2016, 9, 1),
+            680,
+            "cs",
+            secondaryOperator.Id,
+            secondaryFounder.Id,
+            PlatformStatus.Active,
             SecondarySchoolAdminProfileId,
             cancellationToken);
 
@@ -131,17 +245,99 @@ public sealed class OrganizationDevelopmentSeeder(
         logger.LogInformation("Organization seed completed.");
     }
 
+    private async Task<SchoolOperator> EnsureSchoolOperatorAsync(
+        Guid id,
+        string legalEntityName,
+        LegalForm legalForm,
+        string? companyNumberIco,
+        Address registeredOfficeAddress,
+        string? resortIdentifier,
+        string? directorSummary,
+        string? statutoryBodySummary,
+        CancellationToken cancellationToken)
+    {
+        var schoolOperator = await dbContext.SchoolOperators.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (schoolOperator is null)
+        {
+            schoolOperator = SchoolOperator.Create(id, legalEntityName, legalForm, companyNumberIco, registeredOfficeAddress, resortIdentifier, directorSummary, statutoryBodySummary);
+            dbContext.SchoolOperators.Add(schoolOperator);
+            logger.LogInformation("Seed school operator created: {LegalEntityName}", legalEntityName);
+            return schoolOperator;
+        }
+
+        schoolOperator.Update(legalEntityName, legalForm, companyNumberIco, registeredOfficeAddress, resortIdentifier, directorSummary, statutoryBodySummary);
+        logger.LogInformation("Seed school operator already exists and was refreshed: {LegalEntityName}", legalEntityName);
+        return schoolOperator;
+    }
+
+    private async Task<Founder> EnsureFounderAsync(
+        Guid id,
+        FounderType founderType,
+        FounderCategory founderCategory,
+        string founderName,
+        LegalForm founderLegalForm,
+        string? founderIco,
+        Address founderAddress,
+        string? founderEmail,
+        CancellationToken cancellationToken)
+    {
+        var founder = await dbContext.Founders.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (founder is null)
+        {
+            founder = Founder.Create(id, founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail);
+            dbContext.Founders.Add(founder);
+            logger.LogInformation("Seed founder created: {FounderName}", founderName);
+            return founder;
+        }
+
+        founder.Update(founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail);
+        logger.LogInformation("Seed founder already exists and was refreshed: {FounderName}", founderName);
+        return founder;
+    }
+
     private async Task<School> EnsureSchoolAsync(
         Guid schoolId,
         string schoolName,
         SchoolType schoolType,
+        SchoolKind schoolKind,
+        string? schoolIzo,
+        string? schoolEmail,
+        string? schoolPhone,
+        string? schoolWebsite,
+        Address mainAddress,
+        string? educationLocationsSummary,
+        DateOnly? registryEntryDate,
+        DateOnly? educationStartDate,
+        int? maxStudentCapacity,
+        string? teachingLanguage,
+        Guid schoolOperatorId,
+        Guid founderId,
+        PlatformStatus platformStatus,
         Guid schoolAdministratorUserProfileId,
         CancellationToken cancellationToken)
     {
         var school = await dbContext.Schools.FirstOrDefaultAsync(x => x.Id == schoolId, cancellationToken);
         if (school is null)
         {
-            school = School.Create(schoolId, schoolName, schoolType);
+            school = School.Create(
+                schoolId,
+                schoolName,
+                schoolType,
+                schoolKind,
+                schoolIzo,
+                schoolEmail,
+                schoolPhone,
+                schoolWebsite,
+                mainAddress,
+                educationLocationsSummary,
+                registryEntryDate,
+                educationStartDate,
+                maxStudentCapacity,
+                teachingLanguage,
+                schoolOperatorId,
+                founderId,
+                platformStatus);
+
             school.AssignSchoolAdministrator(schoolAdministratorUserProfileId);
             dbContext.Schools.Add(school);
             logger.LogInformation("Seed school created: {SchoolName}", schoolName);
@@ -150,6 +346,21 @@ public sealed class OrganizationDevelopmentSeeder(
 
         school.Rename(schoolName);
         school.ChangeSchoolType(schoolType);
+        school.UpdateIdentityAndOperations(
+            schoolKind,
+            schoolIzo,
+            schoolEmail,
+            schoolPhone,
+            schoolWebsite,
+            mainAddress,
+            educationLocationsSummary,
+            registryEntryDate,
+            educationStartDate,
+            maxStudentCapacity,
+            teachingLanguage,
+            schoolOperatorId,
+            founderId,
+            platformStatus);
         school.Activate();
         school.AssignSchoolAdministrator(schoolAdministratorUserProfileId);
         logger.LogInformation("Seed school already exists and was refreshed: {SchoolName}", schoolName);

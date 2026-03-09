@@ -11,6 +11,8 @@ public sealed class OrganizationDbContext : DbContext
     }
 
     public DbSet<School> Schools => Set<School>();
+    public DbSet<SchoolOperator> SchoolOperators => Set<SchoolOperator>();
+    public DbSet<Founder> Founders => Set<Founder>();
     public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
     public DbSet<GradeLevel> GradeLevels => Set<GradeLevel>();
     public DbSet<ClassRoom> ClassRooms => Set<ClassRoom>();

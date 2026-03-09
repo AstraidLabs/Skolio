@@ -4,6 +4,7 @@ import type {
   ClassRoom,
   GradeLevel,
   School,
+  SchoolMutation,
   SchoolYear,
   Subject,
   TeacherAssignment,
@@ -12,6 +13,7 @@ import type {
   createOrganizationApi
 } from './api';
 import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
+import { OrganizationSchoolIdentityCard } from './OrganizationSchoolIdentityCard';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 
@@ -26,7 +28,40 @@ type OrganizationView =
   | 'subjects'
   | 'teacher-assignments';
 
-const EMPTY_SCHOOL = { name: '', schoolType: 'ElementarySchool' };
+const EMPTY_SCHOOL: SchoolMutation = {
+  name: '',
+  schoolType: 'ElementarySchool',
+  schoolKind: 'General',
+  schoolIzo: '',
+  schoolEmail: '',
+  schoolPhone: '',
+  schoolWebsite: '',
+  mainAddress: { street: '', city: '', postalCode: '', country: 'CZ' },
+  educationLocationsSummary: '',
+  registryEntryDate: '',
+  educationStartDate: '',
+  maxStudentCapacity: undefined,
+  teachingLanguage: 'cs',
+  platformStatus: 'Active',
+  schoolOperator: {
+    legalEntityName: '',
+    legalForm: 'PublicInstitution',
+    companyNumberIco: '',
+    registeredOfficeAddress: { street: '', city: '', postalCode: '', country: 'CZ' },
+    resortIdentifier: '',
+    directorSummary: '',
+    statutoryBodySummary: ''
+  },
+  founder: {
+    founderType: 'Municipality',
+    founderCategory: 'Public',
+    founderName: '',
+    founderLegalForm: 'Municipality',
+    founderIco: '',
+    founderAddress: { street: '', city: '', postalCode: '', country: 'CZ' },
+    founderEmail: ''
+  }
+};
 const EMPTY_SCHOOL_YEAR = { label: '', startDate: '', endDate: '' };
 const EMPTY_GRADE_LEVEL = { level: 1, displayName: '' };
 const EMPTY_CLASS_ROOM = { gradeLevelId: '', code: '', displayName: '' };
@@ -58,7 +93,7 @@ export function OrganizationParityPage({
 
   const [activeSchoolId, setActiveSchoolId] = useState(session.schoolIds[0] ?? '');
 
-  const [newSchool, setNewSchool] = useState({ ...EMPTY_SCHOOL, schoolType: session.schoolType });
+  const [newSchool, setNewSchool] = useState<SchoolMutation>({ ...EMPTY_SCHOOL, schoolType: session.schoolType });
   const [newSchoolYear, setNewSchoolYear] = useState(EMPTY_SCHOOL_YEAR);
   const [newGradeLevel, setNewGradeLevel] = useState(EMPTY_GRADE_LEVEL);
   const [newClassRoom, setNewClassRoom] = useState(EMPTY_CLASS_ROOM);
@@ -157,7 +192,7 @@ export function OrganizationParityPage({
   };
 
   const createSchool = () => guarded(async () => {
-    await api.createSchool({ name: newSchool.name, schoolType: newSchool.schoolType });
+    await api.createSchool(newSchool);
     setNewSchool({ ...EMPTY_SCHOOL, schoolType: session.schoolType });
   });
 
@@ -347,19 +382,31 @@ export function OrganizationParityPage({
             </ul>
           )}
         </Card>
+        {currentSchool ? (
+          <OrganizationSchoolIdentityCard
+            school={currentSchool}
+            editable={canWriteSchoolContext}
+            onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => load())}
+          />
+        ) : null}
         {canCreateSchool ? (
           <Card>
             <p className="font-semibold text-sm">Vytvořit školu</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div className="mt-2 grid gap-2 md:grid-cols-3">
               <input className="sk-input" placeholder="School name" value={newSchool.name} onChange={(e) => setNewSchool((v) => ({ ...v, name: e.target.value }))} />
               <select className="sk-input" value={newSchool.schoolType} onChange={(e) => setNewSchool((v) => ({ ...v, schoolType: e.target.value }))}>
                 <option value="Kindergarten">Kindergarten</option>
                 <option value="ElementarySchool">ElementarySchool</option>
                 <option value="SecondarySchool">SecondarySchool</option>
               </select>
+              <input className="sk-input" placeholder="Main street" value={newSchool.mainAddress.street} onChange={(e) => setNewSchool((v) => ({ ...v, mainAddress: { ...v.mainAddress, street: e.target.value } }))} />
+              <input className="sk-input" placeholder="Main city" value={newSchool.mainAddress.city} onChange={(e) => setNewSchool((v) => ({ ...v, mainAddress: { ...v.mainAddress, city: e.target.value } }))} />
+              <input className="sk-input" placeholder="Main postal code" value={newSchool.mainAddress.postalCode} onChange={(e) => setNewSchool((v) => ({ ...v, mainAddress: { ...v.mainAddress, postalCode: e.target.value } }))} />
+              <input className="sk-input" placeholder="School operator legal entity" value={newSchool.schoolOperator.legalEntityName} onChange={(e) => setNewSchool((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalEntityName: e.target.value } }))} />
+              <input className="sk-input" placeholder="Founder name" value={newSchool.founder.founderName} onChange={(e) => setNewSchool((v) => ({ ...v, founder: { ...v.founder, founderName: e.target.value } }))} />
             </div>
             <div className="mt-3">
-              <button className="sk-btn sk-btn-primary" disabled={!newSchool.name.trim()} onClick={createSchool} type="button">Create school</button>
+              <button className="sk-btn sk-btn-primary" disabled={!newSchool.name.trim() || !newSchool.mainAddress.street.trim() || !newSchool.mainAddress.city.trim() || !newSchool.mainAddress.postalCode.trim() || !newSchool.schoolOperator.legalEntityName.trim() || !newSchool.founder.founderName.trim()} onClick={createSchool} type="button">Create school</button>
             </div>
           </Card>
         ) : null}
