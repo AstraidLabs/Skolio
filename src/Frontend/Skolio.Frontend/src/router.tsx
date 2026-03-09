@@ -47,11 +47,19 @@ type AppRoute =
   | '/security/confirm-email-change'
   | '/login';
 
+const idleTimeoutMs = 30 * 60 * 1000;
+const idleWarningWindowMs = 2 * 60 * 1000;
+const idleActivityStorageKey = 'skolio.auth.idle.lastActivityUtc';
+const idleLogoutStorageKey = 'skolio.auth.idle.logout';
+const logoutReasonStorageKey = 'skolio.auth.logoutReason';
+
 export function RouterShell({ config }: RouterProps) {
   const { t } = useI18n();
   const [session, setSession] = useState<SessionState | null>(() => loadSession());
   const [route, setRoute] = useState(window.location.pathname as AppRoute | '/auth/callback');
   const [profileSummary, setProfileSummary] = useState<MyProfileSummary | null>(null);
+  const [idleWarningSecondsLeft, setIdleWarningSecondsLeft] = useState<number | null>(null);
+  const idleLogoutStartedRef = useRef(false);
 
   useEffect(() => {
     const onPop = () => setRoute(window.location.pathname as AppRoute);
@@ -84,6 +92,90 @@ export function RouterShell({ config }: RouterProps) {
       .then(setProfileSummary)
       .catch(() => setProfileSummary(null));
   }, [apis.identity, session?.accessToken]);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== idleLogoutStorageKey || !event.newValue) return;
+      const reason = event.newValue.split(':')[1] ?? 'manual';
+      if (reason === 'idle') {
+        sessionStorage.setItem(logoutReasonStorageKey, 'idle');
+      }
+
+      clearSession();
+      setSession(null);
+      setRoute('/login');
+      window.history.replaceState({}, '', '/login');
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setIdleWarningSecondsLeft(null);
+      idleLogoutStartedRef.current = false;
+      return;
+    }
+
+    const touchActivity = () => {
+      localStorage.setItem(idleActivityStorageKey, Date.now().toString());
+      setIdleWarningSecondsLeft(null);
+    };
+
+    if (!localStorage.getItem(idleActivityStorageKey)) {
+      touchActivity();
+    }
+
+    const onActivity = () => touchActivity();
+    const onRouteActivity = () => touchActivity();
+
+    const logoutForIdle = () => {
+      if (idleLogoutStartedRef.current) return;
+      idleLogoutStartedRef.current = true;
+      sessionStorage.setItem(logoutReasonStorageKey, 'idle');
+      localStorage.setItem(idleLogoutStorageKey, `${Date.now()}:idle`);
+      beginLogout(config, setSession, 'idle');
+    };
+
+    const checkTimer = window.setInterval(() => {
+      const lastActivityRaw = localStorage.getItem(idleActivityStorageKey);
+      const lastActivity = Number(lastActivityRaw ?? Date.now());
+      const remainingMs = (Number.isFinite(lastActivity) ? lastActivity : Date.now()) + idleTimeoutMs - Date.now();
+
+      if (remainingMs <= 0)
+      {
+        setIdleWarningSecondsLeft(0);
+        logoutForIdle();
+        return;
+      }
+
+      if (remainingMs <= idleWarningWindowMs)
+      {
+        setIdleWarningSecondsLeft(Math.ceil(remainingMs / 1000));
+        return;
+      }
+
+      setIdleWarningSecondsLeft(null);
+    }, 1000);
+
+    window.addEventListener('click', onActivity, { passive: true });
+    window.addEventListener('keydown', onActivity, { passive: true });
+    window.addEventListener('scroll', onActivity, { passive: true });
+    window.addEventListener('pointerdown', onActivity, { passive: true });
+    window.addEventListener('touchstart', onActivity, { passive: true });
+    window.addEventListener('popstate', onRouteActivity);
+
+    return () => {
+      window.clearInterval(checkTimer);
+      window.removeEventListener('click', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('scroll', onActivity);
+      window.removeEventListener('pointerdown', onActivity);
+      window.removeEventListener('touchstart', onActivity);
+      window.removeEventListener('popstate', onRouteActivity);
+    };
+  }, [config, session?.subject]);
 
   if (route === '/login') {
     return <IdentityLoginPage config={config} />;
@@ -139,7 +231,7 @@ export function RouterShell({ config }: RouterProps) {
       nav={nav}
       active={active}
       onNavigate={(nextRoute) => navigateTo(nextRoute, setRoute)}
-      onLogout={() => beginLogout(config, setSession)}
+      onLogout={() => beginLogout(config, setSession, 'manual')}
       profileDisplayName={profileName}
       profileContext={profileContext}
       pageTitle={labelForRoute(active, t)}
@@ -167,6 +259,16 @@ export function RouterShell({ config }: RouterProps) {
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
       {active === '/identity/security' && <SecuritySelfServicePage api={apis.identity} />}
       {!nav.includes(active) && active !== '/identity' && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}
+      {idleWarningSecondsLeft !== null && idleWarningSecondsLeft > 0 ? (
+        <IdleTimeoutWarning
+          secondsLeft={idleWarningSecondsLeft}
+          onContinue={() => {
+            localStorage.setItem(idleActivityStorageKey, Date.now().toString());
+            setIdleWarningSecondsLeft(null);
+          }}
+          onLogout={() => beginLogout(config, setSession, 'manual')}
+        />
+      ) : null}
     </AppLayoutShell>
   );
 }
@@ -920,12 +1022,23 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
   const [useRecoveryCode, setUseRecoveryCode] = useState(loginError === 'login_mfa_invalid_recovery_code');
   const [busy, setBusy] = useState(false);
   const errorText = mapLoginError(loginError, t);
+  const [idleLogoutInfo, setIdleLogoutInfo] = useState(() => {
+    const queryReason = query.get('logoutReason');
+    if (queryReason === 'idle') return true;
+    return sessionStorage.getItem(logoutReasonStorageKey) === 'idle';
+  });
 
   useEffect(() => {
     if (!returnUrl) {
       void beginLogin(config);
     }
   }, [config, returnUrl]);
+
+  useEffect(() => {
+    if (idleLogoutInfo) {
+      sessionStorage.removeItem(logoutReasonStorageKey);
+    }
+  }, [idleLogoutInfo]);
 
   useEffect(() => {
     if (loginError === 'login_mfa_invalid_recovery_code') {
@@ -954,6 +1067,12 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
           <LanguageSwitcher />
         </div>
         <p className="mt-2 text-sm text-slate-600">{mfaRequired ? t('loginMfaSubtitle') : t('loginSubtitle')}</p>
+
+        {idleLogoutInfo ? (
+          <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {t('idleLogoutInfo')}
+          </div>
+        ) : null}
 
         {errorText ? (
           <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -1014,6 +1133,30 @@ function mapLoginError(code: string, t: ReturnType<typeof useI18n>['t']) {
   if (code === 'login_mfa_challenge_expired') return t('loginErrorMfaChallengeExpired');
   if (code === 'login_mfa_blocked') return t('loginErrorMfaBlocked');
   return t('loginErrorGeneric');
+}
+
+function IdleTimeoutWarning({
+  secondsLeft,
+  onContinue,
+  onLogout
+}: {
+  secondsLeft: number;
+  onContinue: () => void;
+  onLogout: () => void;
+}) {
+  const { t } = useI18n();
+  const minutes = Math.max(0, Math.ceil(secondsLeft / 60));
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-lg">
+      <p className="text-sm font-semibold text-amber-900">{t('idleWarningTitle')}</p>
+      <p className="mt-1 text-sm text-amber-900">{t('idleWarningText', { minutes })}</p>
+      <div className="mt-3 flex gap-2">
+        <button className="sk-btn sk-btn-primary" type="button" onClick={onContinue}>{t('idleContinueSession')}</button>
+        <button className="sk-btn sk-btn-secondary" type="button" onClick={onLogout}>{t('idleLogoutNow')}</button>
+      </div>
+    </div>
+  );
 }
 
 function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig; onSession: (state: SessionState | null) => void }) {
@@ -1242,13 +1385,19 @@ async function completeAuthorizationCodeFlow(config: SkolioBootstrapConfig, t: R
   };
 }
 
-function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionState | null) => void) {
+function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionState | null) => void, reason: 'manual' | 'idle' = 'manual') {
+  if (reason === 'idle') {
+    sessionStorage.setItem(logoutReasonStorageKey, 'idle');
+  }
+
+  localStorage.setItem(idleLogoutStorageKey, `${Date.now()}:${reason}`);
   clearSession();
   onSession(null);
 
   const params = new URLSearchParams({
     post_logout_redirect_uri: config.oidcPostLogoutRedirectUri,
-    client_id: config.oidcClientId
+    client_id: config.oidcClientId,
+    logoutReason: reason
   });
 
   window.location.href = `${config.identityAuthority}/connect/logout?${params.toString()}`;

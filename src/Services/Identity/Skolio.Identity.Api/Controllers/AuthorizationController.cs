@@ -13,7 +13,11 @@ using Skolio.Identity.Infrastructure.Persistence;
 namespace Skolio.Identity.Api.Controllers;
 
 [ApiController]
-public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> signInManager, UserManager<SkolioIdentityUser> userManager, IdentityDbContext dbContext) : ControllerBase
+public sealed class AuthorizationController(
+    SignInManager<SkolioIdentityUser> signInManager,
+    UserManager<SkolioIdentityUser> userManager,
+    IdentityDbContext dbContext,
+    ILogger<AuthorizationController> logger) : ControllerBase
 {
     [HttpGet("/connect/authorize")]
     public async Task<IActionResult> Authorize(CancellationToken cancellationToken)
@@ -112,8 +116,16 @@ public sealed class AuthorizationController(SignInManager<SkolioIdentityUser> si
 
     [HttpGet("/connect/logout")]
     [HttpPost("/connect/logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromQuery] string? logoutReason = null)
     {
+        var normalizedReason = string.Equals(logoutReason, "idle", StringComparison.OrdinalIgnoreCase) ? "idle" : "manual";
+        var actor = User.FindFirstValue(OpenIddictConstants.Claims.Subject) ?? User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+        logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={Target} payload={Payload}",
+            normalizedReason == "idle" ? "identity.auth.logout.idle-timeout" : "identity.auth.logout.user-initiated",
+            actor,
+            actor,
+            new { reason = normalizedReason });
+
         await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         return SignOut(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
