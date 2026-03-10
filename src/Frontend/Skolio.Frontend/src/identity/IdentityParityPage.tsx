@@ -104,7 +104,7 @@ export function IdentityParityPage({
   session: SessionState;
   viewMode?: 'full' | 'user-management';
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
   const [formError, setFormError] = useState('');
@@ -1054,6 +1054,7 @@ function ManagedUsersSection({
   onManagedSchoolContextChange,
   sectionRef
 }: any) {
+  const { locale } = useI18n();
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [actionMenuUserId, setActionMenuUserId] = useState('');
@@ -1101,26 +1102,6 @@ function ManagedUsersSection({
     setUserListFilters((v: AdminUserListQuery) => ({ ...v, ...cleared }));
     loadManagedUsers(cleared);
   };
-
-  const filterLabelMap: Record<string, string> = {
-    search: t('userManagementSearchLabel'),
-    name: t('userManagementFilterName'),
-    emailOrUsername: t('userManagementFilterEmailOrUsername'),
-    role: t('userManagementFilterRole'),
-    school: t('userManagementFilterSchool'),
-    schoolType: t('userManagementFilterSchoolType'),
-    accountStatus: t('userManagementFilterAccountStatus'),
-    activationStatus: t('userManagementFilterActivationStatus'),
-    blockStatus: t('userManagementFilterBlockStatus'),
-    mfaStatus: t('userManagementFilterMfaStatus'),
-    inactivityState: t('userManagementFilterInactivityState')
-  };
-
-  const activeFilters: { key: string; label: string; value: string }[] = [];
-  for (const key of Object.keys(filterLabelMap)) {
-    const val = (userListFilters as Record<string, string>)[key];
-    if (val?.trim()) activeFilters.push({ key, label: filterLabelMap[key], value: val });
-  }
 
   const removeFilter = (key: string) => {
     setUserListFilters((v: AdminUserListQuery) => ({ ...v, [key]: '' }));
@@ -1231,6 +1212,77 @@ function ManagedUsersSection({
     { value: 'inactive', label: t('userManagementFilterInactivityStateOptions_inactive') }
   ];
 
+  const filterLabelMap: Record<string, string> = {
+    search: t('userManagementSearchLabel'),
+    name: t('userManagementFilterName'),
+    emailOrUsername: t('userManagementFilterEmailOrUsername'),
+    role: t('userManagementFilterRole'),
+    school: t('userManagementFilterSchool'),
+    schoolType: t('userManagementFilterSchoolType'),
+    accountStatus: t('userManagementFilterAccountStatus'),
+    activationStatus: t('userManagementFilterActivationStatus'),
+    blockStatus: t('userManagementFilterBlockStatus'),
+    mfaStatus: t('userManagementFilterMfaStatus'),
+    inactivityState: t('userManagementFilterInactivityState')
+  };
+
+  const translateManagedRole = (role: string) => {
+    const labelMap: Record<string, string> = {
+      PlatformAdministrator: t('userManagementFilterRoleOptions_PlatformAdministrator'),
+      SchoolAdministrator: t('userManagementFilterRoleOptions_SchoolAdministrator'),
+      Teacher: t('userManagementFilterRoleOptions_Teacher'),
+      Parent: t('userManagementFilterRoleOptions_Parent'),
+      Student: t('userManagementFilterRoleOptions_Student')
+    };
+    return labelMap[role] ?? role;
+  };
+
+  const translateManagedLifecycleStatus = (user: IdentityManagedUser | IdentityManagedUserDetail) => {
+    const state = resolveManagedUserRowVisualState(user as IdentityManagedUser);
+    if (state === 'locked') return t('userManagementFilterAccountStatusOptions_Locked');
+    if (state === 'deactivated') return t('userManagementFilterAccountStatusOptions_Deactivated');
+    if (state === 'pending') return t('userManagementActivationPending');
+    return t('userManagementFilterAccountStatusOptions_Active');
+  };
+
+  const translateSchoolType = (schoolType?: string | null) => {
+    if (!schoolType) return '-';
+    const labelMap: Record<string, string> = {
+      Kindergarten: t('userManagementFilterSchoolTypeOptions_Kindergarten'),
+      ElementarySchool: t('userManagementFilterSchoolTypeOptions_ElementarySchool'),
+      SecondarySchool: t('userManagementFilterSchoolTypeOptions_SecondarySchool')
+    };
+    return labelMap[schoolType] ?? schoolType;
+  };
+
+  const formatManagedDate = (value?: string | null) => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString(locale);
+  };
+
+  const filterValueMap: Record<string, Record<string, string>> = {
+    role: Object.fromEntries(roleOptions.map((option) => [option.value, option.label])),
+    schoolType: Object.fromEntries(schoolTypeOptions.map((option) => [option.value, option.label])),
+    accountStatus: Object.fromEntries(accountStatusOptions.map((option) => [option.value, option.label])),
+    activationStatus: Object.fromEntries(activationStatusOptions.map((option) => [option.value, option.label])),
+    blockStatus: Object.fromEntries(blockStatusOptions.map((option) => [option.value, option.label])),
+    mfaStatus: Object.fromEntries(mfaStatusOptions.map((option) => [option.value, option.label])),
+    inactivityState: Object.fromEntries(inactivityStateOptions.map((option) => [option.value, option.label]))
+  };
+
+  const activeFilters: { key: string; label: string; value: string }[] = [];
+  for (const key of Object.keys(filterLabelMap)) {
+    const rawValue = (userListFilters as Record<string, string>)[key];
+    if (!rawValue?.trim()) continue;
+    activeFilters.push({
+      key,
+      label: filterLabelMap[key],
+      value: filterValueMap[key]?.[rawValue] ?? rawValue
+    });
+  }
+
   const pageFrom = managedUsers ? ((managedUsers.pageNumber - 1) * managedUsers.pageSize + 1) : 0;
   const pageTo = managedUsers ? Math.min(managedUsers.pageNumber * managedUsers.pageSize, managedUsers.totalCount) : 0;
 
@@ -1298,7 +1350,7 @@ function ManagedUsersSection({
           {activeFilters.map((f) => (
             <span key={f.key} className="sk-filter-chip">
               {f.label}: {f.value}
-              <button type="button" onClick={() => removeFilter(f.key)} aria-label={`Remove ${f.label}`}>&times;</button>
+              <button type="button" onClick={() => removeFilter(f.key)} aria-label={t('userManagementRemoveFilterAria', { label: f.label })}>&times;</button>
             </span>
           ))}
           <button type="button" className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline" onClick={clearAllFilters}>{t('userManagementClearAllFilters')}</button>
@@ -1397,17 +1449,17 @@ function ManagedUsersSection({
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
-                      <span className={getUserAvatarClass(user)} title={user.roles.join(', ')}>{getUserInitials(user)}</span>
+                      <span className={getUserAvatarClass(user)} title={user.roles.map(translateManagedRole).join(', ')}>{getUserInitials(user)}</span>
                       <div className="sk-user-management-name">{user.displayName || user.userName}</div>
                     </div>
                   </td>
                   <td><div className="sk-user-management-email max-w-[200px] truncate" title={user.email}>{user.email}</div></td>
-                  <td><div className="sk-user-management-role">{user.roles.join(', ') || '-'}</div></td>
+                  <td><div className="sk-user-management-role">{user.roles.map(translateManagedRole).join(', ') || '-'}</div></td>
                   <td className="text-xs text-slate-600">{user.school ?? '-'}</td>
                   <td>
                     <span className="inline-flex items-center text-xs">
                       <span className={getStatusDotClass(user)} />
-                      {user.accountLifecycleStatus}
+                      {translateManagedLifecycleStatus(user)}
                     </span>
                   </td>
                   <td>
@@ -1415,7 +1467,7 @@ function ManagedUsersSection({
                       ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><SummaryMfaIcon className="h-3.5 w-3.5" />{t('profileValueYes')}</span>
                       : <span className="text-xs text-slate-400">{t('profileValueNo')}</span>}
                   </td>
-                  <td className="text-xs text-slate-600">{user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc).toLocaleDateString() : '-'}</td>
+                  <td className="text-xs text-slate-600">{formatManagedDate(user.lastLoginAtUtc)}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="sk-action-menu" ref={actionMenuUserId === user.userId ? actionMenuRef : undefined}>
                       <button
@@ -1535,7 +1587,7 @@ function ManagedUsersSection({
                       {['PlatformAdministrator', 'SchoolAdministrator', 'Teacher', 'Parent', 'Student'].map((role) => (
                         <label key={role} className="text-xs flex items-center gap-1">
                           <input type="checkbox" disabled={!isPlatformAdministrator && role === 'PlatformAdministrator'} checked={managedRoleSetDraft.includes(role)} onChange={(e) => setManagedRoleSetDraft((prev: string[]) => e.target.checked ? [...prev, role] : prev.filter((x) => x !== role))} />
-                          {role}
+                          {translateManagedRole(role)}
                         </label>
                       ))}
                     </div>
@@ -1549,10 +1601,10 @@ function ManagedUsersSection({
 
                 {activeManagedUserTab === 'accountState' ? (
                   <div className="grid gap-2">
-                    <Field label={t('userManagementColStatus')} value={managedUserDetail.accountLifecycleStatus} onChange={() => {}} disabled />
+                    <Field label={t('userManagementColStatus')} value={translateManagedLifecycleStatus(managedUserDetail)} onChange={() => {}} disabled />
                     <Field label={t('userManagementDetailActivationStatus')} value={managedUserDetail.activatedAtUtc ? t('stateActive') : t('userManagementActivationPending')} onChange={() => {}} disabled />
-                    <Field label={t('userManagementColLastLogin')} value={managedUserDetail.lastLoginAtUtc ?? '-'} onChange={() => {}} disabled />
-                    <Field label={t('userManagementDetailLastActivity')} value={managedUserDetail.lastActivityAtUtc ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementColLastLogin')} value={formatManagedDate(managedUserDetail.lastLoginAtUtc)} onChange={() => {}} disabled />
+                    <Field label={t('userManagementDetailLastActivity')} value={formatManagedDate(managedUserDetail.lastActivityAtUtc)} onChange={() => {}} disabled />
                   </div>
                 ) : null}
 
@@ -1560,7 +1612,7 @@ function ManagedUsersSection({
                   <div className="grid gap-2">
                     <Field label={t('userManagementSecurityEmailConfirmed')} value={managedUserDetail.emailConfirmed ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled />
                     <Field label={t('userManagementSecurityMfaEnabled')} value={managedUserRow?.mfaEnabled ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled />
-                    <Field label={t('userManagementSecurityLockout')} value={managedUserDetail.lockoutEndUtc ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementSecurityLockout')} value={formatManagedDate(managedUserDetail.lockoutEndUtc)} onChange={() => {}} disabled />
                     <Field label={t('userManagementSecurityRecoverySummary')} value={t('userManagementSecurityRecoveryNotExposed')} onChange={() => {}} disabled />
                   </div>
                 ) : null}
@@ -1568,7 +1620,7 @@ function ManagedUsersSection({
                 {activeManagedUserTab === 'schoolContext' ? (
                   <div className="grid gap-2">
                     <Field label={t('userManagementColSchool')} value={managedUserDetail.school ?? '-'} onChange={() => {}} disabled />
-                    <Field label={t('userManagementFilterSchoolType')} value={managedUserDetail.schoolType ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementFilterSchoolType')} value={translateSchoolType(managedUserDetail.schoolType)} onChange={() => {}} disabled />
                     <Field label={t('profileLabelAssignedSchools')} value={managedUserDetail.schoolIds.join(', ') || '-'} onChange={() => {}} disabled />
                     <Field label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled />
                   </div>
