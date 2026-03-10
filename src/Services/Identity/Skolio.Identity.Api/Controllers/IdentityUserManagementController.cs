@@ -272,6 +272,95 @@ public sealed class IdentityUserManagementController(
             schoolIds));
     }
 
+
+    [HttpGet("users/{userId}/roles-detail")]
+    public async Task<ActionResult<UserRolesDetailContract>> UserRolesDetail([FromRoute] string userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        var roles = await userManager.GetRolesAsync(user);
+        return Ok(new UserRolesDetailContract(
+            roles.OrderBy(x => x).ToArray(),
+            SupportedRoles,
+            User.IsInRole("PlatformAdministrator")));
+    }
+
+    [HttpGet("users/{userId}/lifecycle-detail")]
+    public async Task<ActionResult<LifecycleSummaryContract>> UserLifecycleDetail([FromRoute] string userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        return Ok(new LifecycleSummaryContract(
+            user.AccountLifecycleStatus.ToString(),
+            user.ActivationRequestedAtUtc,
+            user.ActivatedAtUtc,
+            user.DeactivatedAtUtc,
+            user.DeactivationReason,
+            user.BlockedAtUtc,
+            user.BlockedReason,
+            user.LastLoginAtUtc,
+            user.LastActivityAtUtc));
+    }
+
+    [HttpGet("users/{userId}/security-detail")]
+    public async Task<ActionResult<UserSecurityDetailContract>> UserSecurityDetail([FromRoute] string userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        return Ok(new UserSecurityDetailContract(
+            user.EmailConfirmed,
+            user.TwoFactorEnabled,
+            user.LockoutEnd,
+            user.LastLoginAtUtc,
+            user.LastActivityAtUtc,
+            "Recovery codes summary is not exposed in admin API."));
+    }
+
+    [HttpGet("users/{userId}/school-context-detail")]
+    public async Task<ActionResult<UserSchoolContextDetailContract>> UserSchoolContextDetail([FromRoute] string userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.Id.ToString() == userId, cancellationToken);
+        var schoolIds = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId.ToString() == userId)
+            .Select(x => x.SchoolId.ToString())
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArrayAsync(cancellationToken);
+
+        return Ok(new UserSchoolContextDetailContract(
+            profile?.SchoolPlacement,
+            profile?.SchoolContextSummary,
+            schoolIds,
+            User.IsInRole("PlatformAdministrator")));
+    }
+
+    [HttpGet("users/{userId}/links-summary")]
+    public async Task<ActionResult<UserLinksSummaryContract>> UserLinksSummary([FromRoute] string userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        var profileId = TryParseGuid(userId);
+        if (profileId is null) return this.ValidationForm("User profile context is invalid.");
+
+        var parentLinks = await dbContext.ParentStudentLinks.CountAsync(x => x.ParentUserProfileId == profileId.Value, cancellationToken);
+        var teacherAssignments = await dbContext.SchoolRoleAssignments.CountAsync(x => x.UserProfileId == profileId.Value && x.RoleCode == "Teacher", cancellationToken);
+        var studentAssignments = await dbContext.SchoolRoleAssignments.CountAsync(x => x.UserProfileId == profileId.Value && x.RoleCode == "Student", cancellationToken);
+
+        return Ok(new UserLinksSummaryContract(parentLinks, teacherAssignments, studentAssignments));
+    }
+
     [HttpPost("users/{userId}/resend-activation")]
     public async Task<IActionResult> ResendActivation([FromRoute] string userId, CancellationToken cancellationToken)
     {
@@ -582,6 +671,10 @@ public sealed class IdentityUserManagementController(
     public sealed record UpdateRoleSetRequest(IReadOnlyCollection<string> Roles);
     public sealed record RoleMutationRequest(string Role);
     public sealed record LifecycleSummaryContract(string Status, DateTimeOffset? ActivationRequestedAtUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc);
+    public sealed record UserRolesDetailContract(IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> AvailableRoles, bool CanManagePlatformAdministratorRole);
+    public sealed record UserSecurityDetailContract(bool EmailConfirmed, bool MfaEnabled, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string RecoveryCodesSummary);
+    public sealed record UserSchoolContextDetailContract(string? School, string? SchoolType, IReadOnlyCollection<string> SchoolIds, bool IsPlatformScopeView);
+    public sealed record UserLinksSummaryContract(int ParentStudentLinksCount, int TeacherAssignmentCount, int StudentAssignmentCount);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount)
     {
         public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);

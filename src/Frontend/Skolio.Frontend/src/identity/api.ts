@@ -157,6 +157,47 @@ export type IdentityManagedUser = {
   schoolIds: string[];
 };
 
+
+export type IdentityManagedUserRolesDetail = {
+  roles: string[];
+  availableRoles: string[];
+  canManagePlatformAdministratorRole: boolean;
+};
+
+export type IdentityManagedUserLifecycleDetail = {
+  status: string;
+  activationRequestedAtUtc?: string | null;
+  activatedAtUtc?: string | null;
+  deactivatedAtUtc?: string | null;
+  deactivationReason?: string | null;
+  blockedAtUtc?: string | null;
+  blockedReason?: string | null;
+  lastLoginAtUtc?: string | null;
+  lastActivityAtUtc?: string | null;
+};
+
+export type IdentityManagedUserSecurityDetail = {
+  emailConfirmed: boolean;
+  mfaEnabled: boolean;
+  lockoutEndUtc?: string | null;
+  lastLoginAtUtc?: string | null;
+  lastActivityAtUtc?: string | null;
+  recoveryCodesSummary: string;
+};
+
+export type IdentityManagedUserSchoolContextDetail = {
+  school?: string | null;
+  schoolType?: string | null;
+  schoolIds: string[];
+  isPlatformScopeView: boolean;
+};
+
+export type IdentityManagedUserLinksSummary = {
+  parentStudentLinksCount: number;
+  teacherAssignmentCount: number;
+  studentAssignmentCount: number;
+};
+
 export type IdentityManagedUserDetail = {
   userId: string;
   email: string;
@@ -242,6 +283,12 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
       return http<PagedResult<IdentityManagedUser>>('identity', `/api/identity/user-management/users${params.size > 0 ? `?${params.toString()}` : ''}`);
     },
     adminUserDetail: (userId: string) => http<IdentityManagedUserDetail>('identity', `/api/identity/user-management/users/${userId}`),
+
+    adminUserRolesDetail: (userId: string) => http<IdentityManagedUserRolesDetail>('identity', `/api/identity/user-management/users/${userId}/roles-detail`),
+    adminUserLifecycleDetail: (userId: string) => http<IdentityManagedUserLifecycleDetail>('identity', `/api/identity/user-management/users/${userId}/lifecycle-detail`),
+    adminUserSecurityDetail: (userId: string) => http<IdentityManagedUserSecurityDetail>('identity', `/api/identity/user-management/users/${userId}/security-detail`),
+    adminUserSchoolContextDetail: (userId: string) => http<IdentityManagedUserSchoolContextDetail>('identity', `/api/identity/user-management/users/${userId}/school-context-detail`),
+    adminUserLinksSummary: (userId: string) => http<IdentityManagedUserLinksSummary>('identity', `/api/identity/user-management/users/${userId}/links-summary`),
     adminActivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/activate`, { method: 'POST' }),
     adminDeactivate: (userId: string, reason: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/deactivate`, { method: 'POST', body: JSON.stringify({ reason }) }),
     adminReactivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/reactivate`, { method: 'POST' }),
