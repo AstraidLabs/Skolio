@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, SchoolContextOption, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, StatusBadge } from '../shared/ui/primitives';
@@ -13,6 +13,8 @@ type SchoolAdministratorProfileTab = 'basic' | 'addressContact' | 'employment' |
 type ParentProfileTab = 'basic' | 'addressContact' | 'delivery' | 'linkedStudents' | 'relationshipsContext' | 'communication';
 type PlatformAdministratorProfileTab = 'basic' | 'addressContact' | 'platformRoleContext' | 'managedAreas' | 'administrativeOverview';
 type ManagedUserDetailTab = 'basic' | 'roles' | 'accountState' | 'security' | 'schoolContext' | 'links';
+
+const USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY = 'skolio.identity.userManagement.schoolContextId';
 
 const EMPTY_DRAFT: ProfileDraft = {
   firstName: '',
@@ -85,6 +87,10 @@ export function IdentityParityPage({
   const [managedRoleSetDraft, setManagedRoleSetDraft] = useState<string[]>([]);
   const [activeManagedUserTab, setActiveManagedUserTab] = useState<ManagedUserDetailTab>('basic');
   const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc' });
+  const [managedSchoolContextId, setManagedSchoolContextId] = useState<string>(() => localStorage.getItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY) ?? '');
+  const [managedSchoolOptions, setManagedSchoolOptions] = useState<SchoolContextOption[]>([]);
+  const [managedSchoolOptionsLoading, setManagedSchoolOptionsLoading] = useState(false);
+  const [managedSchoolOptionsError, setManagedSchoolOptionsError] = useState('');
   const [schoolPositionOptions, setSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [schoolPositionLoading, setSchoolPositionLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -164,8 +170,9 @@ export function IdentityParityPage({
     administrativeBoundarySummary: profile.administrativeBoundarySummary ?? ''
   });
 
-  const loadManagedUsers = (next?: Partial<AdminUserListQuery>) => {
-    const merged: AdminUserListQuery = { ...userListFilters, ...next };
+  const loadManagedUsers = (next?: Partial<AdminUserListQuery>, forcedSchoolContextId?: string) => {
+    const effectiveSchoolContextId = forcedSchoolContextId ?? managedSchoolContextId;
+    const merged: AdminUserListQuery = { ...userListFilters, ...next, schoolContextId: effectiveSchoolContextId || undefined };
     setUserListFilters(merged);
     setManagedUsersLoading(true);
     setManagedUsersError('');
@@ -177,11 +184,12 @@ export function IdentityParityPage({
   };
 
 
-  const loadManagedSummary = () => {
+  const loadManagedSummary = (forcedSchoolContextId?: string) => {
+    const effectiveSchoolContextId = forcedSchoolContextId ?? managedSchoolContextId;
     setManagedSummaryLoading(true);
     setManagedSummaryError('');
 
-    void api.adminUserSummary()
+    void api.adminUserSummary(effectiveSchoolContextId || undefined)
       .then(setManagedSummary)
       .catch((e: Error) => {
         setManagedSummary(null);
@@ -197,7 +205,7 @@ export function IdentityParityPage({
     setManagedUserDetailError('');
     setManagedUserDetail(null);
     setManagedRoleSetDraft([]);
-    void api.adminUserDetail(userId)
+    void api.adminUserDetail(userId, managedSchoolContextId || undefined)
       .then((detail) => {
         setManagedUserDetail(detail);
         setManagedRoleSetDraft(detail.roles);
@@ -232,7 +240,7 @@ export function IdentityParityPage({
     setFormError('');
     setFormSuccess('');
     setManagedActionBusyUserId(managedUserDetail.userId);
-    void api.adminUpdateRoleSet(managedUserDetail.userId, managedRoleSetDraft)
+    void api.adminUpdateRoleSet(managedUserDetail.userId, managedRoleSetDraft, managedSchoolContextId || undefined)
       .then(() => {
         setFormSuccess(t('userManagementRolesSavedSuccess'));
         openManagedDetail(managedUserDetail.userId);
@@ -240,6 +248,21 @@ export function IdentityParityPage({
       })
       .catch((e: Error) => setFormError(mapProfileError(e, t)))
       .finally(() => setManagedActionBusyUserId(''));
+  };
+
+  const onManagedSchoolContextChange = (nextSchoolContextId: string) => {
+    if (!isPlatformAdministrator) return;
+    setManagedSchoolContextId(nextSchoolContextId);
+    if (nextSchoolContextId) {
+      localStorage.setItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY, nextSchoolContextId);
+    } else {
+      localStorage.removeItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY);
+    }
+
+    setManagedDetailUserId('');
+    setManagedUserDetail(null);
+    loadManagedUsers({ pageNumber: 1 }, nextSchoolContextId);
+    loadManagedSummary(nextSchoolContextId);
   };
 
 
@@ -267,8 +290,39 @@ export function IdentityParityPage({
 
         if (result.isPlatformAdministrator || result.isSchoolAdministrator) {
           tasks.push(api.userProfiles().then(setUsers));
-          loadManagedUsers({ pageNumber: 1 });
-          loadManagedSummary();
+          if (result.isPlatformAdministrator) {
+            setManagedSchoolOptionsLoading(true);
+            setManagedSchoolOptionsError('');
+            tasks.push(
+              api.adminUserSchools()
+                .then((options) => {
+                  setManagedSchoolOptions(options);
+                  const hasStoredContext = managedSchoolContextId && options.some((x) => x.schoolId === managedSchoolContextId);
+                  const resolvedContextId = hasStoredContext ? managedSchoolContextId : '';
+                  if (!hasStoredContext) {
+                    setManagedSchoolContextId('');
+                    localStorage.removeItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY);
+                  }
+                  loadManagedUsers({ pageNumber: 1 }, resolvedContextId);
+                  loadManagedSummary(resolvedContextId);
+                })
+                .catch((e: Error) => {
+                  setManagedSchoolOptions([]);
+                  setManagedSchoolOptionsError(mapProfileError(e, t));
+                  loadManagedUsers({ pageNumber: 1 }, '');
+                  loadManagedSummary('');
+                })
+                .finally(() => setManagedSchoolOptionsLoading(false))
+            );
+          } else {
+            setManagedSchoolOptions([]);
+            setManagedSchoolOptionsLoading(false);
+            setManagedSchoolOptionsError('');
+            setManagedSchoolContextId('');
+            localStorage.removeItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY);
+            loadManagedUsers({ pageNumber: 1 }, '');
+            loadManagedSummary('');
+          }
         } else {
           setUsers([]);
           setManagedUsers(null);
@@ -877,6 +931,11 @@ export function IdentityParityPage({
           activeManagedUserTab={activeManagedUserTab}
           setActiveManagedUserTab={setActiveManagedUserTab}
           isPlatformAdministrator={isPlatformAdministrator}
+          managedSchoolContextId={managedSchoolContextId}
+          managedSchoolOptions={managedSchoolOptions}
+          managedSchoolOptionsLoading={managedSchoolOptionsLoading}
+          managedSchoolOptionsError={managedSchoolOptionsError}
+          onManagedSchoolContextChange={onManagedSchoolContextChange}
         />
       ) : null}
 
@@ -977,7 +1036,12 @@ function ManagedUsersSection({
   saveManagedRoleSet,
   activeManagedUserTab,
   setActiveManagedUserTab,
-  isPlatformAdministrator
+  isPlatformAdministrator,
+  managedSchoolContextId,
+  managedSchoolOptions,
+  managedSchoolOptionsLoading,
+  managedSchoolOptionsError,
+  onManagedSchoolContextChange
 }: any) {
   const managedUserRow = managedUsers?.items.find((item: IdentityManagedUser) => item.userId === managedDetailUserId);
 
@@ -989,6 +1053,30 @@ function ManagedUsersSection({
   return (
     <Card>
       <p className="font-semibold text-sm inline-flex items-center gap-2"><UserManagementSectionIcon className="h-4 w-4 text-slate-600" />{t('userManagementListTitle')}</p>
+      {isPlatformAdministrator ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <label className="sk-label inline-flex items-center gap-1.5" htmlFor="user-management-school-context-switcher">
+            <ProfileSchoolIcon className="h-4 w-4 text-slate-600" />
+            <span>{t('userManagementSchoolContextLabel')}</span>
+          </label>
+          <select
+            id="user-management-school-context-switcher"
+            className="sk-input mt-1"
+            value={managedSchoolContextId}
+            disabled={managedSchoolOptionsLoading}
+            onChange={(e) => onManagedSchoolContextChange(e.target.value)}
+          >
+            <option value="">{t('userManagementSchoolContextAllSchools')}</option>
+            {managedSchoolOptions.map((option: SchoolContextOption) => (
+              <option key={option.schoolId} value={option.schoolId}>{option.label}</option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-slate-600">
+            {managedSchoolContextId ? t('userManagementSchoolContextSelectedSchool') : t('userManagementSchoolContextAllSchoolsMode')}
+          </p>
+          {managedSchoolOptionsError ? <ErrorState text={`${t('userManagementSchoolContextError')} ${managedSchoolOptionsError}`} /> : null}
+        </div>
+      ) : null}
       <div className="mt-3">
         {managedSummaryLoading ? <LoadingState text={t('userManagementSummaryLoading')} /> : null}
         {managedSummaryError ? <ErrorState text={`${t('userManagementSummaryError')} ${managedSummaryError}`} /> : null}
@@ -1036,11 +1124,11 @@ function ManagedUsersSection({
               <tr key={user.userId} className="border-b">
                 <td>{user.displayName || user.userName}</td><td>{user.email}</td><td>{user.roles.join(', ') || '-'}</td><td>{user.school ?? '-'}</td><td><StatusBadge label={user.accountLifecycleStatus} tone={user.blockedAtUtc ? 'danger' : user.accountLifecycleStatus === 'Active' ? 'ok' : 'warn'} /></td><td>{user.mfaEnabled ? t('profileValueYes') : t('profileValueNo')}</td><td>{user.lastLoginAtUtc ?? '-'}</td>
                 <td><div className="flex flex-wrap gap-1">
-                  {(user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc) ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmActivate'), () => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId)))}><LifecycleActivateIcon className="h-4 w-4" />{t('activate')}</button> : null}
-                  {user.accountLifecycleStatus !== 'Deactivated' ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptDeactivateReason')); if (!reason?.trim()) return; confirmAndRun(t('userManagementConfirmDeactivate'), () => runManagedLifecycleAction(user.userId, () => api.adminDeactivate(user.userId, reason.trim()))); }}><LifecycleDeactivateIcon className="h-4 w-4" />{t('deactivate')}</button> : null}
-                  {!user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptBlockReason')); confirmAndRun(t('userManagementConfirmBlock'), () => runManagedLifecycleAction(user.userId, () => api.adminBlock(user.userId, reason ?? undefined))); }}><LifecycleBlockIcon className="h-4 w-4" />{t('userManagementActionBlock')}</button> : null}
-                  {user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmUnblock'), () => runManagedLifecycleAction(user.userId, () => api.adminUnblock(user.userId)))}><LifecycleUnblockIcon className="h-4 w-4" />{t('userManagementActionUnblock')}</button> : null}
-                  {!user.activatedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmResendActivation'), () => runManagedLifecycleAction(user.userId, () => api.adminResendActivation(user.userId)))}><LifecycleResendIcon className="h-4 w-4" />{t('userManagementActionResendActivation')}</button> : null}
+                  {(user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc) ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmActivate'), () => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId, managedSchoolContextId || undefined)))}><LifecycleActivateIcon className="h-4 w-4" />{t('activate')}</button> : null}
+                  {user.accountLifecycleStatus !== 'Deactivated' ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptDeactivateReason')); if (!reason?.trim()) return; confirmAndRun(t('userManagementConfirmDeactivate'), () => runManagedLifecycleAction(user.userId, () => api.adminDeactivate(user.userId, reason.trim(), managedSchoolContextId || undefined))); }}><LifecycleDeactivateIcon className="h-4 w-4" />{t('deactivate')}</button> : null}
+                  {!user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptBlockReason')); confirmAndRun(t('userManagementConfirmBlock'), () => runManagedLifecycleAction(user.userId, () => api.adminBlock(user.userId, reason ?? undefined, managedSchoolContextId || undefined))); }}><LifecycleBlockIcon className="h-4 w-4" />{t('userManagementActionBlock')}</button> : null}
+                  {user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmUnblock'), () => runManagedLifecycleAction(user.userId, () => api.adminUnblock(user.userId, managedSchoolContextId || undefined)))}><LifecycleUnblockIcon className="h-4 w-4" />{t('userManagementActionUnblock')}</button> : null}
+                  {!user.activatedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmResendActivation'), () => runManagedLifecycleAction(user.userId, () => api.adminResendActivation(user.userId, managedSchoolContextId || undefined)))}><LifecycleResendIcon className="h-4 w-4" />{t('userManagementActionResendActivation')}</button> : null}
                   <button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" onClick={() => openManagedDetail(user.userId)}><EditPencilIcon className="h-4 w-4" />{t('userManagementActionEdit')}</button>
                 </div></td>
               </tr>
