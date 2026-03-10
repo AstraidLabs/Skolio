@@ -864,3 +864,47 @@
     transition: none !important;
   }
 }
+
+@layer components {
+  .sk-user-management-row {
+    transition: background-color 140ms ease-out, border-color 140ms ease-out;
+  }
+
+  .sk-user-management-row td {
+    @apply align-top;
+  }
+
+  .sk-user-management-row-deactivated {
+    background: #f8fafc;
+    color: #334155;
+  }
+
+  .sk-user-management-row-deactivated td {
+    border-color: #e2e8f0;
+  }
+
+  .sk-user-management-row-locked {
+    background: #fff7f7;
+    box-shadow: inset 4px 0 0 #fda4af;
+  }
+
+  .sk-user-management-row-locked td {
+    border-color: #fecdd3;
+  }
+
+  .sk-user-management-row-pending {
+    background: #fcfdff;
+  }
+
+  .sk-user-management-row:hover {
+    background: #f8fafc;
+  }
+
+  .sk-user-management-row-locked:hover {
+    background: #fff1f2;
+  }
+
+  .sk-user-management-row-deactivated:hover {
+    background: #f1f5f9;
+  }
+}
