@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Skolio.Identity.Application.Abstractions;
+using Skolio.Identity.Domain.Entities;
 using Skolio.Identity.Domain.Enums;
 using Skolio.Identity.Infrastructure.Auth;
 using Skolio.Identity.Infrastructure.Persistence;
@@ -241,6 +242,14 @@ public sealed class IdentityUserManagementController(
         if (!await CanManageUser(userId, cancellationToken)) return Forbid();
 
         var roles = await userManager.GetRolesAsync(user);
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.Id.ToString() == userId, cancellationToken);
+        var schoolIds = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId.ToString() == userId)
+            .Select(x => x.SchoolId.ToString())
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArrayAsync(cancellationToken);
+
         return Ok(new UserDetailContract(
             user.Id,
             user.Email ?? string.Empty,
@@ -255,7 +264,12 @@ public sealed class IdentityUserManagementController(
             user.BlockedReason,
             user.LastLoginAtUtc,
             user.LastActivityAtUtc,
-            roles.OrderBy(x => x).ToArray()));
+            profile?.FirstName ?? string.Empty,
+            profile?.LastName ?? string.Empty,
+            profile?.SchoolPlacement,
+            profile?.SchoolContextSummary,
+            roles.OrderBy(x => x).ToArray(),
+            schoolIds));
     }
 
     [HttpPost("users/{userId}/resend-activation")]
@@ -282,6 +296,7 @@ public sealed class IdentityUserManagementController(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return NotFound();
         if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Active && user.BlockedAtUtc is null) return this.ValidationForm("Account is already active.");
 
         user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
         user.ActivatedAtUtc = DateTimeOffset.UtcNow;
@@ -302,6 +317,7 @@ public sealed class IdentityUserManagementController(
         if (user is null) return NotFound();
         if (!await CanManageUser(userId, cancellationToken)) return Forbid();
         if (string.IsNullOrWhiteSpace(request.Reason)) return this.ValidationField("reason", "Reason is required.");
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Deactivated) return this.ValidationForm("Account is already deactivated.");
 
         user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Deactivated;
         user.DeactivatedAtUtc = DateTimeOffset.UtcNow;
@@ -340,6 +356,7 @@ public sealed class IdentityUserManagementController(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return NotFound();
         if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+        if (user.BlockedAtUtc is not null) return this.ValidationForm("Account is already blocked.");
 
         user.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
         user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Locked;
@@ -359,6 +376,7 @@ public sealed class IdentityUserManagementController(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return NotFound();
         if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+        if (user.BlockedAtUtc is null && (user.LockoutEnd is null || user.LockoutEnd <= DateTimeOffset.UtcNow)) return this.ValidationForm("Account is not blocked.");
 
         user.LockoutEnd = null;
         user.BlockedAtUtc = null;
@@ -392,6 +410,14 @@ public sealed class IdentityUserManagementController(
 
         var requested = request.Roles.Distinct(StringComparer.Ordinal).ToArray();
         if (requested.Any(x => !SupportedRoles.Contains(x, StringComparer.Ordinal))) return this.ValidationForm("Unsupported role.");
+        if (requested.Length == 0) return this.ValidationForm("At least one role is required.");
+        if (!User.IsInRole("PlatformAdministrator") && requested.Contains("PlatformAdministrator", StringComparer.Ordinal))
+        {
+            return Forbid();
+        }
+
+        var requestedValidationError = await ValidateRoleSet(userId, requested, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(requestedValidationError)) return this.ValidationForm(requestedValidationError);
 
         foreach (var role in requested)
         {
@@ -415,6 +441,55 @@ public sealed class IdentityUserManagementController(
         }
 
         Audit("identity.user-management.roles.updated", user.Id, new { action = "update-role-set", toAdd, toRemove });
+        return Ok();
+    }
+
+    [HttpPost("users/{userId}/roles/assign")]
+    public async Task<IActionResult> AssignRole([FromRoute] string userId, [FromBody] RoleMutationRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        var role = request.Role?.Trim() ?? string.Empty;
+        if (!SupportedRoles.Contains(role, StringComparer.Ordinal)) return this.ValidationField("role", "Unsupported role.");
+        if (!User.IsInRole("PlatformAdministrator") && string.Equals(role, "PlatformAdministrator", StringComparison.Ordinal)) return Forbid();
+        if (!await roleManager.RoleExistsAsync(role)) return this.ValidationForm($"Role '{role}' does not exist.");
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        var nextRoles = currentRoles.Concat([role]).Distinct(StringComparer.Ordinal).ToArray();
+        var validationError = await ValidateRoleSet(userId, nextRoles, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(validationError)) return this.ValidationForm(validationError);
+
+        var result = await userManager.AddToRoleAsync(user, role);
+        if (!result.Succeeded) return BadRequest(result.Errors.Select(x => x.Description));
+
+        Audit("identity.user-management.roles.assigned", user.Id, new { action = "assign-role", role });
+        return Ok();
+    }
+
+    [HttpPost("users/{userId}/roles/remove")]
+    public async Task<IActionResult> RemoveRole([FromRoute] string userId, [FromBody] RoleMutationRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, cancellationToken)) return Forbid();
+
+        var role = request.Role?.Trim() ?? string.Empty;
+        if (!SupportedRoles.Contains(role, StringComparer.Ordinal)) return this.ValidationField("role", "Unsupported role.");
+        if (!User.IsInRole("PlatformAdministrator") && string.Equals(role, "PlatformAdministrator", StringComparison.Ordinal)) return Forbid();
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        var nextRoles = currentRoles.Where(x => !string.Equals(x, role, StringComparison.Ordinal)).ToArray();
+        if (nextRoles.Length == 0) return this.ValidationForm("At least one role is required.");
+
+        var validationError = await ValidateRoleSet(userId, nextRoles, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(validationError)) return this.ValidationForm(validationError);
+
+        var result = await userManager.RemoveFromRoleAsync(user, role);
+        if (!result.Succeeded) return BadRequest(result.Errors.Select(x => x.Description));
+
+        Audit("identity.user-management.roles.removed", user.Id, new { action = "remove-role", role });
         return Ok();
     }
 
@@ -453,15 +528,59 @@ public sealed class IdentityUserManagementController(
     }
 
     private string ActorId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? "anonymous";
+    private async Task<string?> ValidateRoleSet(string userId, IReadOnlyCollection<string> requestedRoles, CancellationToken cancellationToken)
+    {
+        var profileId = TryParseGuid(userId);
+        if (profileId is null) return "User profile context is invalid.";
+
+        var profile = await dbContext.UserProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == profileId.Value, cancellationToken);
+        if (profile is null) return "User profile does not exist.";
+
+        if (requestedRoles.Contains("Parent", StringComparer.Ordinal))
+        {
+            var hasParentLinks = await dbContext.ParentStudentLinks.AnyAsync(x => x.ParentUserProfileId == profile.Id, cancellationToken);
+            if (!hasParentLinks) return "Parent role requires at least one ParentStudentLink.";
+        }
+
+        if (requestedRoles.Contains("Student", StringComparer.Ordinal) && profile.UserType != UserType.Student)
+        {
+            return "Student role requires a student profile context.";
+        }
+
+        if (requestedRoles.Contains("Teacher", StringComparer.Ordinal))
+        {
+            var hasTeacherAssignment = await dbContext.SchoolRoleAssignments.AnyAsync(x => x.UserProfileId == profile.Id && x.RoleCode == "Teacher", cancellationToken);
+            if (!hasTeacherAssignment) return "Teacher role requires school teaching context assignment.";
+        }
+
+        if (requestedRoles.Contains("SchoolAdministrator", StringComparer.Ordinal))
+        {
+            var hasSchoolAdminScope = await dbContext.SchoolRoleAssignments.AnyAsync(x => x.UserProfileId == profile.Id && x.RoleCode == "SchoolAdministrator", cancellationToken);
+            if (!hasSchoolAdminScope) return "SchoolAdministrator role requires school scope assignment.";
+        }
+
+        if (requestedRoles.Contains("PlatformAdministrator", StringComparer.Ordinal))
+        {
+            if (!User.IsInRole("PlatformAdministrator")) return "PlatformAdministrator role can be managed only by PlatformAdministrator.";
+            if (profile.UserType != UserType.SupportStaff && profile.UserType != UserType.SchoolAdministrator)
+            {
+                return "PlatformAdministrator role requires governance profile context.";
+            }
+        }
+
+        return null;
+    }
+
     private static Guid? TryParseGuid(string value) => Guid.TryParse(value, out var parsed) ? parsed : null;
     private static string Display(SkolioIdentityUser user) => string.IsNullOrWhiteSpace(user.UserName) ? user.Email ?? user.Id : user.UserName;
     private void Audit(string actionCode, string targetId, object payload) => logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={TargetId} payload={Payload}", actionCode, ActorId(), targetId, payload);
 
     public sealed record UserListItemContract(string UserId, string Email, string UserName, string AccountLifecycleStatus, bool EmailConfirmed, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, bool MfaEnabled, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? BlockedAtUtc, string DisplayName, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
-    public sealed record UserDetailContract(string UserId, string Email, string UserName, bool EmailConfirmed, string AccountLifecycleStatus, DateTimeOffset? LockoutEndUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, IReadOnlyCollection<string> Roles);
+    public sealed record UserDetailContract(string UserId, string Email, string UserName, bool EmailConfirmed, string AccountLifecycleStatus, DateTimeOffset? LockoutEndUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string FirstName, string LastName, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
     public sealed record DeactivateRequest(string Reason);
     public sealed record BlockRequest(string? Reason);
     public sealed record UpdateRoleSetRequest(IReadOnlyCollection<string> Roles);
+    public sealed record RoleMutationRequest(string Role);
     public sealed record LifecycleSummaryContract(string Status, DateTimeOffset? ActivationRequestedAtUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount)
     {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { AdminUserListQuery, IdentityManagedUser, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, StatusBadge } from '../shared/ui/primitives';
@@ -73,6 +73,12 @@ export function IdentityParityPage({
   const [managedUsers, setManagedUsers] = useState<PagedResult<IdentityManagedUser> | null>(null);
   const [managedUsersLoading, setManagedUsersLoading] = useState(false);
   const [managedUsersError, setManagedUsersError] = useState('');
+  const [managedActionBusyUserId, setManagedActionBusyUserId] = useState('');
+  const [managedDetailUserId, setManagedDetailUserId] = useState('');
+  const [managedUserDetail, setManagedUserDetail] = useState<IdentityManagedUserDetail | null>(null);
+  const [managedUserDetailLoading, setManagedUserDetailLoading] = useState(false);
+  const [managedUserDetailError, setManagedUserDetailError] = useState('');
+  const [managedRoleSetDraft, setManagedRoleSetDraft] = useState<string[]>([]);
   const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc' });
   const [schoolPositionOptions, setSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [schoolPositionLoading, setSchoolPositionLoading] = useState(false);
@@ -163,6 +169,57 @@ export function IdentityParityPage({
       .then(setManagedUsers)
       .catch((e: Error) => setManagedUsersError(mapProfileError(e, t)))
       .finally(() => setManagedUsersLoading(false));
+  };
+
+  const openManagedDetail = (userId: string) => {
+    setManagedDetailUserId(userId);
+    setManagedUserDetailLoading(true);
+    setManagedUserDetailError('');
+    setManagedUserDetail(null);
+    setManagedRoleSetDraft([]);
+    void api.adminUserDetail(userId)
+      .then((detail) => {
+        setManagedUserDetail(detail);
+        setManagedRoleSetDraft(detail.roles);
+      })
+      .catch((e: Error) => setManagedUserDetailError(mapProfileError(e, t)))
+      .finally(() => setManagedUserDetailLoading(false));
+  };
+
+  const runManagedLifecycleAction = (userId: string, action: () => Promise<unknown>) => {
+    setManagedActionBusyUserId(userId);
+    setFormError('');
+    setFormSuccess('');
+    void action()
+      .then(() => {
+        setFormSuccess(t('userManagementActionSuccess'));
+        loadManagedUsers();
+        if (managedDetailUserId === userId) {
+          openManagedDetail(userId);
+        }
+      })
+      .catch((e: Error) => setFormError(mapProfileError(e, t)))
+      .finally(() => setManagedActionBusyUserId(''));
+  };
+
+  const saveManagedRoleSet = () => {
+    if (!managedUserDetail) return;
+    if (managedRoleSetDraft.length === 0) {
+      setFormError(t('userManagementRoleValidationEmpty'));
+      return;
+    }
+
+    setFormError('');
+    setFormSuccess('');
+    setManagedActionBusyUserId(managedUserDetail.userId);
+    void api.adminUpdateRoleSet(managedUserDetail.userId, managedRoleSetDraft)
+      .then(() => {
+        setFormSuccess(t('userManagementRolesSavedSuccess'));
+        openManagedDetail(managedUserDetail.userId);
+        loadManagedUsers();
+      })
+      .catch((e: Error) => setFormError(mapProfileError(e, t)))
+      .finally(() => setManagedActionBusyUserId(''));
   };
 
 
@@ -811,7 +868,14 @@ export function IdentityParityPage({
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b text-left">
-                      <th>{t('userManagementColName')}</th><th>{t('userManagementColEmail')}</th><th>{t('userManagementColStatus')}</th><th>{t('userManagementColSchool')}</th><th>{t('userManagementColLastLogin')}</th>
+                      <th>{t('userManagementColName')}</th>
+                      <th>{t('userManagementColEmail')}</th>
+                      <th>{t('userManagementColRole')}</th>
+                      <th>{t('userManagementColSchool')}</th>
+                      <th>{t('userManagementColStatus')}</th>
+                      <th>{t('userManagementColMfa')}</th>
+                      <th>{t('userManagementColLastLogin')}</th>
+                      <th>{t('userManagementColActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -819,9 +883,38 @@ export function IdentityParityPage({
                       <tr key={user.userId} className="border-b">
                         <td>{user.displayName || user.userName}</td>
                         <td>{user.email}</td>
-                        <td>{user.accountLifecycleStatus}</td>
+                        <td>{user.roles.join(', ') || '-'}</td>
                         <td>{user.school ?? '-'}</td>
+                        <td>{user.accountLifecycleStatus}</td>
+                        <td>{user.mfaEnabled ? t('profileValueYes') : t('profileValueNo')}</td>
                         <td>{user.lastLoginAtUtc ?? '-'}</td>
+                        <td>
+                          <div className="flex flex-wrap gap-1">
+                            {user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc ? (
+                              <button className="sk-btn sk-btn-secondary" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId))}>{t('activate')}</button>
+                            ) : null}
+                            {user.accountLifecycleStatus !== 'Deactivated' ? (
+                              <button className="sk-btn sk-btn-secondary" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => {
+                                const reason = window.prompt(t('userManagementPromptDeactivateReason'));
+                                if (!reason?.trim()) return;
+                                runManagedLifecycleAction(user.userId, () => api.adminDeactivate(user.userId, reason.trim()));
+                              }}>{t('deactivate')}</button>
+                            ) : null}
+                            {!user.blockedAtUtc ? (
+                              <button className="sk-btn sk-btn-secondary" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => {
+                                const reason = window.prompt(t('userManagementPromptBlockReason'));
+                                runManagedLifecycleAction(user.userId, () => api.adminBlock(user.userId, reason ?? undefined));
+                              }}>{t('userManagementActionBlock')}</button>
+                            ) : null}
+                            {user.blockedAtUtc ? (
+                              <button className="sk-btn sk-btn-secondary" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => runManagedLifecycleAction(user.userId, () => api.adminUnblock(user.userId))}>{t('userManagementActionUnblock')}</button>
+                            ) : null}
+                            {!user.activatedAtUtc ? (
+                              <button className="sk-btn sk-btn-secondary" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => runManagedLifecycleAction(user.userId, () => api.adminResendActivation(user.userId))}>{t('userManagementActionResendActivation')}</button>
+                            ) : null}
+                            <button className="sk-btn sk-btn-primary" type="button" onClick={() => openManagedDetail(user.userId)}>{t('userManagementActionEdit')}</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -836,6 +929,60 @@ export function IdentityParityPage({
                 <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber <= 1} onClick={() => loadManagedUsers({ pageNumber: Math.max(1, managedUsers.pageNumber - 1) })}>{t('userManagementPrevious')}</button>
                 <span className="text-xs text-slate-600">{managedUsers.pageNumber} / {managedUsers.totalPages}</span>
                 <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber >= managedUsers.totalPages} onClick={() => loadManagedUsers({ pageNumber: managedUsers.pageNumber + 1 })}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {canAdminProfiles ? (
+        <Card>
+          <p className="font-semibold text-sm">{t('userManagementDetailTitle')}</p>
+          {!managedDetailUserId ? <p className="mt-2 text-xs text-slate-600">{t('userManagementDetailEmpty')}</p> : null}
+          {managedUserDetailLoading ? <LoadingState text={t('loading')} /> : null}
+          {managedUserDetailError ? <ErrorState text={managedUserDetailError} /> : null}
+          {managedUserDetail ? (
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">{t('userManagementSectionBasic')}</p>
+                <p className="text-sm">{managedUserDetail.firstName} {managedUserDetail.lastName}</p>
+                <p className="text-sm">{managedUserDetail.email}</p>
+                <p className="text-sm">{managedUserDetail.userName}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">{t('userManagementSectionLifecycle')}</p>
+                <p className="text-sm">{t('userManagementColStatus')}: {managedUserDetail.accountLifecycleStatus}</p>
+                <p className="text-sm">{t('userManagementColLastLogin')}: {managedUserDetail.lastLoginAtUtc ?? '-'}</p>
+                <p className="text-sm">{t('userManagementDetailLastActivity')}: {managedUserDetail.lastActivityAtUtc ?? '-'}</p>
+                <p className="text-sm">{t('userManagementDetailActivationStatus')}: {managedUserDetail.activatedAtUtc ? t('stateActive') : t('userManagementActivationPending')}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">{t('userManagementSectionSchoolContext')}</p>
+                <p className="text-sm">{t('userManagementColSchool')}: {managedUserDetail.school ?? '-'}</p>
+                <p className="text-sm">{t('userManagementFilterSchoolType')}: {managedUserDetail.schoolType ?? '-'}</p>
+                <p className="text-sm">{t('profileLabelAssignedSchools')}: {managedUserDetail.schoolIds.join(', ') || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">{t('userManagementSectionRoles')}</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {['PlatformAdministrator', 'SchoolAdministrator', 'Teacher', 'Parent', 'Student'].map((role) => (
+                    <label key={role} className="text-xs flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={managedRoleSetDraft.includes(role)}
+                        onChange={(e) => {
+                          setManagedRoleSetDraft((prev) => e.target.checked
+                            ? [...prev, role]
+                            : prev.filter((x) => x !== role));
+                        }}
+                      />
+                      {role}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-2">
+                  <button className="sk-btn sk-btn-primary" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={saveManagedRoleSet}>{t('userManagementSaveRoles')}</button>
+                </div>
               </div>
             </div>
           ) : null}

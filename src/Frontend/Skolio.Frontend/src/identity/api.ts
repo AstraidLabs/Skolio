@@ -171,7 +171,12 @@ export type IdentityManagedUserDetail = {
   blockedReason?: string | null;
   lastLoginAtUtc?: string | null;
   lastActivityAtUtc?: string | null;
+  firstName: string;
+  lastName: string;
+  school?: string | null;
+  schoolType?: string | null;
   roles: string[];
+  schoolIds: string[];
 };
 
 export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
@@ -242,7 +247,10 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     adminReactivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/reactivate`, { method: 'POST' }),
     adminBlock: (userId: string, reason?: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/block`, { method: 'POST', body: JSON.stringify({ reason }) }),
     adminUnblock: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/unblock`, { method: 'POST' }),
+    adminResendActivation: (userId: string) => http<{ message: string }>('identity', `/api/identity/user-management/users/${userId}/resend-activation`, { method: 'POST' }),
     adminRoles: (userId: string) => http<string[]>('identity', `/api/identity/user-management/users/${userId}/roles`),
+    adminAssignRole: (userId: string, role: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/roles/assign`, { method: 'POST', body: JSON.stringify({ role }) }),
+    adminRemoveRole: (userId: string, role: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/roles/remove`, { method: 'POST', body: JSON.stringify({ role }) }),
     adminUpdateRoleSet: (userId: string, roles: string[]) => http<void>('identity', `/api/identity/user-management/users/${userId}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) }),
     forgotPassword: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/forgot-password', { method: 'POST', body: JSON.stringify(payload) }),
     resetPassword: (payload: { userId: string; token: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
