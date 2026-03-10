@@ -24,6 +24,21 @@ public sealed class IdentityUserManagementController(
     private static readonly string[] SupportedRoles = ["PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"];
     private static readonly int[] AllowedPageSizes = [10, 20, 50, 100];
 
+    [HttpGet("summary")]
+    public async Task<ActionResult<UserManagementSummaryContract>> Summary(CancellationToken cancellationToken)
+    {
+        var users = await BuildScopedUsersQueryable(cancellationToken).ToListAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        return Ok(new UserManagementSummaryContract(
+            users.Count,
+            users.Count(x => x.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Active && x.BlockedAtUtc == null && (x.LockoutEnd == null || x.LockoutEnd <= now)),
+            users.Count(x => x.BlockedAtUtc != null || (x.LockoutEnd != null && x.LockoutEnd > now)),
+            users.Count(x => x.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Deactivated),
+            users.Count(x => x.ActivatedAtUtc == null),
+            users.Count(x => x.TwoFactorEnabled)));
+    }
+
     [HttpGet("users")]
     public async Task<ActionResult<PagedResult<UserListItemContract>>> Users(
         [FromQuery] string? name,
@@ -46,17 +61,10 @@ public sealed class IdentityUserManagementController(
         var normalizedPageSize = AllowedPageSizes.Contains(pageSize) ? pageSize : 20;
         var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
 
-        IQueryable<SkolioIdentityUser> queryable = userManager.Users.AsNoTracking();
-
-        if (!User.IsInRole("PlatformAdministrator"))
+        IQueryable<SkolioIdentityUser> queryable = await BuildScopedUsersQueryable(cancellationToken);
+        if (!User.IsInRole("PlatformAdministrator") && !await queryable.AnyAsync(cancellationToken))
         {
-            var scopedUserIds = await ResolveActorScopedUserIds(cancellationToken);
-            if (scopedUserIds.Count == 0)
-            {
-                return Ok(new PagedResult<UserListItemContract>(Array.Empty<UserListItemContract>(), normalizedPageNumber, normalizedPageSize, 0));
-            }
-
-            queryable = queryable.Where(x => scopedUserIds.Contains(x.Id));
+            return Ok(new PagedResult<UserListItemContract>(Array.Empty<UserListItemContract>(), normalizedPageNumber, normalizedPageSize, 0));
         }
 
         if (!string.IsNullOrWhiteSpace(name))
@@ -211,6 +219,20 @@ public sealed class IdentityUserManagementController(
                 ? query.OrderByDescending(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => (p.PreferredDisplayName ?? (p.FirstName + " " + p.LastName))).FirstOrDefault())
                 : query.OrderBy(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => (p.PreferredDisplayName ?? (p.FirstName + " " + p.LastName))).FirstOrDefault())
         };
+    }
+
+    private async Task<IQueryable<SkolioIdentityUser>> BuildScopedUsersQueryable(CancellationToken cancellationToken)
+    {
+        IQueryable<SkolioIdentityUser> queryable = userManager.Users.AsNoTracking();
+        if (User.IsInRole("PlatformAdministrator")) return queryable;
+
+        var scopedUserIds = await ResolveActorScopedUserIds(cancellationToken);
+        if (scopedUserIds.Count == 0)
+        {
+            return queryable.Where(_ => false);
+        }
+
+        return queryable.Where(x => scopedUserIds.Contains(x.Id));
     }
 
     private async Task<IReadOnlyCollection<string>> ResolveActorScopedUserIds(CancellationToken cancellationToken)
@@ -675,6 +697,7 @@ public sealed class IdentityUserManagementController(
     public sealed record UserSecurityDetailContract(bool EmailConfirmed, bool MfaEnabled, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string RecoveryCodesSummary);
     public sealed record UserSchoolContextDetailContract(string? School, string? SchoolType, IReadOnlyCollection<string> SchoolIds, bool IsPlatformScopeView);
     public sealed record UserLinksSummaryContract(int ParentStudentLinksCount, int TeacherAssignmentCount, int StudentAssignmentCount);
+    public sealed record UserManagementSummaryContract(int TotalUsersCount, int ActiveUsersCount, int LockedUsersCount, int DeactivatedUsersCount, int PendingActivationUsersCount, int MfaEnabledUsersCount);
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount)
     {
         public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);

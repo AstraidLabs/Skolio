@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, StatusBadge } from '../shared/ui/primitives';
@@ -74,6 +74,9 @@ export function IdentityParityPage({
   const [managedUsers, setManagedUsers] = useState<PagedResult<IdentityManagedUser> | null>(null);
   const [managedUsersLoading, setManagedUsersLoading] = useState(false);
   const [managedUsersError, setManagedUsersError] = useState('');
+  const [managedSummary, setManagedSummary] = useState<IdentityManagedUserSummary | null>(null);
+  const [managedSummaryLoading, setManagedSummaryLoading] = useState(false);
+  const [managedSummaryError, setManagedSummaryError] = useState('');
   const [managedActionBusyUserId, setManagedActionBusyUserId] = useState('');
   const [managedDetailUserId, setManagedDetailUserId] = useState('');
   const [managedUserDetail, setManagedUserDetail] = useState<IdentityManagedUserDetail | null>(null);
@@ -173,6 +176,20 @@ export function IdentityParityPage({
       .finally(() => setManagedUsersLoading(false));
   };
 
+
+  const loadManagedSummary = () => {
+    setManagedSummaryLoading(true);
+    setManagedSummaryError('');
+
+    void api.adminUserSummary()
+      .then(setManagedSummary)
+      .catch((e: Error) => {
+        setManagedSummary(null);
+        setManagedSummaryError(mapProfileError(e, t));
+      })
+      .finally(() => setManagedSummaryLoading(false));
+  };
+
   const openManagedDetail = (userId: string) => {
     setManagedDetailUserId(userId);
     setManagedUserDetailLoading(true);
@@ -251,10 +268,14 @@ export function IdentityParityPage({
         if (result.isPlatformAdministrator || result.isSchoolAdministrator) {
           tasks.push(api.userProfiles().then(setUsers));
           loadManagedUsers({ pageNumber: 1 });
+          loadManagedSummary();
         } else {
           setUsers([]);
           setManagedUsers(null);
           setManagedUsersError('');
+          setManagedSummary(null);
+          setManagedSummaryError('');
+          setManagedSummaryLoading(false);
           setSelectedUserId('');
           setAdminDraft(EMPTY_DRAFT);
           setAdminUserType('');
@@ -839,6 +860,9 @@ export function IdentityParityPage({
           managedUsersLoading={managedUsersLoading}
           managedUsersError={managedUsersError}
           managedUsers={managedUsers}
+          managedSummary={managedSummary}
+          managedSummaryLoading={managedSummaryLoading}
+          managedSummaryError={managedSummaryError}
           managedActionBusyUserId={managedActionBusyUserId}
           openManagedDetail={openManagedDetail}
           runManagedLifecycleAction={runManagedLifecycleAction}
@@ -937,6 +961,9 @@ function ManagedUsersSection({
   managedUsersLoading,
   managedUsersError,
   managedUsers,
+  managedSummary,
+  managedSummaryLoading,
+  managedSummaryError,
   managedActionBusyUserId,
   openManagedDetail,
   runManagedLifecycleAction,
@@ -962,6 +989,20 @@ function ManagedUsersSection({
   return (
     <Card>
       <p className="font-semibold text-sm inline-flex items-center gap-2"><UserManagementSectionIcon className="h-4 w-4 text-slate-600" />{t('userManagementListTitle')}</p>
+      <div className="mt-3">
+        {managedSummaryLoading ? <LoadingState text={t('userManagementSummaryLoading')} /> : null}
+        {managedSummaryError ? <ErrorState text={`${t('userManagementSummaryError')} ${managedSummaryError}`} /> : null}
+        {managedSummary ? (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <SummaryCard icon={<SummaryUsersIcon className="h-4 w-4 text-slate-600" />} title={t('userManagementSummaryTotalUsers')} count={managedSummary.totalUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: '', activationStatus: '', blockStatus: '', mfaStatus: '' })} />
+            <SummaryCard icon={<SummaryActiveIcon className="h-4 w-4 text-emerald-600" />} title={t('userManagementSummaryActiveUsers')} count={managedSummary.activeUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: 'Active', blockStatus: 'clear' })} />
+            <SummaryCard icon={<SummaryLockedIcon className="h-4 w-4 text-rose-600" />} title={t('userManagementSummaryLockedUsers')} count={managedSummary.lockedUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, blockStatus: 'locked' })} />
+            <SummaryCard icon={<SummaryDeactivatedIcon className="h-4 w-4 text-amber-600" />} title={t('userManagementSummaryDeactivatedUsers')} count={managedSummary.deactivatedUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: 'Deactivated' })} />
+            <SummaryCard icon={<SummaryPendingIcon className="h-4 w-4 text-indigo-600" />} title={t('userManagementSummaryPendingActivationUsers')} count={managedSummary.pendingActivationUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, activationStatus: 'pending' })} />
+            <SummaryCard icon={<SummaryMfaIcon className="h-4 w-4 text-cyan-600" />} title={t('userManagementSummaryMfaUsers')} count={managedSummary.mfaEnabledUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, mfaStatus: 'enabled' })} />
+          </div>
+        ) : null}
+      </div>
       <div className="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
         <Field label={t('userManagementFilterName')} value={userListFilters.name ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, name: value }))} />
         <Field label={t('userManagementFilterEmailOrUsername')} value={userListFilters.emailOrUsername ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, emailOrUsername: value }))} />
@@ -1036,6 +1077,23 @@ function ManagedUsersSection({
         </div> : null}
       </div>
     </Card>
+  );
+}
+
+
+function SummaryCard({ icon, title, count, onClick }: { icon: React.ReactNode; title: string; count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-slate-300"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-600">{title}</p>
+        <span>{icon}</span>
+      </div>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">{count}</p>
+    </button>
   );
 }
 
@@ -1252,6 +1310,31 @@ function mapProfileError(error: unknown, t: (key: 'profileSaveErrorInvalidSchool
     return t('profileSaveErrorValidation');
   }
   return t('profileSaveErrorGeneric');
+}
+
+
+function SummaryUsersIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><path d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1" /><circle cx="9.5" cy="7" r="3" /><path d="M22 20v-1a4 4 0 0 0-3-3.87" /><path d="M16 3.13a3 3 0 0 1 0 5.74" /></svg>;
+}
+
+function SummaryActiveIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></svg>;
+}
+
+function SummaryLockedIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 1 1 8 0v3" /></svg>;
+}
+
+function SummaryDeactivatedIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><circle cx="12" cy="12" r="9" /><path d="m9 8 6 4-6 4z" /></svg>;
+}
+
+function SummaryPendingIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
+}
+
+function SummaryMfaIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><path d="M12 3 5 6v6c0 4.4 2.9 8.4 7 9 4.1-.6 7-4.6 7-9V6l-7-3Z" /><path d="m9.5 12 1.7 1.7L14.8 10" /></svg>;
 }
 
 function SaveDiskIcon({ className = 'h-4 w-4' }: { className?: string }) {
