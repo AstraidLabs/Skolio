@@ -468,6 +468,11 @@ const en = {
   userManagementLinksNoTeacher: 'No teacher assignment summary for current role set.',
   userManagementLinksStudentSummary: 'Student role links are shown as read-only identity context.',
   userManagementLinksNoStudent: 'No student link summary for current role set.',
+  userManagementSchoolContextLabel: 'School context',
+  userManagementSchoolContextAllSchools: 'All schools',
+  userManagementSchoolContextSelectedSchool: 'Selected school context',
+  userManagementSchoolContextAllSchoolsMode: 'Global mode: All schools',
+  userManagementSchoolContextError: 'School context options are temporarily unavailable.',
 } as const;
 
 type TranslationKey = keyof typeof en;
@@ -849,6 +854,11 @@ const cs: Translations = {
   userManagementLinksNoTeacher: 'No teacher assignment summary for current role set.',
   userManagementLinksStudentSummary: 'Student role links are shown as read-only identity context.',
   userManagementLinksNoStudent: 'No student link summary for current role set.',
+  userManagementSchoolContextLabel: 'School context',
+  userManagementSchoolContextAllSchools: 'All schools',
+  userManagementSchoolContextSelectedSchool: 'Selected school context',
+  userManagementSchoolContextAllSchoolsMode: 'Global mode: All schools',
+  userManagementSchoolContextError: 'School context options are temporarily unavailable.',
 };
 
 const sk: Translations = {
@@ -1166,6 +1176,11 @@ const sk: Translations = {
   userManagementLinksNoTeacher: 'No teacher assignment summary for current role set.',
   userManagementLinksStudentSummary: 'Student role links are shown as read-only identity context.',
   userManagementLinksNoStudent: 'No student link summary for current role set.',
+  userManagementSchoolContextLabel: 'School context',
+  userManagementSchoolContextAllSchools: 'All schools',
+  userManagementSchoolContextSelectedSchool: 'Selected school context',
+  userManagementSchoolContextAllSchoolsMode: 'Global mode: All schools',
+  userManagementSchoolContextError: 'School context options are temporarily unavailable.',
 };
 
 const de: Translations = {
@@ -1482,6 +1497,11 @@ const de: Translations = {
   userManagementLinksNoTeacher: 'No teacher assignment summary for current role set.',
   userManagementLinksStudentSummary: 'Student role links are shown as read-only identity context.',
   userManagementLinksNoStudent: 'No student link summary for current role set.',
+  userManagementSchoolContextLabel: 'School context',
+  userManagementSchoolContextAllSchools: 'All schools',
+  userManagementSchoolContextSelectedSchool: 'Selected school context',
+  userManagementSchoolContextAllSchoolsMode: 'Global mode: All schools',
+  userManagementSchoolContextError: 'School context options are temporarily unavailable.',
 };
 
 const pl: Translations = {
@@ -1798,6 +1818,11 @@ const pl: Translations = {
   userManagementLinksNoTeacher: 'No teacher assignment summary for current role set.',
   userManagementLinksStudentSummary: 'Student role links are shown as read-only identity context.',
   userManagementLinksNoStudent: 'No student link summary for current role set.',
+  userManagementSchoolContextLabel: 'School context',
+  userManagementSchoolContextAllSchools: 'All schools',
+  userManagementSchoolContextSelectedSchool: 'Selected school context',
+  userManagementSchoolContextAllSchoolsMode: 'Global mode: All schools',
+  userManagementSchoolContextError: 'School context options are temporarily unavailable.',
 };
 
 const translations: Record<Locale, Translations> = {
