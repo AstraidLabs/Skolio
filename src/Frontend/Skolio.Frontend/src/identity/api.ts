@@ -113,6 +113,33 @@ export type MfaSetupStart = {
 };
 export type RecoveryCodeResult = { recoveryCodes: string[] };
 
+export type IdentityManagedUser = {
+  userId: string;
+  email: string;
+  accountLifecycleStatus: string;
+  emailConfirmed: boolean;
+  lockoutEndUtc?: string | null;
+  lastLoginAtUtc?: string | null;
+  lastActivityAtUtc?: string | null;
+};
+
+export type IdentityManagedUserDetail = {
+  userId: string;
+  email: string;
+  userName: string;
+  emailConfirmed: boolean;
+  accountLifecycleStatus: string;
+  lockoutEndUtc?: string | null;
+  activatedAtUtc?: string | null;
+  deactivatedAtUtc?: string | null;
+  deactivationReason?: string | null;
+  blockedAtUtc?: string | null;
+  blockedReason?: string | null;
+  lastLoginAtUtc?: string | null;
+  lastActivityAtUtc?: string | null;
+  roles: string[];
+};
+
 export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
   return {
     myProfile: () => http<UserProfile>('identity', '/api/identity/user-profiles/me'),
@@ -154,6 +181,18 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     deleteParentStudentLink: (id: string) => http<void>('identity', `/api/identity/parent-student-links/${id}`, { method: 'DELETE' }),
     securitySummary: () => http<SecuritySummary>('identity', '/api/identity/security/summary'),
     changePassword: (payload: { currentPassword: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/change-password', { method: 'POST', body: JSON.stringify(payload) }),
+
+    resendActivation: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/resend', { method: 'POST', body: JSON.stringify(payload) }),
+    confirmActivation: (payload: { userId: string; token: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    adminUsers: (query?: string) => http<IdentityManagedUser[]>('identity', `/api/identity/user-management/users${query ? `?query=${encodeURIComponent(query)}` : ''}`),
+    adminUserDetail: (userId: string) => http<IdentityManagedUserDetail>('identity', `/api/identity/user-management/users/${userId}`),
+    adminActivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/activate`, { method: 'POST' }),
+    adminDeactivate: (userId: string, reason: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/deactivate`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    adminReactivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/reactivate`, { method: 'POST' }),
+    adminBlock: (userId: string, reason?: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/block`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    adminUnblock: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/unblock`, { method: 'POST' }),
+    adminRoles: (userId: string) => http<string[]>('identity', `/api/identity/user-management/users/${userId}/roles`),
+    adminUpdateRoleSet: (userId: string, roles: string[]) => http<void>('identity', `/api/identity/user-management/users/${userId}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) }),
     forgotPassword: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/forgot-password', { method: 'POST', body: JSON.stringify(payload) }),
     resetPassword: (payload: { userId: string; token: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
     requestEmailChange: (payload: { currentPassword: string; newEmail: string }) => http<{ message: string }>('identity', '/api/identity/security/change-email/request', { method: 'POST', body: JSON.stringify(payload) }),

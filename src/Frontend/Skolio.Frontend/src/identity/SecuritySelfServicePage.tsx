@@ -706,3 +706,33 @@ export function ConfirmEmailChangePage({
   if (!done) return <section className="mx-auto max-w-lg p-4"><LoadingState text={t('securityConfirmEmailChangeLoading')} /></section>;
   return <section className="mx-auto max-w-lg p-4"><Card className="border-emerald-200 bg-emerald-50 text-emerald-900"><p className="text-sm font-medium">{done}</p></Card></section>;
 }
+
+
+export function ConfirmActivationPage({
+  api,
+  userId,
+  token
+}: {
+  api: ReturnType<typeof createIdentityApi>;
+  userId: string;
+  token: string;
+}) {
+  const { t } = useI18n();
+  const [done, setDone] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setError('');
+    setDone('');
+    void api.confirmActivation({ userId, token })
+      .then((response) => setDone(response.message))
+      .catch((e: unknown) => {
+        const mapped = extractValidationErrors(e);
+        setError(mapped.formErrors[0] ?? Object.values(mapped.fieldErrors)[0]?.[0] ?? (e instanceof Error ? e.message : t('errorUnexpected')));
+      });
+  }, [api, token, userId]);
+
+  if (error) return <section className="mx-auto max-w-lg p-4"><ErrorState text={error} /></section>;
+  if (!done) return <section className="mx-auto max-w-lg p-4"><LoadingState text={t('securityActivationConfirmLoading')} /></section>;
+  return <section className="mx-auto max-w-lg p-4"><Card className="border-emerald-200 bg-emerald-50 text-emerald-900"><p className="text-sm font-medium">{done}</p></Card></section>;
+}
