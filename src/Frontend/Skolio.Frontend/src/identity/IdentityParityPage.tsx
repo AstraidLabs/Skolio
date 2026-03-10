@@ -13,6 +13,7 @@ type SchoolAdministratorProfileTab = 'basic' | 'addressContact' | 'employment' |
 type ParentProfileTab = 'basic' | 'addressContact' | 'delivery' | 'linkedStudents' | 'relationshipsContext' | 'communication';
 type PlatformAdministratorProfileTab = 'basic' | 'addressContact' | 'platformRoleContext' | 'managedAreas' | 'administrativeOverview';
 type ManagedUserDetailTab = 'basic' | 'roles' | 'accountState' | 'security' | 'schoolContext' | 'links';
+type ManagedUserRowVisualState = 'active' | 'deactivated' | 'locked' | 'pending';
 
 const USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY = 'skolio.identity.userManagement.schoolContextId';
 
@@ -53,6 +54,44 @@ const EMPTY_DRAFT: ProfileDraft = {
   managedPlatformAreasSummary: '',
   administrativeBoundarySummary: ''
 };
+
+function resolveManagedUserRowVisualState(user: IdentityManagedUser): ManagedUserRowVisualState {
+  const lifecycleStatus = user.accountLifecycleStatus.trim().toLowerCase();
+  const isLockedOrBlocked = Boolean(user.blockedAtUtc)
+    || lifecycleStatus.includes('locked')
+    || lifecycleStatus.includes('blocked');
+
+  if (isLockedOrBlocked) {
+    return 'locked';
+  }
+
+  const isDeactivatedOrSoftDeleted = lifecycleStatus.includes('deactivated')
+    || lifecycleStatus.includes('softdeleted')
+    || lifecycleStatus.includes('soft deleted')
+    || lifecycleStatus.includes('deleted');
+
+  if (isDeactivatedOrSoftDeleted) {
+    return 'deactivated';
+  }
+
+  const isPendingActivation = lifecycleStatus.includes('pending')
+    || (!user.activatedAtUtc && lifecycleStatus !== 'active');
+
+  if (isPendingActivation) {
+    return 'pending';
+  }
+
+  return 'active';
+}
+
+function getManagedUserRowClassName(user: IdentityManagedUser): string {
+  const state = resolveManagedUserRowVisualState(user);
+
+  if (state === 'locked') return 'sk-user-management-row sk-user-management-row-locked';
+  if (state === 'deactivated') return 'sk-user-management-row sk-user-management-row-deactivated';
+  if (state === 'pending') return 'sk-user-management-row sk-user-management-row-pending';
+  return 'sk-user-management-row';
+}
 
 export function IdentityParityPage({
   api,
@@ -1121,7 +1160,7 @@ function ManagedUsersSection({
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-sm"><thead><tr className="border-b text-left"><th>{t('userManagementColName')}</th><th>{t('userManagementColEmail')}</th><th>{t('userManagementColRole')}</th><th>{t('userManagementColSchool')}</th><th>{t('userManagementColStatus')}</th><th>{t('userManagementColMfa')}</th><th>{t('userManagementColLastLogin')}</th><th>{t('userManagementColActions')}</th></tr></thead>
             <tbody>{managedUsers.items.map((user: IdentityManagedUser) => (
-              <tr key={user.userId} className="border-b">
+              <tr key={user.userId} className={`${getManagedUserRowClassName(user)} border-b`}>
                 <td>{user.displayName || user.userName}</td><td>{user.email}</td><td>{user.roles.join(', ') || '-'}</td><td>{user.school ?? '-'}</td><td><StatusBadge label={user.accountLifecycleStatus} tone={user.blockedAtUtc ? 'danger' : user.accountLifecycleStatus === 'Active' ? 'ok' : 'warn'} /></td><td>{user.mfaEnabled ? t('profileValueYes') : t('profileValueNo')}</td><td>{user.lastLoginAtUtc ?? '-'}</td>
                 <td><div className="flex flex-wrap gap-1">
                   {(user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc) ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmActivate'), () => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId, managedSchoolContextId || undefined)))}><LifecycleActivateIcon className="h-4 w-4" />{t('activate')}</button> : null}
