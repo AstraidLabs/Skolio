@@ -125,7 +125,7 @@ export function IdentityParityPage({
   const [managedUserDetailError, setManagedUserDetailError] = useState('');
   const [managedRoleSetDraft, setManagedRoleSetDraft] = useState<string[]>([]);
   const [activeManagedUserTab, setActiveManagedUserTab] = useState<ManagedUserDetailTab>('basic');
-  const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc' });
+  const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc', search: '' });
   const [managedSchoolContextId, setManagedSchoolContextId] = useState<string>(() => localStorage.getItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY) ?? '');
   const [managedSchoolOptions, setManagedSchoolOptions] = useState<SchoolContextOption[]>([]);
   const [managedSchoolOptionsLoading, setManagedSchoolOptionsLoading] = useState(false);
@@ -1130,6 +1130,15 @@ function ManagedUsersSection({
           </div>
         ) : null}
       </div>
+      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end">
+          <Field icon={<SearchIcon className="h-4 w-4 text-slate-600" />} label={t('userManagementSearchLabel')} value={userListFilters.search ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, search: value }))} placeholder={t('userManagementSearchPlaceholder')} />
+          <div className="flex gap-2">
+            <button className="sk-btn sk-btn-primary" type="button" onClick={() => loadManagedUsers({ search: (userListFilters.search ?? '').trim(), pageNumber: 1 })}>{t('userManagementSearchSubmit')}</button>
+            <button className="sk-btn sk-btn-secondary" type="button" disabled={!(userListFilters.search ?? '').trim()} onClick={() => { setUserListFilters((v: AdminUserListQuery) => ({ ...v, search: '' })); loadManagedUsers({ search: '', pageNumber: 1 }); }}>{t('userManagementSearchClear')}</button>
+          </div>
+        </div>
+      </div>
       <div className="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
         <Field label={t('userManagementFilterName')} value={userListFilters.name ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, name: value }))} />
         <Field label={t('userManagementFilterEmailOrUsername')} value={userListFilters.emailOrUsername ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, emailOrUsername: value }))} />
@@ -1143,7 +1152,7 @@ function ManagedUsersSection({
         <Field label={t('userManagementFilterInactivityState')} value={userListFilters.inactivityState ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, inactivityState: value }))} />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" onClick={() => loadManagedUsers({ pageNumber: 1 })}><ReloadIcon className="h-4 w-4" />{t('reload')}</button>
+        <button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" onClick={() => loadManagedUsers({ search: (userListFilters.search ?? '').trim(), pageNumber: 1 })}><ReloadIcon className="h-4 w-4" />{t('reload')}</button>
         <select className="sk-input !w-auto" value={userListFilters.sortField ?? 'name'} onChange={(e) => loadManagedUsers({ sortField: e.target.value, pageNumber: 1 })}>
           <option value="name">{t('userManagementSortName')}</option><option value="email">{t('userManagementSortEmail')}</option><option value="createdAt">{t('userManagementSortCreatedAt')}</option><option value="lastLogin">{t('userManagementSortLastLogin')}</option><option value="accountStatus">{t('userManagementSortAccountStatus')}</option><option value="school">{t('userManagementSortSchool')}</option>
         </select>
@@ -1154,9 +1163,9 @@ function ManagedUsersSection({
           {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{t('userManagementPageSizeLabel')} {size}</option>)}
         </select>
       </div>
-      {managedUsersLoading ? <LoadingState text={t('loading')} /> : null}
-      {managedUsersError ? <ErrorState text={managedUsersError} /> : null}
-      {!managedUsersLoading && !managedUsersError && managedUsers ? (managedUsers.items.length === 0 ? <EmptyState text={t('userManagementEmptyState')} /> : (
+      {managedUsersLoading ? <LoadingState text={(userListFilters.search ?? '').trim() ? t('userManagementSearchLoading') : t('loading')} /> : null}
+      {managedUsersError ? <ErrorState text={`${(userListFilters.search ?? '').trim() ? `${t('userManagementSearchError')} ` : ''}${managedUsersError}`} /> : null}
+      {!managedUsersLoading && !managedUsersError && managedUsers ? (managedUsers.items.length === 0 ? <EmptyState text={(userListFilters.search ?? '').trim() ? t('userManagementSearchEmptyState') : t('userManagementEmptyState')} /> : (
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-sm"><thead><tr className="border-b text-left"><th>{t('userManagementColName')}</th><th>{t('userManagementColEmail')}</th><th>{t('userManagementColRole')}</th><th>{t('userManagementColSchool')}</th><th>{t('userManagementColStatus')}</th><th>{t('userManagementColMfa')}</th><th>{t('userManagementColLastLogin')}</th><th>{t('userManagementColActions')}</th></tr></thead>
             <tbody>{managedUsers.items.map((user: IdentityManagedUser) => (
@@ -1231,7 +1240,8 @@ function Field({
   onChange,
   disabled = false,
   invalid = false,
-  errorText
+  errorText,
+  placeholder
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -1240,6 +1250,7 @@ function Field({
   disabled?: boolean;
   invalid?: boolean;
   errorText?: string;
+  placeholder?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -1252,6 +1263,7 @@ function Field({
         value={value}
         disabled={disabled}
         aria-invalid={invalid}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
       {errorText ? <span className="text-xs text-red-700">{errorText}</span> : null}
@@ -1577,6 +1589,16 @@ function ProfileStatusIcon({ className = 'h-4 w-4' }: { className?: string }) {
 
 function UserManagementSectionIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return <ProfileAssignmentIcon className={className} />;
+}
+
+
+function SearchIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' className={className} aria-hidden='true'>
+      <circle cx='11' cy='11' r='7' />
+      <path d='M20 20L16.6 16.6' strokeLinecap='round' />
+    </svg>
+  );
 }
 
 function ReloadIcon({ className = 'h-4 w-4' }: { className?: string }) {

@@ -45,6 +45,7 @@ public sealed class IdentityUserManagementController(
     [HttpGet("users")]
     public async Task<ActionResult<PagedResult<UserListItemContract>>> Users(
         [FromQuery] Guid? schoolContextId,
+        [FromQuery] string? search,
         [FromQuery] string? name,
         [FromQuery] string? emailOrUsername,
         [FromQuery] string? role,
@@ -72,6 +73,21 @@ public sealed class IdentityUserManagementController(
         if (!User.IsInRole("PlatformAdministrator") && !await queryable.AnyAsync(cancellationToken))
         {
             return Ok(new PagedResult<UserListItemContract>(Array.Empty<UserListItemContract>(), normalizedPageNumber, normalizedPageSize, 0));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+            var pattern = BuildSearchPattern(normalizedSearch);
+            queryable = queryable.Where(x =>
+                EF.Functions.ILike(x.UserName ?? string.Empty, pattern)
+                || EF.Functions.ILike(x.Email ?? string.Empty, pattern)
+                || dbContext.UserProfiles.Any(p => p.Id.ToString() == x.Id
+                    && (EF.Functions.ILike(p.FirstName, pattern)
+                        || EF.Functions.ILike(p.LastName, pattern)
+                        || EF.Functions.ILike(p.PreferredDisplayName ?? string.Empty, pattern)
+                        || EF.Functions.ILike((p.FirstName + " " + p.LastName), pattern)
+                        || EF.Functions.ILike(p.SchoolContextSummary ?? string.Empty, pattern))));
         }
 
         if (!string.IsNullOrWhiteSpace(name))
@@ -765,6 +781,9 @@ public sealed class IdentityUserManagementController(
     }
 
     private static Guid? TryParseGuid(string value) => Guid.TryParse(value, out var parsed) ? parsed : null;
+    private static string BuildSearchPattern(string term)
+        => $"%{term.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal)}%";
+
     private static string Display(SkolioIdentityUser user) => string.IsNullOrWhiteSpace(user.UserName) ? user.Email ?? user.Id : user.UserName;
     private void Audit(string actionCode, string targetId, object payload) => logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={TargetId} payload={Payload}", actionCode, ActorId(), targetId, payload);
 
