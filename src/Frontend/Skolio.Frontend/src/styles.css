@@ -222,11 +222,11 @@
   }
 
   .sk-shell-content-frame {
-    @apply mx-auto w-full max-w-7xl px-4 py-3 md:px-6;
+    @apply mx-auto w-full max-w-[1600px] px-3 py-3 md:px-4;
   }
 
   .sk-shell-content {
-    @apply grid flex-1 gap-3 md:grid-cols-[280px_minmax(0,1fr)];
+    @apply grid flex-1 gap-3 md:grid-cols-[236px_minmax(0,1fr)];
   }
 
   .sk-sidebar {
@@ -234,7 +234,7 @@
     border: 1px solid var(--sk-border);
     border-radius: var(--sk-radius-md);
     box-shadow: var(--sk-shadow-1);
-    @apply z-40 h-full overflow-y-auto p-3;
+    @apply z-40 h-full overflow-y-auto p-2.5;
   }
 
   .sk-sidebar-section + .sk-sidebar-section {
@@ -262,7 +262,7 @@
     border: 1px solid transparent;
     border-radius: var(--sk-radius-sm);
     color: var(--sk-text);
-    @apply flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium transition;
+    @apply flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium transition-all duration-150;
   }
 
   .sk-sidebar-link:hover {
@@ -274,36 +274,38 @@
     background: var(--sk-primary-soft);
     border-color: #bfdbfe;
     color: #1e40af;
+    box-shadow: inset 3px 0 0 #3b82f6;
   }
 
-  .sk-sidebar-toggle {
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--sk-text-muted);
-    @apply inline-flex h-8 w-8 items-center justify-center text-xs transition;
+  .sk-sidebar-link.is-active:hover {
+    background: #dbeafe;
   }
 
-  .sk-sidebar-toggle:hover {
-    background: var(--sk-surface-muted);
-    border-color: var(--sk-border);
-    color: var(--sk-text);
+  .sk-sidebar-chevron {
+    @apply -mr-1 inline-flex items-center justify-center rounded p-0.5 transition-colors;
   }
 
-  .sk-sidebar-toggle.is-open {
-    color: #1e40af;
+  .sk-sidebar-chevron:hover {
+    background: rgba(0, 0, 0, 0.06);
   }
 
   .sk-sidebar-children {
-    border-left: 1px solid var(--sk-border);
-    @apply ml-4 grid gap-1 pl-2;
+    border-left: 2px solid var(--sk-border);
+    @apply ml-5 grid gap-0.5 pl-2;
+    animation: skSidebarExpand 180ms ease-out;
   }
 
   .sk-sidebar-child {
     @apply text-xs;
+    border-radius: 8px;
+  }
+
+  .sk-sidebar-child.is-active {
+    box-shadow: inset 2px 0 0 #3b82f6;
   }
 
   .sk-page-region {
-    @apply flex min-h-0 flex-col gap-3;
+    @apply flex min-h-0 flex-col gap-3 min-w-0;
   }
 
   .sk-page-header {
@@ -311,7 +313,7 @@
     border: 1px solid var(--sk-border);
     border-radius: var(--sk-radius-md);
     box-shadow: var(--sk-shadow-1);
-    @apply flex flex-wrap items-start justify-between gap-3 p-4;
+    @apply flex flex-wrap items-start justify-between gap-3 p-4 md:p-5;
   }
 
   .sk-page-title {
@@ -866,6 +868,100 @@
 }
 
 @layer components {
+  .sk-user-management {
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+
+  .sk-user-management-summary .sk-card,
+  .sk-user-management-summary button {
+    border-radius: 16px;
+  }
+
+  .sk-user-management-panel {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  .sk-user-management-filter-grid {
+    @apply rounded-xl border border-slate-200 bg-white/80 p-3;
+  }
+
+  .sk-user-management-controls {
+    @apply items-center rounded-xl border border-slate-200 bg-white/90 p-3;
+  }
+
+  .sk-user-management-table thead {
+    background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  }
+
+  .sk-user-management-table th {
+    color: #475569;
+    @apply text-xs font-semibold uppercase tracking-wide;
+  }
+
+  .sk-user-management-table td {
+    @apply py-2;
+  }
+
+  .sk-user-management-name {
+    color: #0f172a;
+    @apply font-semibold leading-5;
+  }
+
+  .sk-user-management-email,
+  .sk-user-management-role {
+    color: #475569;
+    @apply text-xs leading-5;
+  }
+
+  .sk-user-management-actions {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+
+  .sk-user-management-actions .sk-btn {
+    @apply min-h-8 w-[120px] justify-center whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] text-center;
+  }
+
+  .sk-user-management-table th:last-child,
+  .sk-user-management-table td:last-child {
+    @apply w-[1%] whitespace-nowrap;
+  }
+
+  .sk-user-management-footer {
+    border-top: 1px solid var(--sk-border);
+    @apply pt-3;
+  }
+
+  .sk-user-management-detail {
+    @apply rounded-xl bg-white/60 xl:sticky xl:top-4 xl:self-start;
+  }
+
+  .sk-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(2px);
+    z-index: 80;
+    @apply flex items-start justify-center overflow-y-auto p-4 md:p-8;
+  }
+
+  .sk-modal {
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+    width: min(1120px, 100%);
+    @apply max-h-[calc(100vh-2rem)] overflow-y-auto p-5 md:p-6;
+  }
+
+  .sk-modal-header {
+    @apply sticky top-0 z-10 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-white pb-3;
+  }
+
+  .sk-user-management-detail-modal {
+    @apply max-w-5xl;
+  }
+
   .sk-user-management-row {
     transition: background-color 140ms ease-out, border-color 140ms ease-out;
   }
@@ -897,7 +993,7 @@
   }
 
   .sk-user-management-row:hover {
-    background: #f8fafc;
+    background: #f5f9ff;
   }
 
   .sk-user-management-row-locked:hover {
@@ -907,4 +1003,194 @@
   .sk-user-management-row-deactivated:hover {
     background: #f1f5f9;
   }
+
+  /* Drawer (slide-over panel) */
+  .sk-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.3);
+    backdrop-filter: blur(2px);
+    z-index: 80;
+    animation: skFadeIn 180ms ease-out;
+  }
+
+  .sk-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(520px, 100vw - 1rem);
+    background: var(--sk-surface);
+    border-left: 1px solid var(--sk-border);
+    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    z-index: 81;
+    overflow-y: auto;
+    animation: skDrawerSlideIn 220ms ease-out;
+    @apply p-5;
+  }
+
+  .sk-drawer-header {
+    @apply sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3;
+  }
+
+  /* Sticky table header */
+  .sk-user-management-table.sk-sticky thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  }
+
+  /* Sortable column header */
+  .sk-sortable-th {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 120ms ease;
+  }
+
+  .sk-sortable-th:hover {
+    background: #eef2ff;
+  }
+
+  .sk-sort-indicator {
+    @apply ml-1 inline-block text-[10px] text-slate-400;
+  }
+
+  .sk-sort-indicator.is-active {
+    @apply text-blue-600;
+  }
+
+  /* Filter chip bar */
+  .sk-filter-chip-bar {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+
+  .sk-filter-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800;
+    animation: skFadeIn 120ms ease-out;
+  }
+
+  .sk-filter-chip button {
+    @apply ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200 hover:text-blue-900;
+  }
+
+  /* Skeleton loading */
+  .sk-skeleton {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: skSkeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    @apply h-4;
+  }
+
+  .sk-skeleton-circle {
+    @apply h-8 w-8 rounded-full;
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: skSkeletonShimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Action menu (three-dot) */
+  .sk-action-menu {
+    @apply relative;
+  }
+
+  .sk-action-menu-trigger {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900;
+  }
+
+  .sk-action-menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    min-width: 200px;
+    background: var(--sk-surface);
+    border: 1px solid var(--sk-border);
+    border-radius: var(--sk-radius-sm);
+    box-shadow: var(--sk-shadow-2);
+    z-index: 50;
+    @apply p-1;
+    animation: skFadeIn 120ms ease-out;
+  }
+
+  .sk-action-menu-item {
+    @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100;
+  }
+
+  .sk-action-menu-item.danger {
+    @apply text-red-700 hover:bg-red-50;
+  }
+
+  /* User avatar */
+  .sk-user-avatar {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold;
+  }
+
+  .sk-user-avatar-admin { background: #dbeafe; color: #1e40af; }
+  .sk-user-avatar-teacher { background: #d1fae5; color: #065f46; }
+  .sk-user-avatar-parent { background: #fef3c7; color: #92400e; }
+  .sk-user-avatar-student { background: #ede9fe; color: #5b21b6; }
+  .sk-user-avatar-default { background: #f1f5f9; color: #475569; }
+
+  /* Bulk actions bar */
+  .sk-bulk-bar {
+    @apply flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2;
+    animation: skFadeIn 180ms ease-out;
+  }
+
+  /* Status dot indicator */
+  .sk-status-dot {
+    @apply mr-1.5 inline-block h-2 w-2 rounded-full;
+  }
+
+  .sk-status-dot-active { background: #16a34a; }
+  .sk-status-dot-locked { background: #dc2626; }
+  .sk-status-dot-deactivated { background: #9ca3af; }
+  .sk-status-dot-pending { background: #3b82f6; }
+
+  /* Collapsible panel */
+  .sk-collapsible-enter {
+    animation: skCollapsibleDown 200ms ease-out;
+  }
+
+  /* Row click cursor */
+  .sk-user-management-row-clickable {
+    cursor: pointer;
+  }
+
+  /* Page size selector inline */
+  .sk-user-management-controls-inline {
+    @apply flex flex-wrap items-center gap-2 text-xs text-slate-600;
+  }
+
+  @media (max-width: 900px) {
+    .sk-user-management-controls {
+      @apply items-stretch;
+    }
+
+    .sk-user-management-controls .sk-input {
+      @apply w-full;
+    }
+  }
+}
+
+@keyframes skDrawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes skSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes skCollapsibleDown {
+  from { opacity: 0; max-height: 0; overflow: hidden; }
+  to { opacity: 1; max-height: 500px; overflow: hidden; }
+}
+
+@keyframes skSidebarExpand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

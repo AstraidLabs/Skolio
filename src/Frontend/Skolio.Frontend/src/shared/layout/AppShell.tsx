@@ -5,7 +5,7 @@ import { AppNavbar, type NavbarMenuItem } from './AppNavbar';
 import { buildSidebarSections, type SidebarItem, type SidebarNode } from './navigation';
 import { AppFooter } from './AppFooter';
 import { ShellLanguageSwitcher } from './ShellLanguageSwitcher';
-import { iconForNav } from './AppIcons';
+import { iconForNav, ChevronIcon } from './AppIcons';
 
 export type AppRouteLike =
   | '/dashboard'
@@ -28,6 +28,7 @@ export type AppRouteLike =
   | '/academics/daily-reports'
   | '/communication'
   | '/administration'
+  | '/administration/user-management'
   | '/identity'
   | '/identity/security'
   | '/login';
@@ -155,6 +156,10 @@ function AppSidebar({
     return isNodeActive(node);
   };
 
+  const toggleNode = (node: SidebarNode) => {
+    setExpanded((current) => ({ ...current, [node.key]: !isOpen(node) }));
+  };
+
   return (
     <aside className={`sk-sidebar ${isSidebarOpen ? 'open' : ''}`} aria-label={t('mainNavigation')}>
       <button className="sk-sidebar-close" onClick={onClose} type="button">
@@ -172,33 +177,39 @@ function AppSidebar({
               return (
                 <div key={node.key} className="sk-sidebar-node">
                   <div className="sk-sidebar-parent-row">
-                    <button
-                      className={`sk-sidebar-link ${activeParent ? 'is-active' : ''}`}
-                      onClick={() => {
-                        if (node.route) {
-                          onNavigate(node.route);
-                          onClose();
-                          return;
-                        }
-                        if (hasChildren) {
-                          setExpanded((current) => ({ ...current, [node.key]: !open }));
-                        }
-                      }}
-                      type="button"
-                    >
-                      {iconForNav(node.key)}
-                      {node.label}
-                    </button>
-                    {hasChildren ? (
+                    {node.route ? (
                       <button
-                        className={`sk-sidebar-toggle ${open ? 'is-open' : ''}`}
+                        className={`sk-sidebar-link ${activeParent ? 'is-active' : ''}`}
+                        onClick={() => {
+                          onNavigate(node.route!);
+                          onClose();
+                        }}
                         type="button"
-                        onClick={() => setExpanded((current) => ({ ...current, [node.key]: !open }))}
-                        aria-label={open ? `${t('close')} ${node.label}` : `${t('open')} ${node.label}`}
                       >
-                        v
+                        {iconForNav(node.key)}
+                        <span className="flex-1 truncate">{node.label}</span>
+                        {hasChildren ? (
+                          <span
+                            className="sk-sidebar-chevron"
+                            onClick={(e) => { e.stopPropagation(); toggleNode(node); }}
+                            role="button"
+                            tabIndex={-1}
+                          >
+                            <ChevronIcon open={open} />
+                          </span>
+                        ) : null}
                       </button>
-                    ) : null}
+                    ) : (
+                      <button
+                        className={`sk-sidebar-link ${activeParent ? 'is-active' : ''}`}
+                        onClick={() => toggleNode(node)}
+                        type="button"
+                      >
+                        {iconForNav(node.key)}
+                        <span className="flex-1 truncate">{node.label}</span>
+                        {hasChildren ? <ChevronIcon open={open} /> : null}
+                      </button>
+                    )}
                   </div>
                   {hasChildren && open ? (
                     <div className="sk-sidebar-children">
@@ -213,7 +224,7 @@ function AppSidebar({
                           type="button"
                         >
                           {iconForNav(child.key)}
-                          {child.label}
+                          <span className="truncate">{child.label}</span>
                         </button>
                       ))}
                     </div>
@@ -269,6 +280,7 @@ function routeLabel(route: AppRouteLike, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/academics/daily-reports') return t('navDailyReports');
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
+  if (route === '/administration/user-management') return t('administrationUserManagementTitle');
   if (route === '/identity') return t('routeIdentity');
   if (route === '/identity/security') return t('routeSecurity');
   return route;
@@ -290,9 +302,18 @@ function sectionLabel(
 }
 
 function mapSidebarNodeLabels(node: SidebarNode, t: ReturnType<typeof useI18n>['t']): SidebarNode {
+  const resolveNodeLabel = () => {
+    if (node.route) return routeLabel(node.route as AppRouteLike, t);
+    // For parent nodes without direct route, use key as route for label lookup
+    const keyAsRoute = node.key as AppRouteLike;
+    const translated = routeLabel(keyAsRoute, t);
+    // routeLabel returns the key itself if no match — fallback to node.label
+    return translated !== keyAsRoute ? translated : node.label;
+  };
+
   return {
     ...node,
-    label: node.route ? routeLabel(node.route as AppRouteLike, t) : node.label,
+    label: resolveNodeLabel(),
     children: node.children?.map((child) => ({
       ...child,
       label: routeLabel(child.route as AppRouteLike, t)

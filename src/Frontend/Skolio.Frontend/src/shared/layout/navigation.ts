@@ -38,8 +38,22 @@ export function buildSidebarSections(
   const overviewNodes: SidebarNode[] = [];
   if (hasNav('/dashboard')) overviewNodes.push({ key: '/dashboard', label: labelFor('/dashboard'), route: '/dashboard' });
   if (hasNav('/communication')) overviewNodes.push({ key: '/communication', label: labelFor('/communication'), route: '/communication' });
-  if (hasNav('/administration') && (hasRole('PlatformAdministrator') || hasRole('SchoolAdministrator'))) {
-    overviewNodes.push({ key: '/administration', label: labelFor('/administration'), route: '/administration' });
+  if ((hasNav('/administration') || hasNav('/administration/user-management')) && (hasRole('PlatformAdministrator') || hasRole('SchoolAdministrator'))) {
+    const administrationChildren: SidebarLeaf[] = [];
+    if (hasNav('/administration/user-management')) {
+      administrationChildren.push({
+        key: '/administration/user-management',
+        label: labelFor('/administration/user-management'),
+        route: '/administration/user-management'
+      });
+    }
+
+    overviewNodes.push({
+      key: '/administration',
+      label: labelFor('/administration'),
+      route: hasNav('/administration') ? '/administration' : undefined,
+      children: administrationChildren
+    });
   }
   if (overviewNodes.length > 0) sections.push({ key: 'overview', label: 'Overview', nodes: overviewNodes });
 

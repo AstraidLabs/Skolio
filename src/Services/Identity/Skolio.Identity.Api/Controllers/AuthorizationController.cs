@@ -48,13 +48,19 @@ public sealed class AuthorizationController(
         principal.SetClaim(OpenIddictConstants.Claims.Subject, user.Id);
         principal.SetClaim(OpenIddictConstants.Claims.Email, user.Email ?? string.Empty);
 
+        var principalIdentity = (ClaimsIdentity)principal.Identity!;
+        foreach (var roleName in await userManager.GetRolesAsync(user))
+        {
+            AddRoleClaims(principalIdentity, roleName);
+        }
+
         if (Guid.TryParse(user.Id, out var userProfileId))
         {
             var roleAssignments = dbContext.SchoolRoleAssignments.Where(x => x.UserProfileId == userProfileId).ToList();
             foreach (var assignment in roleAssignments)
             {
-                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ClaimTypes.Role, assignment.RoleCode));
-                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("school_id", assignment.SchoolId.ToString()));
+                AddRoleClaims(principalIdentity, assignment.RoleCode);
+                principalIdentity.AddClaim(new Claim("school_id", assignment.SchoolId.ToString()));
             }
 
             var linkedStudentIds = await dbContext.ParentStudentLinks
@@ -65,7 +71,7 @@ public sealed class AuthorizationController(
 
             foreach (var linkedStudentId in linkedStudentIds)
             {
-                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim("linked_student_id", linkedStudentId.ToString()));
+                principalIdentity.AddClaim(new Claim("linked_student_id", linkedStudentId.ToString()));
             }
         }
 
@@ -128,5 +134,18 @@ public sealed class AuthorizationController(
 
         await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         return SignOut(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private static void AddRoleClaims(ClaimsIdentity identity, string roleName)
+    {
+        if (!identity.HasClaim(ClaimTypes.Role, roleName))
+        {
+            identity.AddClaim(new Claim(ClaimTypes.Role, roleName));
+        }
+
+        if (!identity.HasClaim(OpenIddictConstants.Claims.Role, roleName))
+        {
+            identity.AddClaim(new Claim(OpenIddictConstants.Claims.Role, roleName));
+        }
     }
 }

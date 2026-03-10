@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, SchoolContextOption, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
-import { Card, StatusBadge } from '../shared/ui/primitives';
+import { Card } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 import { localeLabels, supportedLocales, useI18n } from '../i18n';
 import { extractValidationErrors } from '../shared/http/httpClient';
@@ -157,7 +157,7 @@ export function IdentityParityPage({
     && !session.roles.includes('SchoolAdministrator')
     && !session.roles.includes('PlatformAdministrator');
 
-  const canAdminProfiles = summary?.isPlatformAdministrator || summary?.isSchoolAdministrator || false;
+  const canAdminProfiles = isPlatformAdministrator || isSchoolAdministrator;
 
   const selfEditRules = useMemo(() => ({
     canEditName: !isStudentOnly,
@@ -256,6 +256,14 @@ export function IdentityParityPage({
       .finally(() => setManagedUserDetailLoading(false));
   };
 
+  const closeManagedDetail = () => {
+    setManagedDetailUserId('');
+    setManagedUserDetail(null);
+    setManagedUserDetailError('');
+    setManagedUserDetailLoading(false);
+    setManagedRoleSetDraft([]);
+  };
+
   const runManagedLifecycleAction = (userId: string, action: () => Promise<unknown>) => {
     setManagedActionBusyUserId(userId);
     setFormError('');
@@ -330,9 +338,8 @@ export function IdentityParityPage({
           tasks.push(organizationApi.myTeacherAssignments(selectedSchoolId).then(setTeacherAssignments));
         }
 
-        if (result.isPlatformAdministrator || result.isSchoolAdministrator) {
-          tasks.push(api.userProfiles().then(setUsers));
-          if (result.isPlatformAdministrator) {
+        if (viewMode === 'user-management' && (isPlatformAdministrator || isSchoolAdministrator)) {
+          if (isPlatformAdministrator) {
             setManagedSchoolOptionsLoading(true);
             setManagedSchoolOptionsError('');
             tasks.push(
@@ -404,16 +411,23 @@ export function IdentityParityPage({
   }, [formSuccess]);
 
   useEffect(() => {
-    if (viewMode !== 'full') return;
-    if (!canAdminProfiles) return;
+    if (!managedDetailUserId) return;
 
-    const search = new URLSearchParams(window.location.search);
-    if (search.get('section') !== 'user-management') return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeManagedDetail();
+      }
+    };
 
-    window.setTimeout(() => {
-      managedUsersSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 0);
-  }, [canAdminProfiles, managedUsers?.items.length, viewMode]);
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [managedDetailUserId]);
 
   useEffect(load, [api, organizationApi, session.accessToken]);
 
@@ -585,6 +599,7 @@ export function IdentityParityPage({
           managedSummaryError={managedSummaryError}
           managedActionBusyUserId={managedActionBusyUserId}
           openManagedDetail={openManagedDetail}
+          closeManagedDetail={closeManagedDetail}
           runManagedLifecycleAction={runManagedLifecycleAction}
           api={api}
           managedDetailUserId={managedDetailUserId}
@@ -1002,110 +1017,6 @@ export function IdentityParityPage({
         </Card>
       ) : null}
 
-      {canAdminProfiles ? (
-        <ManagedUsersSection
-          sectionRef={managedUsersSectionRef}
-          t={t}
-          userListFilters={userListFilters}
-          setUserListFilters={setUserListFilters}
-          loadManagedUsers={loadManagedUsers}
-          managedUsersLoading={managedUsersLoading}
-          managedUsersError={managedUsersError}
-          managedUsers={managedUsers}
-          managedSummary={managedSummary}
-          managedSummaryLoading={managedSummaryLoading}
-          managedSummaryError={managedSummaryError}
-          managedActionBusyUserId={managedActionBusyUserId}
-          openManagedDetail={openManagedDetail}
-          runManagedLifecycleAction={runManagedLifecycleAction}
-          api={api}
-          managedDetailUserId={managedDetailUserId}
-          managedUserDetailLoading={managedUserDetailLoading}
-          managedUserDetailError={managedUserDetailError}
-          managedUserDetail={managedUserDetail}
-          managedRoleSetDraft={managedRoleSetDraft}
-          setManagedRoleSetDraft={setManagedRoleSetDraft}
-          saveManagedRoleSet={saveManagedRoleSet}
-          activeManagedUserTab={activeManagedUserTab}
-          setActiveManagedUserTab={setActiveManagedUserTab}
-          isPlatformAdministrator={isPlatformAdministrator}
-          managedSchoolContextId={managedSchoolContextId}
-          managedSchoolOptions={managedSchoolOptions}
-          managedSchoolOptionsLoading={managedSchoolOptionsLoading}
-          managedSchoolOptionsError={managedSchoolOptionsError}
-          onManagedSchoolContextChange={onManagedSchoolContextChange}
-        />
-      ) : null}
-
-      {canAdminProfiles ? (
-        <Card>
-          <p className="font-semibold text-sm">{t('profileAdminEditTitle')}</p>
-          <p className="mt-1 text-xs text-slate-600">{t('profileAdminEditDescription')}</p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
-            <label className="sk-label" htmlFor="admin-user">{t('profileAdminUserSelectLabel')}</label>
-            <select id="admin-user" className="sk-input" value={selectedUserId} onChange={(e) => loadAdminTarget(e.target.value)}>
-              <option value="">{t('profileAdminUserSelectPlaceholder')}</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>{user.firstName} {user.lastName} ({user.userType})</option>
-              ))}
-            </select>
-          </div>
-
-          {selectedUserId ? (
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              <Field label={t('profileFieldFirstName')} value={adminDraft.firstName} onChange={(value) => setAdminDraft((v) => ({ ...v, firstName: value }))} />
-              <Field label={t('profileFieldLastName')} value={adminDraft.lastName} onChange={(value) => setAdminDraft((v) => ({ ...v, lastName: value }))} />
-              <Field label={t('profileFieldPreferredDisplayName')} value={adminDraft.preferredDisplayName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredDisplayName: value }))} />
-              <LanguageField label={t('profileFieldPreferredLanguage')} placeholder={t('profileSelectLanguagePlaceholder')} value={adminDraft.preferredLanguage ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredLanguage: value }))} />
-              <Field label={t('profileFieldPhoneNumber')} value={adminDraft.phoneNumber ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, phoneNumber: value }))} />
-              {(adminUserType === 'Teacher' || adminUserType === 'SchoolAdministrator') ? (
-                <SchoolPositionField
-                  label={t('profileFieldSchoolPosition')}
-                  value={adminDraft.positionTitle ?? ''}
-                  options={adminSchoolPositionOptions}
-                  loading={adminSchoolPositionLoading}
-                  onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))}
-                  loadingText={t('profileSchoolPositionLoading')}
-                  placeholder={t('profileSelectSchoolPositionPlaceholder')}
-                  unavailableText={t('profileSchoolPositionUnavailable')}
-                />
-              ) : (
-                <Field label={t('profileFieldPositionTitle')} value={adminDraft.positionTitle ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, positionTitle: value }))} />
-              )}
-              <Field label={t('profileLabelRole')} value={adminDraft.teacherRoleLabel ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, teacherRoleLabel: value }))} />
-              <Field label={t('profileFieldSupportMeasuresSummary')} value={adminDraft.qualificationSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, qualificationSummary: value }))} />
-              <Field label={t('profileFieldSchoolPlacement')} value={adminDraft.schoolContextSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, schoolContextSummary: value }))} />
-              <Field label={t('profileParentStudentLinksTitle')} value={adminDraft.parentRelationshipSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, parentRelationshipSummary: value }))} />
-              <Field label={t('profileFieldPreferredDisplayName')} value={adminDraft.deliveryContactName ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, deliveryContactName: value }))} />
-              <Field label={t('profileFieldPhoneNumber')} value={adminDraft.deliveryContactPhone ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, deliveryContactPhone: value }))} />
-              <ParentContactChannelField
-                label={t('profileFieldPreferredLanguage')}
-                value={adminDraft.preferredContactChannel ?? ''}
-                onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactChannel: value }))}
-                placeholder={t('profileSelectLanguagePlaceholder')}
-                emailLabel={t('email')}
-                phoneLabel={t('profileFieldPhoneNumber')}
-                appLabel={t('routeCommunication')}
-              />
-              <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.communicationPreferencesSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, communicationPreferencesSummary: value }))} />
-              <Field label={t('profileFieldPublicContactNote')} value={adminDraft.publicContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, publicContactNote: value }))} />
-              <Field label={t('profileFieldPreferredContactNote')} value={adminDraft.preferredContactNote ?? ''} disabled={!isPlatformAdministrator} onChange={(value) => setAdminDraft((v) => ({ ...v, preferredContactNote: value }))} />
-              {adminUserType === 'SupportStaff' ? (
-                <>
-                  <Field label={t('profileFieldAdministrativeWorkDesignation')} value={adminDraft.administrativeWorkDesignation ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, administrativeWorkDesignation: value }))} />
-                  <Field label={t('profileFieldPlatformRoleContextSummary')} value={adminDraft.platformRoleContextSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, platformRoleContextSummary: value }))} />
-                  <Field label={t('profileFieldManagedPlatformAreasSummary')} value={adminDraft.managedPlatformAreasSummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, managedPlatformAreasSummary: value }))} />
-                  <Field label={t('profileFieldAdministrativeBoundarySummary')} value={adminDraft.administrativeBoundarySummary ?? ''} onChange={(value) => setAdminDraft((v) => ({ ...v, administrativeBoundarySummary: value }))} />
-                </>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="mt-3">
-            <button className="sk-btn sk-btn-primary" disabled={!selectedUserId} onClick={saveAdminProfile} type="button">{t('profileButtonSaveAdminEdit')}</button>
-          </div>
-        </Card>
-      ) : null}
     </section>
   );
 }
@@ -1123,6 +1034,7 @@ function ManagedUsersSection({
   managedSummaryError,
   managedActionBusyUserId,
   openManagedDetail,
+  closeManagedDetail,
   runManagedLifecycleAction,
   api,
   managedDetailUserId,
@@ -1142,30 +1054,199 @@ function ManagedUsersSection({
   onManagedSchoolContextChange,
   sectionRef
 }: any) {
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [actionMenuUserId, setActionMenuUserId] = useState('');
+  const debounceRef = useRef<number | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
   const managedUserRow = managedUsers?.items.find((item: IdentityManagedUser) => item.userId === managedDetailUserId);
+
+  useEffect(() => {
+    if (!actionMenuUserId) return;
+    const onClick = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenuUserId('');
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [actionMenuUserId]);
 
   const confirmAndRun = (message: string, callback: () => void) => {
     if (!window.confirm(message)) return;
     callback();
   };
 
+  const scheduleFilterApply = useCallback(() => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      loadManagedUsers({ pageNumber: 1 });
+    }, 400) as unknown as number;
+  }, [loadManagedUsers]);
+
+  const updateFilter = (key: string, value: string) => {
+    setUserListFilters((v: AdminUserListQuery) => ({ ...v, [key]: value }));
+    scheduleFilterApply();
+  };
+
+  const clearAllFilters = () => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    const cleared: Partial<AdminUserListQuery> = {
+      search: '', name: '', emailOrUsername: '', role: '',
+      accountStatus: '', activationStatus: '', blockStatus: '',
+      mfaStatus: '', school: '', schoolType: '', inactivityState: '',
+      pageNumber: 1
+    };
+    setUserListFilters((v: AdminUserListQuery) => ({ ...v, ...cleared }));
+    loadManagedUsers(cleared);
+  };
+
+  const filterLabelMap: Record<string, string> = {
+    search: t('userManagementSearchLabel'),
+    name: t('userManagementFilterName'),
+    emailOrUsername: t('userManagementFilterEmailOrUsername'),
+    role: t('userManagementFilterRole'),
+    school: t('userManagementFilterSchool'),
+    schoolType: t('userManagementFilterSchoolType'),
+    accountStatus: t('userManagementFilterAccountStatus'),
+    activationStatus: t('userManagementFilterActivationStatus'),
+    blockStatus: t('userManagementFilterBlockStatus'),
+    mfaStatus: t('userManagementFilterMfaStatus'),
+    inactivityState: t('userManagementFilterInactivityState')
+  };
+
+  const activeFilters: { key: string; label: string; value: string }[] = [];
+  for (const key of Object.keys(filterLabelMap)) {
+    const val = (userListFilters as Record<string, string>)[key];
+    if (val?.trim()) activeFilters.push({ key, label: filterLabelMap[key], value: val });
+  }
+
+  const removeFilter = (key: string) => {
+    setUserListFilters((v: AdminUserListQuery) => ({ ...v, [key]: '' }));
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    loadManagedUsers({ [key]: '', pageNumber: 1 });
+  };
+
+  const toggleSort = (field: string) => {
+    const currentField = userListFilters.sortField ?? 'name';
+    const currentDir = userListFilters.sortDirection ?? 'asc';
+    if (currentField === field) {
+      loadManagedUsers({ sortDirection: currentDir === 'asc' ? 'desc' : 'asc', pageNumber: 1 });
+    } else {
+      loadManagedUsers({ sortField: field, sortDirection: 'asc', pageNumber: 1 });
+    }
+  };
+
+  const sortIndicator = (field: string) => {
+    const active = (userListFilters.sortField ?? 'name') === field;
+    const dir = userListFilters.sortDirection ?? 'asc';
+    return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (dir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}</span>;
+  };
+
+  const allSelected = managedUsers?.items?.length > 0 && managedUsers.items.every((u: IdentityManagedUser) => selectedUserIds.includes(u.userId));
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(managedUsers?.items.map((u: IdentityManagedUser) => u.userId) ?? []);
+    }
+  };
+  const toggleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
+  };
+
+  const bulkActivate = () => {
+    if (!window.confirm(t('userManagementBulkActivate'))) return;
+    for (const userId of selectedUserIds) {
+      runManagedLifecycleAction(userId, () => api.adminActivate(userId, managedSchoolContextId || undefined));
+    }
+    setSelectedUserIds([]);
+  };
+
+  const bulkDeactivate = () => {
+    const reason = window.prompt(t('userManagementPromptDeactivateReason'));
+    if (!reason?.trim()) return;
+    for (const userId of selectedUserIds) {
+      runManagedLifecycleAction(userId, () => api.adminDeactivate(userId, reason.trim(), managedSchoolContextId || undefined));
+    }
+    setSelectedUserIds([]);
+  };
+
+  const getUserAvatarClass = (user: IdentityManagedUser) => {
+    if (user.roles.includes('PlatformAdministrator') || user.roles.includes('SchoolAdministrator')) return 'sk-user-avatar sk-user-avatar-admin';
+    if (user.roles.includes('Teacher')) return 'sk-user-avatar sk-user-avatar-teacher';
+    if (user.roles.includes('Parent')) return 'sk-user-avatar sk-user-avatar-parent';
+    if (user.roles.includes('Student')) return 'sk-user-avatar sk-user-avatar-student';
+    return 'sk-user-avatar sk-user-avatar-default';
+  };
+
+  const getUserInitials = (user: IdentityManagedUser) => {
+    const name = user.displayName || user.userName || '';
+    const parts = name.split(/[\s._-]+/).filter(Boolean);
+    if (parts.length === 0) return 'SK';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  };
+
+  const getStatusDotClass = (user: IdentityManagedUser) => {
+    const state = resolveManagedUserRowVisualState(user);
+    if (state === 'locked') return 'sk-status-dot sk-status-dot-locked';
+    if (state === 'deactivated') return 'sk-status-dot sk-status-dot-deactivated';
+    if (state === 'pending') return 'sk-status-dot sk-status-dot-pending';
+    return 'sk-status-dot sk-status-dot-active';
+  };
+
+  const roleOptions = [
+    { value: 'PlatformAdministrator', label: t('userManagementFilterRoleOptions_PlatformAdministrator') },
+    { value: 'SchoolAdministrator', label: t('userManagementFilterRoleOptions_SchoolAdministrator') },
+    { value: 'Teacher', label: t('userManagementFilterRoleOptions_Teacher') },
+    { value: 'Parent', label: t('userManagementFilterRoleOptions_Parent') },
+    { value: 'Student', label: t('userManagementFilterRoleOptions_Student') }
+  ];
+  const accountStatusOptions = [
+    { value: 'Active', label: t('userManagementFilterAccountStatusOptions_Active') },
+    { value: 'Deactivated', label: t('userManagementFilterAccountStatusOptions_Deactivated') },
+    { value: 'Locked', label: t('userManagementFilterAccountStatusOptions_Locked') }
+  ];
+  const activationStatusOptions = [
+    { value: 'active', label: t('userManagementFilterActivationStatusOptions_active') },
+    { value: 'pending', label: t('userManagementFilterActivationStatusOptions_pending') }
+  ];
+  const blockStatusOptions = [
+    { value: 'clear', label: t('userManagementFilterBlockStatusOptions_clear') },
+    { value: 'locked', label: t('userManagementFilterBlockStatusOptions_locked') }
+  ];
+  const mfaStatusOptions = [
+    { value: 'enabled', label: t('userManagementFilterMfaStatusOptions_enabled') },
+    { value: 'disabled', label: t('userManagementFilterMfaStatusOptions_disabled') }
+  ];
+  const schoolTypeOptions = [
+    { value: 'Kindergarten', label: t('userManagementFilterSchoolTypeOptions_Kindergarten') },
+    { value: 'ElementarySchool', label: t('userManagementFilterSchoolTypeOptions_ElementarySchool') },
+    { value: 'SecondarySchool', label: t('userManagementFilterSchoolTypeOptions_SecondarySchool') }
+  ];
+  const inactivityStateOptions = [
+    { value: 'active', label: t('userManagementFilterInactivityStateOptions_active') },
+    { value: 'inactive', label: t('userManagementFilterInactivityStateOptions_inactive') }
+  ];
+
+  const pageFrom = managedUsers ? ((managedUsers.pageNumber - 1) * managedUsers.pageSize + 1) : 0;
+  const pageTo = managedUsers ? Math.min(managedUsers.pageNumber * managedUsers.pageSize, managedUsers.totalCount) : 0;
+
   return (
-    <Card className="" >
+    <Card className="sk-user-management">
       <section ref={sectionRef} id="identity-user-management">
       <p className="font-semibold text-sm inline-flex items-center gap-2"><UserManagementSectionIcon className="h-4 w-4 text-slate-600" />{t('userManagementListTitle')}</p>
+
+      {/* School context switcher (platform admin only) */}
       {isPlatformAdministrator ? (
-        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="sk-user-management-panel mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
           <label className="sk-label inline-flex items-center gap-1.5" htmlFor="user-management-school-context-switcher">
             <ProfileSchoolIcon className="h-4 w-4 text-slate-600" />
             <span>{t('userManagementSchoolContextLabel')}</span>
           </label>
-          <select
-            id="user-management-school-context-switcher"
-            className="sk-input mt-1"
-            value={managedSchoolContextId}
-            disabled={managedSchoolOptionsLoading}
-            onChange={(e) => onManagedSchoolContextChange(e.target.value)}
-          >
+          <select id="user-management-school-context-switcher" className="sk-input mt-1" value={managedSchoolContextId} disabled={managedSchoolOptionsLoading} onChange={(e) => onManagedSchoolContextChange(e.target.value)}>
             <option value="">{t('userManagementSchoolContextAllSchools')}</option>
             {managedSchoolOptions.map((option: SchoolContextOption) => (
               <option key={option.schoolId} value={option.schoolId}>{option.label}</option>
@@ -1177,12 +1258,14 @@ function ManagedUsersSection({
           {managedSchoolOptionsError ? <ErrorState text={`${t('userManagementSchoolContextError')} ${managedSchoolOptionsError}`} /> : null}
         </div>
       ) : null}
-      <div className="mt-3">
+
+      {/* Summary cards */}
+      <div className="sk-user-management-summary mt-3">
         {managedSummaryLoading ? <LoadingState text={t('userManagementSummaryLoading')} /> : null}
         {managedSummaryError ? <ErrorState text={`${t('userManagementSummaryError')} ${managedSummaryError}`} /> : null}
         {managedSummary ? (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <SummaryCard icon={<SummaryUsersIcon className="h-4 w-4 text-slate-600" />} title={t('userManagementSummaryTotalUsers')} count={managedSummary.totalUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: '', activationStatus: '', blockStatus: '', mfaStatus: '' })} />
+            <SummaryCard icon={<SummaryUsersIcon className="h-4 w-4 text-slate-600" />} title={t('userManagementSummaryTotalUsers')} count={managedSummary.totalUsersCount} onClick={() => { clearAllFilters(); }} />
             <SummaryCard icon={<SummaryActiveIcon className="h-4 w-4 text-emerald-600" />} title={t('userManagementSummaryActiveUsers')} count={managedSummary.activeUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: 'Active', blockStatus: 'clear' })} />
             <SummaryCard icon={<SummaryLockedIcon className="h-4 w-4 text-rose-600" />} title={t('userManagementSummaryLockedUsers')} count={managedSummary.lockedUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, blockStatus: 'locked' })} />
             <SummaryCard icon={<SummaryDeactivatedIcon className="h-4 w-4 text-amber-600" />} title={t('userManagementSummaryDeactivatedUsers')} count={managedSummary.deactivatedUsersCount} onClick={() => loadManagedUsers({ pageNumber: 1, accountStatus: 'Deactivated' })} />
@@ -1191,88 +1274,318 @@ function ManagedUsersSection({
           </div>
         ) : null}
       </div>
-      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+
+      {/* Search bar */}
+      <div className="sk-user-management-panel mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-end">
-          <Field icon={<SearchIcon className="h-4 w-4 text-slate-600" />} label={t('userManagementSearchLabel')} value={userListFilters.search ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, search: value }))} placeholder={t('userManagementSearchPlaceholder')} />
+          <div className="flex-1">
+            <Field icon={<SearchIcon className="h-4 w-4 text-slate-600" />} label={t('userManagementSearchLabel')} value={userListFilters.search ?? ''} onChange={(value) => updateFilter('search', value)} placeholder={t('userManagementSearchPlaceholder')} />
+          </div>
           <div className="flex gap-2">
-            <button className="sk-btn sk-btn-primary" type="button" onClick={() => loadManagedUsers({ search: (userListFilters.search ?? '').trim(), pageNumber: 1 })}>{t('userManagementSearchSubmit')}</button>
-            <button className="sk-btn sk-btn-secondary" type="button" disabled={!(userListFilters.search ?? '').trim()} onClick={() => { setUserListFilters((v: AdminUserListQuery) => ({ ...v, search: '' })); loadManagedUsers({ search: '', pageNumber: 1 }); }}>{t('userManagementSearchClear')}</button>
+            <button className="sk-btn sk-btn-secondary text-xs" type="button" onClick={() => setFiltersExpanded(!filtersExpanded)}>
+              <FilterIcon className="mr-1 h-3.5 w-3.5" />
+              {filtersExpanded ? t('userManagementCollapseFilters') : t('userManagementAdvancedFilters')}
+              {activeFilters.length > 0 ? <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">{activeFilters.length}</span> : null}
+            </button>
           </div>
         </div>
       </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
-        <Field label={t('userManagementFilterName')} value={userListFilters.name ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, name: value }))} />
-        <Field label={t('userManagementFilterEmailOrUsername')} value={userListFilters.emailOrUsername ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, emailOrUsername: value }))} />
-        <Field label={t('userManagementFilterRole')} value={userListFilters.role ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, role: value }))} />
-        <Field label={t('userManagementFilterSchool')} value={userListFilters.school ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, school: value }))} />
-        <Field label={t('userManagementFilterSchoolType')} value={userListFilters.schoolType ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, schoolType: value }))} />
-        <Field label={t('userManagementFilterAccountStatus')} value={userListFilters.accountStatus ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, accountStatus: value }))} />
-        <Field label={t('userManagementFilterActivationStatus')} value={userListFilters.activationStatus ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, activationStatus: value }))} />
-        <Field label={t('userManagementFilterBlockStatus')} value={userListFilters.blockStatus ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, blockStatus: value }))} />
-        <Field label={t('userManagementFilterMfaStatus')} value={userListFilters.mfaStatus ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, mfaStatus: value }))} />
-        <Field label={t('userManagementFilterInactivityState')} value={userListFilters.inactivityState ?? ''} onChange={(value) => setUserListFilters((v: AdminUserListQuery) => ({ ...v, inactivityState: value }))} />
+
+      {/* Active filter chips */}
+      {activeFilters.length > 0 ? (
+        <div className="sk-filter-chip-bar mt-2">
+          <span className="text-xs font-medium text-slate-500">{t('userManagementActiveFiltersLabel')}</span>
+          {activeFilters.map((f) => (
+            <span key={f.key} className="sk-filter-chip">
+              {f.label}: {f.value}
+              <button type="button" onClick={() => removeFilter(f.key)} aria-label={`Remove ${f.label}`}>&times;</button>
+            </span>
+          ))}
+          <button type="button" className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline" onClick={clearAllFilters}>{t('userManagementClearAllFilters')}</button>
+        </div>
+      ) : null}
+
+      {/* Collapsible advanced filters */}
+      {filtersExpanded ? (
+        <div className="sk-user-management-filter-grid sk-collapsible-enter mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
+          <Field label={t('userManagementFilterName')} value={userListFilters.name ?? ''} onChange={(value) => updateFilter('name', value)} />
+          <Field label={t('userManagementFilterEmailOrUsername')} value={userListFilters.emailOrUsername ?? ''} onChange={(value) => updateFilter('emailOrUsername', value)} />
+          <SelectField label={t('userManagementFilterRole')} value={userListFilters.role ?? ''} options={roleOptions} onChange={(value) => updateFilter('role', value)} />
+          <Field label={t('userManagementFilterSchool')} value={userListFilters.school ?? ''} onChange={(value) => updateFilter('school', value)} />
+          <SelectField label={t('userManagementFilterSchoolType')} value={userListFilters.schoolType ?? ''} options={schoolTypeOptions} onChange={(value) => updateFilter('schoolType', value)} />
+          <SelectField label={t('userManagementFilterAccountStatus')} value={userListFilters.accountStatus ?? ''} options={accountStatusOptions} onChange={(value) => updateFilter('accountStatus', value)} />
+          <SelectField label={t('userManagementFilterActivationStatus')} value={userListFilters.activationStatus ?? ''} options={activationStatusOptions} onChange={(value) => updateFilter('activationStatus', value)} />
+          <SelectField label={t('userManagementFilterBlockStatus')} value={userListFilters.blockStatus ?? ''} options={blockStatusOptions} onChange={(value) => updateFilter('blockStatus', value)} />
+          <SelectField label={t('userManagementFilterMfaStatus')} value={userListFilters.mfaStatus ?? ''} options={mfaStatusOptions} onChange={(value) => updateFilter('mfaStatus', value)} />
+          <SelectField label={t('userManagementFilterInactivityState')} value={userListFilters.inactivityState ?? ''} options={inactivityStateOptions} onChange={(value) => updateFilter('inactivityState', value)} />
+        </div>
+      ) : null}
+
+      {/* Controls: page size */}
+      <div className="sk-user-management-controls mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <select className="sk-input !w-auto text-xs" value={userListFilters.pageSize ?? 20} onChange={(e) => loadManagedUsers({ pageSize: Number(e.target.value) as 10 | 20 | 50 | 100, pageNumber: 1 })}>
+            {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{t('userManagementPageSizeLabel')} {size}</option>)}
+          </select>
+        </div>
+        {managedUsers && managedUsers.totalCount > 0 ? (
+          <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(pageFrom), to: String(pageTo), total: String(managedUsers.totalCount) })}</span>
+        ) : null}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" onClick={() => loadManagedUsers({ search: (userListFilters.search ?? '').trim(), pageNumber: 1 })}><ReloadIcon className="h-4 w-4" />{t('reload')}</button>
-        <select className="sk-input !w-auto" value={userListFilters.sortField ?? 'name'} onChange={(e) => loadManagedUsers({ sortField: e.target.value, pageNumber: 1 })}>
-          <option value="name">{t('userManagementSortName')}</option><option value="email">{t('userManagementSortEmail')}</option><option value="createdAt">{t('userManagementSortCreatedAt')}</option><option value="lastLogin">{t('userManagementSortLastLogin')}</option><option value="accountStatus">{t('userManagementSortAccountStatus')}</option><option value="school">{t('userManagementSortSchool')}</option>
-        </select>
-        <select className="sk-input !w-auto" value={userListFilters.sortDirection ?? 'asc'} onChange={(e) => loadManagedUsers({ sortDirection: e.target.value as 'asc' | 'desc', pageNumber: 1 })}>
-          <option value="asc">{t('userManagementSortAscending')}</option><option value="desc">{t('userManagementSortDescending')}</option>
-        </select>
-        <select className="sk-input !w-auto" value={userListFilters.pageSize ?? 20} onChange={(e) => loadManagedUsers({ pageSize: Number(e.target.value) as 10 | 20 | 50 | 100, pageNumber: 1 })}>
-          {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{t('userManagementPageSizeLabel')} {size}</option>)}
-        </select>
-      </div>
-      {managedUsersLoading ? <LoadingState text={(userListFilters.search ?? '').trim() ? t('userManagementSearchLoading') : t('loading')} /> : null}
-      {managedUsersError ? <ErrorState text={`${(userListFilters.search ?? '').trim() ? `${t('userManagementSearchError')} ` : ''}${managedUsersError}`} /> : null}
-      {!managedUsersLoading && !managedUsersError && managedUsers ? (managedUsers.items.length === 0 ? <EmptyState text={(userListFilters.search ?? '').trim() ? t('userManagementSearchEmptyState') : t('userManagementEmptyState')} /> : (
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm"><thead><tr className="border-b text-left"><th>{t('userManagementColName')}</th><th>{t('userManagementColEmail')}</th><th>{t('userManagementColRole')}</th><th>{t('userManagementColSchool')}</th><th>{t('userManagementColStatus')}</th><th>{t('userManagementColMfa')}</th><th>{t('userManagementColLastLogin')}</th><th>{t('userManagementColActions')}</th></tr></thead>
-            <tbody>{managedUsers.items.map((user: IdentityManagedUser) => (
-              <tr key={user.userId} className={`${getManagedUserRowClassName(user)} border-b`}>
-                <td>{user.displayName || user.userName}</td><td>{user.email}</td><td>{user.roles.join(', ') || '-'}</td><td>{user.school ?? '-'}</td><td><StatusBadge label={user.accountLifecycleStatus} tone={user.blockedAtUtc ? 'danger' : user.accountLifecycleStatus === 'Active' ? 'ok' : 'warn'} /></td><td>{user.mfaEnabled ? t('profileValueYes') : t('profileValueNo')}</td><td>{user.lastLoginAtUtc ?? '-'}</td>
-                <td><div className="flex flex-wrap gap-1">
-                  {(user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc) ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmActivate'), () => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId, managedSchoolContextId || undefined)))}><LifecycleActivateIcon className="h-4 w-4" />{t('activate')}</button> : null}
-                  {user.accountLifecycleStatus !== 'Deactivated' ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptDeactivateReason')); if (!reason?.trim()) return; confirmAndRun(t('userManagementConfirmDeactivate'), () => runManagedLifecycleAction(user.userId, () => api.adminDeactivate(user.userId, reason.trim(), managedSchoolContextId || undefined))); }}><LifecycleDeactivateIcon className="h-4 w-4" />{t('deactivate')}</button> : null}
-                  {!user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => { const reason = window.prompt(t('userManagementPromptBlockReason')); confirmAndRun(t('userManagementConfirmBlock'), () => runManagedLifecycleAction(user.userId, () => api.adminBlock(user.userId, reason ?? undefined, managedSchoolContextId || undefined))); }}><LifecycleBlockIcon className="h-4 w-4" />{t('userManagementActionBlock')}</button> : null}
-                  {user.blockedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmUnblock'), () => runManagedLifecycleAction(user.userId, () => api.adminUnblock(user.userId, managedSchoolContextId || undefined)))}><LifecycleUnblockIcon className="h-4 w-4" />{t('userManagementActionUnblock')}</button> : null}
-                  {!user.activatedAtUtc ? <button className="sk-btn sk-btn-secondary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === user.userId} onClick={() => confirmAndRun(t('userManagementConfirmResendActivation'), () => runManagedLifecycleAction(user.userId, () => api.adminResendActivation(user.userId, managedSchoolContextId || undefined)))}><LifecycleResendIcon className="h-4 w-4" />{t('userManagementActionResendActivation')}</button> : null}
-                  <button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" onClick={() => openManagedDetail(user.userId)}><EditPencilIcon className="h-4 w-4" />{t('userManagementActionEdit')}</button>
-                </div></td>
+
+      {/* Bulk actions bar */}
+      {selectedUserIds.length > 0 ? (
+        <div className="sk-bulk-bar mt-2">
+          <span className="text-xs font-semibold text-blue-900">{t('userManagementBulkSelectedCount', { count: String(selectedUserIds.length) })}</span>
+          <button type="button" className="sk-btn sk-btn-primary text-xs" onClick={bulkActivate}>{t('userManagementBulkActivate')}</button>
+          <button type="button" className="sk-btn sk-btn-secondary text-xs" onClick={bulkDeactivate}>{t('userManagementBulkDeactivate')}</button>
+          <button type="button" className="text-xs text-slate-600 hover:text-slate-900 hover:underline" onClick={() => setSelectedUserIds([])}>&times;</button>
+        </div>
+      ) : null}
+
+      {/* Loading / Error / Empty states */}
+      {managedUsersLoading ? (
+        <div className="mt-3 space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-lg border border-slate-100 bg-white p-3">
+              <div className="sk-skeleton-circle" />
+              <div className="flex-1 space-y-2">
+                <div className="sk-skeleton" style={{ width: '40%' }} />
+                <div className="sk-skeleton" style={{ width: '60%', height: '12px' }} />
+              </div>
+              <div className="sk-skeleton" style={{ width: '80px' }} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {!managedUsersLoading && managedUsersError ? <ErrorState text={`${(userListFilters.search ?? '').trim() ? `${t('userManagementSearchError')} ` : ''}${managedUsersError}`} /> : null}
+      {!managedUsersLoading && !managedUsersError && managedUsers ? (managedUsers.items.length === 0 ? (
+        <div className="mt-6 flex flex-col items-center gap-2 py-8 text-center">
+          <SummaryUsersIcon className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-medium text-slate-500">{(userListFilters.search ?? '').trim() ? t('userManagementSearchEmptyState') : t('userManagementEmptyState')}</p>
+          {activeFilters.length > 0 ? <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={clearAllFilters}>{t('userManagementClearAllFilters')}</button> : null}
+        </div>
+      ) : (
+        <div className="sk-table-wrap mt-3 overflow-x-auto">
+          <table className="sk-table sk-user-management-table sk-sticky">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="w-8"><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} aria-label={t('userManagementSelectAll')} /></th>
+                <th className="sk-sortable-th" onClick={() => toggleSort('name')}>{t('userManagementColName')}{sortIndicator('name')}</th>
+                <th className="sk-sortable-th" onClick={() => toggleSort('email')}>{t('userManagementColEmail')}{sortIndicator('email')}</th>
+                <th>{t('userManagementColRole')}</th>
+                <th className="sk-sortable-th" onClick={() => toggleSort('school')}>{t('userManagementColSchool')}{sortIndicator('school')}</th>
+                <th className="sk-sortable-th" onClick={() => toggleSort('accountStatus')}>{t('userManagementColStatus')}{sortIndicator('accountStatus')}</th>
+                <th>{t('userManagementColMfa')}</th>
+                <th className="sk-sortable-th" onClick={() => toggleSort('lastLogin')}>{t('userManagementColLastLogin')}{sortIndicator('lastLogin')}</th>
+                <th>{t('userManagementColActions')}</th>
               </tr>
-            ))}</tbody></table>
+            </thead>
+            <tbody>
+              {managedUsers.items.map((user: IdentityManagedUser) => (
+                <tr
+                  key={user.userId}
+                  className={`${getManagedUserRowClassName(user)} sk-user-management-row-clickable border-b`}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('input') || target.closest('.sk-action-menu')) return;
+                    openManagedDetail(user.userId);
+                  }}
+                >
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedUserIds.includes(user.userId)} onChange={() => toggleSelectUser(user.userId)} />
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <span className={getUserAvatarClass(user)} title={user.roles.join(', ')}>{getUserInitials(user)}</span>
+                      <div className="sk-user-management-name">{user.displayName || user.userName}</div>
+                    </div>
+                  </td>
+                  <td><div className="sk-user-management-email max-w-[200px] truncate" title={user.email}>{user.email}</div></td>
+                  <td><div className="sk-user-management-role">{user.roles.join(', ') || '-'}</div></td>
+                  <td className="text-xs text-slate-600">{user.school ?? '-'}</td>
+                  <td>
+                    <span className="inline-flex items-center text-xs">
+                      <span className={getStatusDotClass(user)} />
+                      {user.accountLifecycleStatus}
+                    </span>
+                  </td>
+                  <td>
+                    {user.mfaEnabled
+                      ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><SummaryMfaIcon className="h-3.5 w-3.5" />{t('profileValueYes')}</span>
+                      : <span className="text-xs text-slate-400">{t('profileValueNo')}</span>}
+                  </td>
+                  <td className="text-xs text-slate-600">{user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc).toLocaleDateString() : '-'}</td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="sk-action-menu" ref={actionMenuUserId === user.userId ? actionMenuRef : undefined}>
+                      <button
+                        type="button"
+                        className="sk-action-menu-trigger"
+                        onClick={() => setActionMenuUserId(actionMenuUserId === user.userId ? '' : user.userId)}
+                        aria-label={t('userManagementColActions')}
+                      >
+                        <ThreeDotsIcon className="h-4 w-4" />
+                      </button>
+                      {actionMenuUserId === user.userId ? (
+                        <div className="sk-action-menu-dropdown">
+                          <button type="button" className="sk-action-menu-item" onClick={() => { setActionMenuUserId(''); openManagedDetail(user.userId); }}>
+                            <EditPencilIcon className="h-3.5 w-3.5" />{t('userManagementActionEdit')}
+                          </button>
+                          {(user.accountLifecycleStatus !== 'Active' || user.blockedAtUtc) ? (
+                            <button type="button" className="sk-action-menu-item" disabled={managedActionBusyUserId === user.userId} onClick={() => { setActionMenuUserId(''); confirmAndRun(t('userManagementConfirmActivate'), () => runManagedLifecycleAction(user.userId, () => api.adminActivate(user.userId, managedSchoolContextId || undefined))); }}>
+                              <LifecycleActivateIcon className="h-3.5 w-3.5" />{t('activate')}
+                            </button>
+                          ) : null}
+                          {user.accountLifecycleStatus !== 'Deactivated' ? (
+                            <button type="button" className="sk-action-menu-item danger" disabled={managedActionBusyUserId === user.userId} onClick={() => { setActionMenuUserId(''); const reason = window.prompt(t('userManagementPromptDeactivateReason')); if (!reason?.trim()) return; confirmAndRun(t('userManagementConfirmDeactivate'), () => runManagedLifecycleAction(user.userId, () => api.adminDeactivate(user.userId, reason.trim(), managedSchoolContextId || undefined))); }}>
+                              <LifecycleDeactivateIcon className="h-3.5 w-3.5" />{t('deactivate')}
+                            </button>
+                          ) : null}
+                          {!user.blockedAtUtc ? (
+                            <button type="button" className="sk-action-menu-item danger" disabled={managedActionBusyUserId === user.userId} onClick={() => { setActionMenuUserId(''); const reason = window.prompt(t('userManagementPromptBlockReason')); confirmAndRun(t('userManagementConfirmBlock'), () => runManagedLifecycleAction(user.userId, () => api.adminBlock(user.userId, reason ?? undefined, managedSchoolContextId || undefined))); }}>
+                              <LifecycleBlockIcon className="h-3.5 w-3.5" />{t('userManagementActionBlock')}
+                            </button>
+                          ) : null}
+                          {user.blockedAtUtc ? (
+                            <button type="button" className="sk-action-menu-item" disabled={managedActionBusyUserId === user.userId} onClick={() => { setActionMenuUserId(''); confirmAndRun(t('userManagementConfirmUnblock'), () => runManagedLifecycleAction(user.userId, () => api.adminUnblock(user.userId, managedSchoolContextId || undefined))); }}>
+                              <LifecycleUnblockIcon className="h-3.5 w-3.5" />{t('userManagementActionUnblock')}
+                            </button>
+                          ) : null}
+                          {!user.activatedAtUtc ? (
+                            <button type="button" className="sk-action-menu-item" disabled={managedActionBusyUserId === user.userId} onClick={() => { setActionMenuUserId(''); confirmAndRun(t('userManagementConfirmResendActivation'), () => runManagedLifecycleAction(user.userId, () => api.adminResendActivation(user.userId, managedSchoolContextId || undefined))); }}>
+                              <LifecycleResendIcon className="h-3.5 w-3.5" />{t('userManagementActionResendActivation')}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )) : null}
 
-      {managedUsers ? <div className="mt-3 flex items-center justify-between"><p className="text-xs text-slate-600">{t('userManagementPagingSummary')} {managedUsers.totalCount}</p><div className="flex items-center gap-2"><button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber <= 1} onClick={() => loadManagedUsers({ pageNumber: Math.max(1, managedUsers.pageNumber - 1) })}>{t('userManagementPrevious')}</button><span className="text-xs text-slate-600">{managedUsers.pageNumber} / {managedUsers.totalPages}</span><button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber >= managedUsers.totalPages} onClick={() => loadManagedUsers({ pageNumber: managedUsers.pageNumber + 1 })}>{t('userManagementNext')}</button></div></div> : null}
-
-      <div className="mt-4 border-t pt-3">
-        <p className="font-semibold text-sm">{t('userManagementDetailTitle')}</p>
-        {!managedDetailUserId ? <p className="mt-2 text-xs text-slate-600">{t('userManagementDetailEmpty')}</p> : null}
-        {managedUserDetailLoading ? <LoadingState text={t('loading')} /> : null}
-        {managedUserDetailError ? <ErrorState text={managedUserDetailError} /> : null}
-        {managedUserDetail ? <div className="mt-3 space-y-3">
-          <div className="rounded border bg-slate-50 p-3"><p className="text-sm font-medium">{managedUserDetail.firstName} {managedUserDetail.lastName}</p><p className="text-xs text-slate-600">{managedUserDetail.email} · {managedUserDetail.userName}</p></div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: 'basic', icon: <ProfileIdentityIcon className='h-4 w-4' />, label: t('userManagementTabBasic') },
-              { key: 'roles', icon: <ProfileRoleIcon className='h-4 w-4' />, label: t('userManagementTabRoles') },
-              { key: 'accountState', icon: <ProfileStatusIcon className='h-4 w-4' />, label: t('userManagementTabAccountState') },
-              { key: 'security', icon: <SecurityLockIcon className='h-4 w-4' />, label: t('userManagementTabSecurity') },
-              { key: 'schoolContext', icon: <ProfileSchoolIcon className='h-4 w-4' />, label: t('userManagementTabSchoolContext') },
-              { key: 'links', icon: <RelationshipLinkIcon className='h-4 w-4' />, label: t('userManagementTabLinks') }
-            ].map((tab) => <button key={tab.key} type='button' className={`sk-btn ${activeManagedUserTab === tab.key ? 'sk-btn-primary' : 'sk-btn-secondary'} inline-flex items-center gap-1`} onClick={() => setActiveManagedUserTab(tab.key as ManagedUserDetailTab)}>{tab.icon}<span>{tab.label}</span></button>)}
+      {/* Pagination */}
+      {managedUsers && managedUsers.totalCount > 0 ? (
+        <div className="sk-user-management-footer mt-3 flex items-center justify-between">
+          <p className="text-xs text-slate-600">{t('userManagementPagingSummary')} {managedUsers.totalCount}</p>
+          <div className="flex items-center gap-2">
+            <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber <= 1} onClick={() => loadManagedUsers({ pageNumber: Math.max(1, managedUsers.pageNumber - 1) })}>{t('userManagementPrevious')}</button>
+            <span className="text-xs text-slate-600">{managedUsers.pageNumber} / {managedUsers.totalPages}</span>
+            <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber >= managedUsers.totalPages} onClick={() => loadManagedUsers({ pageNumber: managedUsers.pageNumber + 1 })}>{t('userManagementNext')}</button>
           </div>
+        </div>
+      ) : null}
 
-          {activeManagedUserTab === 'basic' ? <div className="grid gap-2 md:grid-cols-2"><Field label={t('profileFieldFirstName')} value={managedUserDetail.firstName} onChange={() => {}} disabled /><Field label={t('profileFieldLastName')} value={managedUserDetail.lastName} onChange={() => {}} disabled /><Field label={t('profileFieldPreferredDisplayName')} value={managedUserRow?.displayName ?? '-'} onChange={() => {}} disabled /><Field label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled /><Field label={t('userManagementLabelUsername')} value={managedUserDetail.userName} onChange={() => {}} disabled /></div> : null}
-          {activeManagedUserTab === 'roles' ? <div><p className="text-xs font-semibold uppercase text-slate-500 inline-flex items-center gap-1"><ProfileRoleIcon className="h-4 w-4" />{t('userManagementSectionRoles')}</p><div className="mt-2 flex flex-wrap gap-2">{['PlatformAdministrator', 'SchoolAdministrator', 'Teacher', 'Parent', 'Student'].map((role) => <label key={role} className="text-xs flex items-center gap-1"><input type="checkbox" disabled={!isPlatformAdministrator && role === 'PlatformAdministrator'} checked={managedRoleSetDraft.includes(role)} onChange={(e) => setManagedRoleSetDraft((prev: string[]) => e.target.checked ? [...prev, role] : prev.filter((x) => x !== role))} />{role}</label>)}</div><div className="mt-2"><button className="sk-btn sk-btn-primary inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveRoles'), saveManagedRoleSet)}><SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveRoles')}</button></div></div> : null}
-          {activeManagedUserTab === 'accountState' ? <div className="grid gap-2 md:grid-cols-2"><Field label={t('userManagementColStatus')} value={managedUserDetail.accountLifecycleStatus} onChange={() => {}} disabled /><Field label={t('userManagementDetailActivationStatus')} value={managedUserDetail.activatedAtUtc ? t('stateActive') : t('userManagementActivationPending')} onChange={() => {}} disabled /><Field label={t('userManagementColLastLogin')} value={managedUserDetail.lastLoginAtUtc ?? '-'} onChange={() => {}} disabled /><Field label={t('userManagementDetailLastActivity')} value={managedUserDetail.lastActivityAtUtc ?? '-'} onChange={() => {}} disabled /></div> : null}
-          {activeManagedUserTab === 'security' ? <div className="grid gap-2 md:grid-cols-2"><Field label={t('userManagementSecurityEmailConfirmed')} value={managedUserDetail.emailConfirmed ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled /><Field label={t('userManagementSecurityMfaEnabled')} value={managedUserRow?.mfaEnabled ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled /><Field label={t('userManagementSecurityLockout')} value={managedUserDetail.lockoutEndUtc ?? '-'} onChange={() => {}} disabled /><Field label={t('userManagementSecurityRecoverySummary')} value={t('userManagementSecurityRecoveryNotExposed')} onChange={() => {}} disabled /></div> : null}
-          {activeManagedUserTab === 'schoolContext' ? <div className="grid gap-2 md:grid-cols-2"><Field label={t('userManagementColSchool')} value={managedUserDetail.school ?? '-'} onChange={() => {}} disabled /><Field label={t('userManagementFilterSchoolType')} value={managedUserDetail.schoolType ?? '-'} onChange={() => {}} disabled /><Field label={t('profileLabelAssignedSchools')} value={managedUserDetail.schoolIds.join(', ') || '-'} onChange={() => {}} disabled /><Field label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled /></div> : null}
-          {activeManagedUserTab === 'links' ? <div className="space-y-2"><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Parent') ? t('userManagementLinksParentSummary') : t('userManagementLinksNoParent')}</p><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Teacher') ? t('userManagementLinksTeacherSummary') : t('userManagementLinksNoTeacher')}</p><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Student') ? t('userManagementLinksStudentSummary') : t('userManagementLinksNoStudent')}</p></div> : null}
-        </div> : null}
-      </div>
+      {/* Detail drawer (slide-over from right) */}
+      {managedDetailUserId ? (
+        <>
+          <div className="sk-drawer-overlay" onClick={() => closeManagedDetail()} role="presentation" />
+          <div className="sk-drawer" role="dialog" aria-modal="true" aria-label={t('userManagementDetailTitle')}>
+            <div className="sk-drawer-header">
+              <p className="font-semibold text-sm">{t('userManagementDetailTitle')}</p>
+              <button className="sk-btn sk-btn-secondary text-xs" type="button" onClick={() => closeManagedDetail()}>{t('userManagementDetailClose')}</button>
+            </div>
+            {managedUserDetailLoading ? <LoadingState text={t('loading')} /> : null}
+            {managedUserDetailError ? <ErrorState text={managedUserDetailError} /> : null}
+            {managedUserDetail ? (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center gap-3 rounded-lg border bg-slate-50 p-3">
+                  <span className={getUserAvatarClass(managedUserDetail as unknown as IdentityManagedUser)} style={{ width: 40, height: 40, fontSize: 14 }}>
+                    {getUserInitials(managedUserDetail as unknown as IdentityManagedUser)}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium">{managedUserDetail.firstName} {managedUserDetail.lastName}</p>
+                    <p className="text-xs text-slate-600">{managedUserDetail.email}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'basic', icon: <ProfileIdentityIcon className="h-3.5 w-3.5" />, label: t('userManagementTabBasic') },
+                    { key: 'roles', icon: <ProfileRoleIcon className="h-3.5 w-3.5" />, label: t('userManagementTabRoles') },
+                    { key: 'accountState', icon: <ProfileStatusIcon className="h-3.5 w-3.5" />, label: t('userManagementTabAccountState') },
+                    { key: 'security', icon: <SecurityLockIcon className="h-3.5 w-3.5" />, label: t('userManagementTabSecurity') },
+                    { key: 'schoolContext', icon: <ProfileSchoolIcon className="h-3.5 w-3.5" />, label: t('userManagementTabSchoolContext') },
+                    { key: 'links', icon: <RelationshipLinkIcon className="h-3.5 w-3.5" />, label: t('userManagementTabLinks') }
+                  ].map((tab) => (
+                    <button key={tab.key} type="button" className={`sk-btn text-xs ${activeManagedUserTab === tab.key ? 'sk-btn-primary' : 'sk-btn-secondary'} inline-flex items-center gap-1`} onClick={() => setActiveManagedUserTab(tab.key as ManagedUserDetailTab)}>
+                      {tab.icon}<span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {activeManagedUserTab === 'basic' ? (
+                  <div className="grid gap-2">
+                    <Field label={t('profileFieldFirstName')} value={managedUserDetail.firstName} onChange={() => {}} disabled />
+                    <Field label={t('profileFieldLastName')} value={managedUserDetail.lastName} onChange={() => {}} disabled />
+                    <Field label={t('profileFieldPreferredDisplayName')} value={managedUserRow?.displayName ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled />
+                    <Field label={t('userManagementLabelUsername')} value={managedUserDetail.userName} onChange={() => {}} disabled />
+                  </div>
+                ) : null}
+
+                {activeManagedUserTab === 'roles' ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-slate-500 inline-flex items-center gap-1">
+                      <ProfileRoleIcon className="h-4 w-4" />{t('userManagementSectionRoles')}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {['PlatformAdministrator', 'SchoolAdministrator', 'Teacher', 'Parent', 'Student'].map((role) => (
+                        <label key={role} className="text-xs flex items-center gap-1">
+                          <input type="checkbox" disabled={!isPlatformAdministrator && role === 'PlatformAdministrator'} checked={managedRoleSetDraft.includes(role)} onChange={(e) => setManagedRoleSetDraft((prev: string[]) => e.target.checked ? [...prev, role] : prev.filter((x) => x !== role))} />
+                          {role}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-2">
+                      <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveRoles'), saveManagedRoleSet)}>
+                        <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveRoles')}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeManagedUserTab === 'accountState' ? (
+                  <div className="grid gap-2">
+                    <Field label={t('userManagementColStatus')} value={managedUserDetail.accountLifecycleStatus} onChange={() => {}} disabled />
+                    <Field label={t('userManagementDetailActivationStatus')} value={managedUserDetail.activatedAtUtc ? t('stateActive') : t('userManagementActivationPending')} onChange={() => {}} disabled />
+                    <Field label={t('userManagementColLastLogin')} value={managedUserDetail.lastLoginAtUtc ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementDetailLastActivity')} value={managedUserDetail.lastActivityAtUtc ?? '-'} onChange={() => {}} disabled />
+                  </div>
+                ) : null}
+
+                {activeManagedUserTab === 'security' ? (
+                  <div className="grid gap-2">
+                    <Field label={t('userManagementSecurityEmailConfirmed')} value={managedUserDetail.emailConfirmed ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled />
+                    <Field label={t('userManagementSecurityMfaEnabled')} value={managedUserRow?.mfaEnabled ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled />
+                    <Field label={t('userManagementSecurityLockout')} value={managedUserDetail.lockoutEndUtc ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementSecurityRecoverySummary')} value={t('userManagementSecurityRecoveryNotExposed')} onChange={() => {}} disabled />
+                  </div>
+                ) : null}
+
+                {activeManagedUserTab === 'schoolContext' ? (
+                  <div className="grid gap-2">
+                    <Field label={t('userManagementColSchool')} value={managedUserDetail.school ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementFilterSchoolType')} value={managedUserDetail.schoolType ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('profileLabelAssignedSchools')} value={managedUserDetail.schoolIds.join(', ') || '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled />
+                  </div>
+                ) : null}
+
+                {activeManagedUserTab === 'links' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Parent') ? t('userManagementLinksParentSummary') : t('userManagementLinksNoParent')}</p>
+                    <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Teacher') ? t('userManagementLinksTeacherSummary') : t('userManagementLinksNoTeacher')}</p>
+                    <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Student') ? t('userManagementLinksStudentSummary') : t('userManagementLinksNoStudent')}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
       </section>
     </Card>
   );
@@ -1292,6 +1605,32 @@ function SummaryCard({ icon, title, count, onClick }: { icon: React.ReactNode; t
       </div>
       <p className="mt-2 text-2xl font-semibold text-slate-900">{count}</p>
     </button>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder = '\u2014'
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="sk-label">{label}</label>
+      <select className="sk-input" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -1726,6 +2065,24 @@ function RelationshipLinkIcon({ className = 'h-4 w-4' }: { className?: string })
       <path d="M10 14 7.5 16.5a3 3 0 0 1-4.2-4.2L6 9.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="m14 10 2.5-2.5a3 3 0 0 1 4.2 4.2L18 14.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="m8.5 15.5 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FilterIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M3 4h18l-7 8.5V19l-4 2v-8.5L3 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ThreeDotsIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
     </svg>
   );
 }

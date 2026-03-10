@@ -59,13 +59,13 @@ const loginSeenStorageKey = 'skolio.auth.hasLoggedIn';
 export function RouterShell({ config }: RouterProps) {
   const { t } = useI18n();
   const [session, setSession] = useState<SessionState | null>(() => loadSession());
-  const [route, setRoute] = useState(window.location.pathname as AppRoute | '/auth/callback');
+  const [route, setRoute] = useState(resolveCurrentRoute());
   const [profileSummary, setProfileSummary] = useState<MyProfileSummary | null>(null);
   const [idleWarningSecondsLeft, setIdleWarningSecondsLeft] = useState<number | null>(null);
   const idleLogoutStartedRef = useRef(false);
 
   useEffect(() => {
-    const onPop = () => setRoute(window.location.pathname as AppRoute);
+    const onPop = () => setRoute(resolveCurrentRoute());
     const onExpired = () => setSession(null);
     window.addEventListener('popstate', onPop);
     window.addEventListener('skolio:auth-expired', onExpired);
@@ -1633,6 +1633,27 @@ function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionSt
 function navigateTo(route: AppRoute, onNavigate: (r: AppRoute) => void) {
   history.pushState({}, '', route);
   onNavigate(route);
+}
+
+function resolveCurrentRoute(): AppRoute | '/auth/callback' {
+  const normalizedPath = window.location.pathname.endsWith('/') && window.location.pathname !== '/'
+    ? window.location.pathname.slice(0, -1)
+    : window.location.pathname;
+
+  if (normalizedPath === '/identity') {
+    const search = new URLSearchParams(window.location.search);
+    if (search.get('section') === 'user-management') {
+      const canonicalPath = '/administration/user-management';
+      const canonicalUrl = `${canonicalPath}${window.location.hash ?? ''}`;
+      if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== canonicalUrl) {
+        window.history.replaceState({}, '', canonicalUrl);
+      }
+
+      return '/administration/user-management';
+    }
+  }
+
+  return normalizedPath as AppRoute | '/auth/callback';
 }
 
 function randomString() {
