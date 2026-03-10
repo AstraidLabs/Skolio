@@ -3,6 +3,7 @@ import type { SessionState } from '../shared/auth/session';
 import type { createAdministrationApi, SystemSetting, FeatureToggle, SchoolYearPolicy, HousekeepingPolicy } from './api';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
+import { useI18n } from '../i18n';
 
 export function AdministrationParityPage({
   api,
@@ -11,6 +12,7 @@ export function AdministrationParityPage({
   api: ReturnType<typeof createAdministrationApi>;
   session: SessionState;
 }) {
+  const { t } = useI18n();
   const isPlatformAdmin = session.roles.includes('PlatformAdministrator');
   const isSchoolAdmin = session.roles.includes('SchoolAdministrator');
   const isTeacher = session.roles.includes('Teacher');
@@ -74,7 +76,7 @@ export function AdministrationParityPage({
 
   useEffect(load, [session.accessToken]);
 
-  if (loading) return <LoadingState text="Loading administration..." />;
+  if (loading) return <LoadingState text={t('administrationLoading')} />;
   if (error) return <ErrorState text={error} />;
 
   /* ── Teacher view ── */
@@ -150,19 +152,21 @@ export function AdministrationParityPage({
   return (
     <section className="space-y-3">
       <SectionHeader
-        title="Administration"
-        description={isPlatformAdmin ? 'Platform-wide administration.' : 'School-scoped administration.'}
-        action={<button className="sk-btn sk-btn-secondary" onClick={load} type="button">Reload</button>}
+        title={t('administrationTitle')}
+        description={isPlatformAdmin ? t('administrationPlatformDescription') : t('administrationSchoolDescription')}
+        action={<button className="sk-btn sk-btn-secondary" onClick={load} type="button">{t('reload')}</button>}
       />
 
       {summary ? (
         <WidgetGrid>
-          <Card><p className="sk-metric-label">Recent audit (7d)</p><p className="sk-metric-value">{summary.recentAuditCount}</p></Card>
-          <Card><p className="sk-metric-label">Enabled toggles</p><p className="sk-metric-value">{summary.enabledFeatureToggles}</p></Card>
-          <Card><p className="sk-metric-label">Active lifecycle policies</p><p className="sk-metric-value">{summary.activeLifecyclePolicies}</p></Card>
-          <Card><p className="sk-metric-label">Active housekeeping policies</p><p className="sk-metric-value">{summary.activeHousekeepingPolicies}</p></Card>
+          <Card><p className="sk-metric-label">{t('administrationRecentAudit7d')}</p><p className="sk-metric-value">{summary.recentAuditCount}</p></Card>
+          <Card><p className="sk-metric-label">{t('administrationEnabledToggles')}</p><p className="sk-metric-value">{summary.enabledFeatureToggles}</p></Card>
+          <Card><p className="sk-metric-label">{t('administrationActiveLifecyclePolicies')}</p><p className="sk-metric-value">{summary.activeLifecyclePolicies}</p></Card>
+          <Card><p className="sk-metric-label">{t('administrationActiveHousekeepingPolicies')}</p><p className="sk-metric-value">{summary.activeHousekeepingPolicies}</p></Card>
         </WidgetGrid>
       ) : null}
+
+      {canWrite ? <AdministrationUserManagementCard /> : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <SystemSettingsSection settings={settings} api={api} isPlatformAdmin={isPlatformAdmin} onReload={load} onError={handleError} />
@@ -173,6 +177,29 @@ export function AdministrationParityPage({
 
       <AuditLogSection audit={audit} filter={auditFilter} onFilterChange={setAuditFilter} onApply={load} />
     </section>
+  );
+}
+
+function AdministrationUserManagementCard() {
+  const { t } = useI18n();
+
+  const navigateToIdentity = () => {
+    window.history.pushState({}, '', '/administration/user-management');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  return (
+    <Card className="border-slate-300/80 bg-slate-50/70">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-slate-900">{t('administrationUserManagementTitle')}</p>
+          <p className="text-sm text-slate-600">{t('administrationUserManagementDescription')}</p>
+        </div>
+        <button className="sk-btn sk-btn-secondary shrink-0" type="button" onClick={navigateToIdentity}>
+          {t('administrationUserManagementAction')}
+        </button>
+      </div>
+    </Card>
   );
 }
 

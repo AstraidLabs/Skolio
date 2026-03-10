@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, SchoolContextOption, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
@@ -96,11 +96,13 @@ function getManagedUserRowClassName(user: IdentityManagedUser): string {
 export function IdentityParityPage({
   api,
   organizationApi,
-  session
+  session,
+  viewMode = 'full'
 }: {
   api: ReturnType<typeof createIdentityApi>;
   organizationApi?: ReturnType<typeof createOrganizationApi>;
   session: SessionState;
+  viewMode?: 'full' | 'user-management';
 }) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -143,6 +145,7 @@ export function IdentityParityPage({
   const [adminSchoolPositionOptions, setAdminSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [adminSchoolPositionLoading, setAdminSchoolPositionLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const managedUsersSectionRef = useRef<HTMLElement | null>(null);
 
   const isPlatformAdministrator = session.roles.includes('PlatformAdministrator');
   const isSchoolAdministrator = session.roles.includes('SchoolAdministrator');
@@ -400,6 +403,18 @@ export function IdentityParityPage({
     return () => window.clearTimeout(timer);
   }, [formSuccess]);
 
+  useEffect(() => {
+    if (viewMode !== 'full') return;
+    if (!canAdminProfiles) return;
+
+    const search = new URLSearchParams(window.location.search);
+    if (search.get('section') !== 'user-management') return;
+
+    window.setTimeout(() => {
+      managedUsersSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }, [canAdminProfiles, managedUsers?.items.length, viewMode]);
+
   useEffect(load, [api, organizationApi, session.accessToken]);
 
   const saveSelfProfile = () => {
@@ -548,6 +563,49 @@ export function IdentityParityPage({
   if (loading) return <LoadingState text={t('profileLoading')} />;
   if (pageError) return <ErrorState text={pageError} />;
   if (!summary) return <EmptyState text={t('profileNotAvailable')} />;
+
+  if (viewMode === 'user-management') {
+    if (!canAdminProfiles) {
+      return <ErrorState text={t('unauthorizedIdentity')} />;
+    }
+
+    return (
+      <section className="space-y-4">
+        <ManagedUsersSection
+          sectionRef={managedUsersSectionRef}
+          t={t}
+          userListFilters={userListFilters}
+          setUserListFilters={setUserListFilters}
+          loadManagedUsers={loadManagedUsers}
+          managedUsersLoading={managedUsersLoading}
+          managedUsersError={managedUsersError}
+          managedUsers={managedUsers}
+          managedSummary={managedSummary}
+          managedSummaryLoading={managedSummaryLoading}
+          managedSummaryError={managedSummaryError}
+          managedActionBusyUserId={managedActionBusyUserId}
+          openManagedDetail={openManagedDetail}
+          runManagedLifecycleAction={runManagedLifecycleAction}
+          api={api}
+          managedDetailUserId={managedDetailUserId}
+          managedUserDetailLoading={managedUserDetailLoading}
+          managedUserDetailError={managedUserDetailError}
+          managedUserDetail={managedUserDetail}
+          managedRoleSetDraft={managedRoleSetDraft}
+          setManagedRoleSetDraft={setManagedRoleSetDraft}
+          saveManagedRoleSet={saveManagedRoleSet}
+          activeManagedUserTab={activeManagedUserTab}
+          setActiveManagedUserTab={setActiveManagedUserTab}
+          isPlatformAdministrator={isPlatformAdministrator}
+          managedSchoolContextId={managedSchoolContextId}
+          managedSchoolOptions={managedSchoolOptions}
+          managedSchoolOptionsLoading={managedSchoolOptionsLoading}
+          managedSchoolOptionsError={managedSchoolOptionsError}
+          onManagedSchoolContextChange={onManagedSchoolContextChange}
+        />
+      </section>
+    );
+  }
 
   const headerInitials = toProfileInitials(
     summary.profile.preferredDisplayName
@@ -946,6 +1004,7 @@ export function IdentityParityPage({
 
       {canAdminProfiles ? (
         <ManagedUsersSection
+          sectionRef={managedUsersSectionRef}
           t={t}
           userListFilters={userListFilters}
           setUserListFilters={setUserListFilters}
@@ -1080,7 +1139,8 @@ function ManagedUsersSection({
   managedSchoolOptions,
   managedSchoolOptionsLoading,
   managedSchoolOptionsError,
-  onManagedSchoolContextChange
+  onManagedSchoolContextChange,
+  sectionRef
 }: any) {
   const managedUserRow = managedUsers?.items.find((item: IdentityManagedUser) => item.userId === managedDetailUserId);
 
@@ -1090,7 +1150,8 @@ function ManagedUsersSection({
   };
 
   return (
-    <Card>
+    <Card className="" >
+      <section ref={sectionRef} id="identity-user-management">
       <p className="font-semibold text-sm inline-flex items-center gap-2"><UserManagementSectionIcon className="h-4 w-4 text-slate-600" />{t('userManagementListTitle')}</p>
       {isPlatformAdministrator ? (
         <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -1212,6 +1273,7 @@ function ManagedUsersSection({
           {activeManagedUserTab === 'links' ? <div className="space-y-2"><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Parent') ? t('userManagementLinksParentSummary') : t('userManagementLinksNoParent')}</p><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Teacher') ? t('userManagementLinksTeacherSummary') : t('userManagementLinksNoTeacher')}</p><p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Student') ? t('userManagementLinksStudentSummary') : t('userManagementLinksNoStudent')}</p></div> : null}
         </div> : null}
       </div>
+      </section>
     </Card>
   );
 }

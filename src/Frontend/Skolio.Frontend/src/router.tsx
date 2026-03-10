@@ -40,6 +40,7 @@ type AppRoute =
   | '/academics/daily-reports'
   | '/communication'
   | '/administration'
+  | '/administration/user-management'
   | '/identity'
   | '/identity/security'
   | '/security/forgot-password'
@@ -120,14 +121,20 @@ export function RouterShell({ config }: RouterProps) {
       return;
     }
 
+    const markSessionActive = () => {
+      localStorage.setItem(idleActivityStorageKey, Date.now().toString());
+      localStorage.removeItem(idleLogoutStorageKey);
+      sessionStorage.removeItem(logoutReasonStorageKey);
+      setIdleWarningSecondsLeft(null);
+    };
+
     const touchActivity = () => {
       localStorage.setItem(idleActivityStorageKey, Date.now().toString());
       setIdleWarningSecondsLeft(null);
     };
 
-    if (!localStorage.getItem(idleActivityStorageKey)) {
-      touchActivity();
-    }
+    idleLogoutStartedRef.current = false;
+    markSessionActive();
 
     const onActivity = () => touchActivity();
     const onRouteActivity = () => touchActivity();
@@ -266,6 +273,7 @@ export function RouterShell({ config }: RouterProps) {
       )}
       {active === '/communication' && <CommunicationParityPage api={apis.communication} session={session} />}
       {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
+      {active === '/administration/user-management' && <IdentityParityPage api={apis.identity} session={session} viewMode="user-management" />}
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
       {active === '/identity/security' && <SecuritySelfServicePage api={apis.identity} />}
       {!nav.includes(active) && active !== '/identity' && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}
@@ -1294,6 +1302,9 @@ function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig
     void completeAuthorizationCodeFlow(config, t)
       .then((nextSession) => {
         localStorage.setItem(loginSeenStorageKey, 'true');
+        localStorage.setItem(idleActivityStorageKey, Date.now().toString());
+        localStorage.removeItem(idleLogoutStorageKey);
+        sessionStorage.removeItem(logoutReasonStorageKey);
         persistSession(nextSession);
         onSession(nextSession);
         setStatus(t('authCompleted'));
@@ -1452,6 +1463,7 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
       '/dashboard',
       '/communication',
       '/administration',
+      '/administration/user-management',
       '/organization',
       '/organization/schools',
       '/organization/school-years',
@@ -1522,7 +1534,7 @@ function navigationFor(roles: string[], schoolType: SchoolType): AppRoute[] {
     if (schoolType === 'SecondarySchool') {
       nav.push('/organization/fields-of-study');
     }
-    nav.push('/administration');
+    nav.push('/administration', '/administration/user-management');
   }
   if (roles.includes('Teacher')) {
     nav.push('/organization/groups', '/organization/subjects');
@@ -1554,6 +1566,7 @@ function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   if (route === '/academics/daily-reports') return `${t('routeAcademics')} / ${t('navDailyReports')}`;
   if (route === '/communication') return t('routeCommunication');
   if (route === '/administration') return t('routeAdministration');
+  if (route === '/administration/user-management') return `${t('routeAdministration')} / ${t('administrationUserManagementTitle')}`;
   if (route === '/identity') return t('myProfile.title');
   if (route === '/identity/security') return t('security.title');
   return route;

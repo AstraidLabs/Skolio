@@ -234,12 +234,23 @@ public sealed class IdentityAuthSeeder(
         var user = await userManager.FindByEmailAsync(seedUser.Email);
         if (user is null)
         {
+            var now = DateTimeOffset.UtcNow;
             user = new SkolioIdentityUser
             {
                 Id = seedUser.UserProfileId.ToString(),
                 UserName = seedUser.Email,
                 Email = seedUser.Email,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active,
+                ActivatedAtUtc = now,
+                ActivationRequestedAtUtc = now,
+                DeactivatedAtUtc = null,
+                DeactivationReason = null,
+                DeactivatedByUserId = null,
+                BlockedAtUtc = null,
+                BlockedReason = null,
+                BlockedByUserId = null,
+                LockoutEnd = null
             };
 
             var createResult = await userManager.CreateAsync(user, seedPassword);
@@ -268,6 +279,41 @@ public sealed class IdentityAuthSeeder(
         if (!user.EmailConfirmed)
         {
             user.EmailConfirmed = true;
+            requiresUpdate = true;
+        }
+
+        if (user.AccountLifecycleStatus != IdentityAccountLifecycleStatus.Active)
+        {
+            user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
+            requiresUpdate = true;
+        }
+
+        if (user.ActivatedAtUtc is null)
+        {
+            user.ActivatedAtUtc = DateTimeOffset.UtcNow;
+            requiresUpdate = true;
+        }
+
+        if (user.ActivationRequestedAtUtc is null)
+        {
+            user.ActivationRequestedAtUtc = user.ActivatedAtUtc;
+            requiresUpdate = true;
+        }
+
+        if (user.DeactivatedAtUtc is not null || !string.IsNullOrWhiteSpace(user.DeactivationReason) || !string.IsNullOrWhiteSpace(user.DeactivatedByUserId))
+        {
+            user.DeactivatedAtUtc = null;
+            user.DeactivationReason = null;
+            user.DeactivatedByUserId = null;
+            requiresUpdate = true;
+        }
+
+        if (user.BlockedAtUtc is not null || !string.IsNullOrWhiteSpace(user.BlockedReason) || !string.IsNullOrWhiteSpace(user.BlockedByUserId) || (user.LockoutEnd is not null && user.LockoutEnd > DateTimeOffset.UtcNow))
+        {
+            user.BlockedAtUtc = null;
+            user.BlockedReason = null;
+            user.BlockedByUserId = null;
+            user.LockoutEnd = null;
             requiresUpdate = true;
         }
 
