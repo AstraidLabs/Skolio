@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Cryptography;
 using System.Text;
+using Skolio.Identity.Domain.Enums;
 using Skolio.Identity.Infrastructure.Auth;
 
 namespace Skolio.Identity.Api.Controllers;
@@ -103,7 +104,26 @@ public sealed class AccountController(
                 ("captchaId", nextFailedAttempts >= CaptchaTriggerFailedAttempts ? CreateCaptchaChallenge(attemptKey) : string.Empty)));
         }
 
-        var passwordResult = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: false);
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Deactivated)
+        {
+            Audit("identity.auth.login.primary.blocked", user.Id, new { reason = "deactivated" });
+            return Redirect(BuildFrontendLoginUrl(safeReturnUrl, ("error", "login_account_deactivated")));
+        }
+
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.PendingActivation || !user.EmailConfirmed)
+        {
+            Audit("identity.auth.login.primary.blocked", user.Id, new { reason = "pending-activation" });
+            return Redirect(BuildFrontendLoginUrl(safeReturnUrl, ("error", "login_activation_required")));
+        }
+
+        var passwordResult = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
+        if (passwordResult.IsLockedOut)
+        {
+            user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Locked;
+            await userManager.UpdateAsync(user);
+            Audit("identity.auth.login.primary.locked", user.Id, new { reason = "identity-lockout" });
+            return Redirect(BuildFrontendLoginUrl(safeReturnUrl, ("error", "login_account_locked")));
+        }
         if (!passwordResult.Succeeded)
         {
             var nextFailedAttempts = IncrementFailedAttempt(attemptKey);
@@ -120,6 +140,10 @@ public sealed class AccountController(
         if (!await userManager.GetTwoFactorEnabledAsync(user))
         {
             await signInManager.SignInAsync(user, isPersistent: rememberMe);
+            user.LastLoginAtUtc = DateTimeOffset.UtcNow;
+            user.LastActivityAtUtc = DateTimeOffset.UtcNow;
+            if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Locked) user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
+            await userManager.UpdateAsync(user);
             Audit("identity.auth.login.primary.succeeded", user.Id, new { mfaRequired = false, rememberMe });
             return LocalRedirect(safeReturnUrl);
         }
@@ -211,6 +235,10 @@ public sealed class AccountController(
 
         challengeCache.Remove(CacheKey(challengeId));
         await signInManager.SignInAsync(user, isPersistent: challenge.RememberMe);
+        user.LastLoginAtUtc = DateTimeOffset.UtcNow;
+        user.LastActivityAtUtc = DateTimeOffset.UtcNow;
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Locked) user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
+        await userManager.UpdateAsync(user);
         Audit(useRecoveryCode ? "identity.auth.login.mfa.recovery-code.succeeded" : "identity.auth.login.mfa.succeeded", user.Id, new { challengeId, rememberMe = challenge.RememberMe });
         return LocalRedirect(challenge.ReturnUrl);
     }

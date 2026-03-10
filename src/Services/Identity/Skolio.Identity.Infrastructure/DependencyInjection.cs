@@ -46,6 +46,10 @@ public static class DependencyInjection
                 identityOptions.Password.RequiredLength = configuration.GetValue<int>("Identity:Identity:RequiredPasswordLength", 12);
                 identityOptions.Password.RequireNonAlphanumeric = configuration.GetValue<bool>("Identity:Identity:RequireNonAlphanumeric", true);
                 identityOptions.User.RequireUniqueEmail = true;
+                identityOptions.SignIn.RequireConfirmedEmail = true;
+                identityOptions.Lockout.AllowedForNewUsers = true;
+                identityOptions.Lockout.MaxFailedAccessAttempts = configuration.GetValue<int>("Identity:Identity:LockoutMaxFailedAccessAttempts", 5);
+                identityOptions.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(configuration.GetValue<int>("Identity:Identity:LockoutMinutes", 15));
             })
             .AddRoles<SkolioIdentityRole>()
             .AddEntityFrameworkStores<IdentityDbContext>()

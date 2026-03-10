@@ -12,7 +12,7 @@ import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primit
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
 import { AppShell as AppLayoutShell } from './shared/layout/AppShell';
 import { IdentityParityPage } from './identity/IdentityParityPage';
-import { ConfirmEmailChangePage, ForgotPasswordPage, ResetPasswordPage, SecuritySelfServicePage } from './identity/SecuritySelfServicePage';
+import { ConfirmActivationPage, ConfirmEmailChangePage, ForgotPasswordPage, ResetPasswordPage, SecuritySelfServicePage } from './identity/SecuritySelfServicePage';
 import { OrganizationParityPage } from './organization/OrganizationParityPage';
 import { AcademicsParityPage } from './academics/AcademicsParityPage';
 import { CommunicationParityPage } from './communication/CommunicationParityPage';
@@ -45,6 +45,7 @@ type AppRoute =
   | '/security/forgot-password'
   | '/security/reset-password'
   | '/security/confirm-email-change'
+  | '/security/confirm-activation'
   | '/login';
 
 const idleTimeoutMs = 30 * 60 * 1000;
@@ -196,6 +197,14 @@ export function RouterShell({ config }: RouterProps) {
     const token = query.get('token') ?? '';
     if (!userId || !token) return <ErrorState text="Missing reset password token parameters." />;
     return <ResetPasswordPage api={apis.identity} userId={userId} token={token} />;
+  }
+
+  if (route === '/security/confirm-activation') {
+    const query = new URLSearchParams(window.location.search);
+    const userId = query.get('userId') ?? '';
+    const token = query.get('token') ?? '';
+    if (!userId || !token) return <ErrorState text="Missing activation token parameters." />;
+    return <ConfirmActivationPage api={apis.identity} userId={userId} token={token} />;
   }
 
   if (route === '/security/confirm-email-change') {

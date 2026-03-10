@@ -64,6 +64,50 @@ public sealed class IdentitySecurityController(
         return Ok(new { message = "Password changed." });
     }
 
+
+    [HttpPost("activation/resend")]
+    [AllowAnonymous]
+    [EnableRateLimiting("identity-security-forgot-password")]
+    public async Task<IActionResult> ResendActivation([FromBody] ResendActivationRequest request, CancellationToken cancellationToken)
+    {
+        var genericResponse = Ok(new { message = "If the account exists, an activation email has been sent." });
+        if (string.IsNullOrWhiteSpace(request.Email)) return genericResponse;
+
+        var user = await userManager.FindByEmailAsync(request.Email);
+        if (user is null || user.EmailConfirmed) return genericResponse;
+
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        var encodedToken = EncodeToken(token);
+        var activationUrl = BuildFrontendUrl($"/security/confirm-activation?userId={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encodedToken)}");
+        await identityEmailSender.SendAccountConfirmationAsync(new AccountConfirmationDelivery(user.Email ?? request.Email, BuildDisplayName(user), activationUrl), cancellationToken);
+
+        Audit("identity.security.activation.resent", user.Id, new { action = "activation-resend" });
+        return genericResponse;
+    }
+
+    [HttpPost("activation/confirm")]
+    [AllowAnonymous]
+    [EnableRateLimiting("identity-security-reset-password")]
+    public async Task<IActionResult> ConfirmActivation([FromBody] ConfirmActivationRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId);
+        if (user is null) return this.ValidationForm("Activation token is invalid or expired.");
+
+        var token = DecodeToken(request.Token);
+        var result = await userManager.ConfirmEmailAsync(user, token);
+        if (!result.Succeeded) return BadRequest(ToValidationProblem(result));
+
+        user.AccountLifecycleStatus = Skolio.Identity.Domain.Enums.IdentityAccountLifecycleStatus.Active;
+        user.ActivatedAtUtc = DateTimeOffset.UtcNow;
+        user.DeactivatedAtUtc = null;
+        user.DeactivationReason = null;
+        await userManager.UpdateAsync(user);
+
+        await identityEmailSender.SendSecurityNotificationAsync(new SecurityNotificationDelivery(user.Email ?? string.Empty, BuildDisplayName(user), "Account activated", "Your Skolio account activation is complete."), cancellationToken);
+        Audit("identity.security.activation.confirmed", user.Id, new { action = "activation-confirm" });
+        return Ok(new { message = "Account activated." });
+    }
+
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     [EnableRateLimiting("identity-security-forgot-password")]
@@ -398,6 +442,8 @@ public sealed class IdentitySecurityController(
     public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmNewPassword);
     public sealed record ForgotPasswordRequest(string Email);
     public sealed record ResetPasswordRequest(string UserId, string Token, string NewPassword, string ConfirmNewPassword);
+    public sealed record ResendActivationRequest(string Email);
+    public sealed record ConfirmActivationRequest(string UserId, string Token);
     public sealed record RequestEmailChangeRequest(string CurrentPassword, string NewEmail);
     public sealed record ConfirmEmailChangeRequest(string UserId, string NewEmail, string Token);
     public sealed record MfaStatusContract(bool Enabled, bool HasAuthenticatorKey, int RecoveryCodesLeft);
