@@ -192,6 +192,15 @@ export type IdentityManagedUserSchoolContextDetail = {
   isPlatformScopeView: boolean;
 };
 
+export type IdentityManagedUserSummary = {
+  totalUsersCount: number;
+  activeUsersCount: number;
+  lockedUsersCount: number;
+  deactivatedUsersCount: number;
+  pendingActivationUsersCount: number;
+  mfaEnabledUsersCount: number;
+};
+
 export type IdentityManagedUserLinksSummary = {
   parentStudentLinksCount: number;
   teacherAssignmentCount: number;
@@ -282,6 +291,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
       if (query?.pageSize) params.set('pageSize', String(query.pageSize));
       return http<PagedResult<IdentityManagedUser>>('identity', `/api/identity/user-management/users${params.size > 0 ? `?${params.toString()}` : ''}`);
     },
+    adminUserSummary: () => http<IdentityManagedUserSummary>('identity', '/api/identity/user-management/summary'),
     adminUserDetail: (userId: string) => http<IdentityManagedUserDetail>('identity', `/api/identity/user-management/users/${userId}`),
 
     adminUserRolesDetail: (userId: string) => http<IdentityManagedUserRolesDetail>('identity', `/api/identity/user-management/users/${userId}/roles-detail`),
