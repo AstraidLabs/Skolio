@@ -21,19 +21,216 @@ public sealed class IdentityUserManagementController(
     ILogger<IdentityUserManagementController> logger) : ControllerBase
 {
     private static readonly string[] SupportedRoles = ["PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"];
+    private static readonly int[] AllowedPageSizes = [10, 20, 50, 100];
 
     [HttpGet("users")]
-    public async Task<ActionResult<IReadOnlyCollection<UserListItemContract>>> Users([FromQuery] string? query, CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<UserListItemContract>>> Users(
+        [FromQuery] string? name,
+        [FromQuery] string? emailOrUsername,
+        [FromQuery] string? role,
+        [FromQuery] string? accountStatus,
+        [FromQuery] string? activationStatus,
+        [FromQuery] string? blockStatus,
+        [FromQuery] string? mfaStatus,
+        [FromQuery] string? school,
+        [FromQuery] string? schoolType,
+        [FromQuery] string? inactivityState,
+        [FromQuery] string? sortField = "name",
+        [FromQuery] string? sortDirection = "asc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        var users = await userManager.Users
-            .Where(x => string.IsNullOrWhiteSpace(query) || (x.Email ?? string.Empty).Contains(query) || (x.UserName ?? string.Empty).Contains(query))
-            .OrderBy(x => x.Email)
-            .Take(300)
-            .Select(x => new UserListItemContract(x.Id, x.Email ?? string.Empty, x.AccountLifecycleStatus.ToString(), x.EmailConfirmed, x.LockoutEnd, x.LastLoginAtUtc, x.LastActivityAtUtc))
+        var normalizedPageNumber = Math.Max(pageNumber, 1);
+        var normalizedPageSize = AllowedPageSizes.Contains(pageSize) ? pageSize : 20;
+        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+        IQueryable<SkolioIdentityUser> queryable = userManager.Users.AsNoTracking();
+
+        if (!User.IsInRole("PlatformAdministrator"))
+        {
+            var scopedUserIds = await ResolveActorScopedUserIds(cancellationToken);
+            if (scopedUserIds.Count == 0)
+            {
+                return Ok(new PagedResult<UserListItemContract>(Array.Empty<UserListItemContract>(), normalizedPageNumber, normalizedPageSize, 0));
+            }
+
+            queryable = queryable.Where(x => scopedUserIds.Contains(x.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var term = name.Trim();
+            queryable = queryable.Where(x =>
+                (x.UserName ?? string.Empty).Contains(term)
+                || dbContext.UserProfiles.Any(p => p.Id.ToString() == x.Id
+                    && ((p.FirstName + " " + p.LastName).Contains(term)
+                        || ((p.PreferredDisplayName ?? string.Empty).Contains(term)))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(emailOrUsername))
+        {
+            var term = emailOrUsername.Trim();
+            queryable = queryable.Where(x => (x.Email ?? string.Empty).Contains(term) || (x.UserName ?? string.Empty).Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var roleName = role.Trim();
+            queryable = queryable.Where(x => dbContext.UserRoles.Any(ur => ur.UserId == x.Id && dbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == roleName)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountStatus) && Enum.TryParse<IdentityAccountLifecycleStatus>(accountStatus, true, out var lifecycleStatus))
+        {
+            queryable = queryable.Where(x => x.AccountLifecycleStatus == lifecycleStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(activationStatus))
+        {
+            var normalized = activationStatus.Trim().ToLowerInvariant();
+            queryable = normalized switch
+            {
+                "active" => queryable.Where(x => x.ActivatedAtUtc != null),
+                "pending" => queryable.Where(x => x.ActivatedAtUtc == null),
+                _ => queryable
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(blockStatus))
+        {
+            var normalized = blockStatus.Trim().ToLowerInvariant();
+            var now = DateTimeOffset.UtcNow;
+            queryable = normalized switch
+            {
+                "blocked" => queryable.Where(x => x.BlockedAtUtc != null),
+                "locked" => queryable.Where(x => x.LockoutEnd != null && x.LockoutEnd > now),
+                "clear" => queryable.Where(x => x.BlockedAtUtc == null && (x.LockoutEnd == null || x.LockoutEnd <= now)),
+                _ => queryable
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(mfaStatus))
+        {
+            var normalized = mfaStatus.Trim().ToLowerInvariant();
+            queryable = normalized switch
+            {
+                "enabled" => queryable.Where(x => x.TwoFactorEnabled),
+                "disabled" => queryable.Where(x => !x.TwoFactorEnabled),
+                _ => queryable
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(school))
+        {
+            var schoolTerm = school.Trim();
+            queryable = queryable.Where(x => dbContext.UserProfiles.Any(p => p.Id.ToString() == x.Id && (p.SchoolPlacement ?? string.Empty).Contains(schoolTerm))
+                                           || dbContext.SchoolRoleAssignments.Any(a => a.UserProfileId.ToString() == x.Id && a.SchoolId.ToString() == schoolTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(schoolType))
+        {
+            var schoolTypeTerm = schoolType.Trim();
+            queryable = queryable.Where(x => dbContext.UserProfiles.Any(p => p.Id.ToString() == x.Id && (p.SchoolContextSummary ?? string.Empty).Contains(schoolTypeTerm)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(inactivityState))
+        {
+            var normalized = inactivityState.Trim().ToLowerInvariant();
+            var warningCutoff = DateTimeOffset.UtcNow.AddDays(-30);
+            var inactiveCutoff = DateTimeOffset.UtcNow.AddDays(-90);
+            queryable = normalized switch
+            {
+                "inactive" => queryable.Where(x => x.LastActivityAtUtc == null || x.LastActivityAtUtc < inactiveCutoff),
+                "warning" => queryable.Where(x => x.LastActivityAtUtc != null && x.LastActivityAtUtc < warningCutoff && x.LastActivityAtUtc >= inactiveCutoff),
+                "active" => queryable.Where(x => x.LastActivityAtUtc != null && x.LastActivityAtUtc >= warningCutoff),
+                _ => queryable
+            };
+        }
+
+        queryable = ApplySorting(queryable, sortField, descending);
+
+        var totalCount = await queryable.CountAsync(cancellationToken);
+        var pageItems = await queryable
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                User = x,
+                Profile = dbContext.UserProfiles.FirstOrDefault(p => p.Id.ToString() == x.Id)
+            })
             .ToListAsync(cancellationToken);
 
-        var scoped = await FilterUsersByActorScope(users.Select(x => x.UserId).ToArray(), cancellationToken);
-        return Ok(users.Where(x => scoped.Contains(x.UserId)).ToArray());
+        var userIds = pageItems.Select(x => x.User.Id).ToArray();
+        var roleMap = await dbContext.UserRoles
+            .Where(ur => userIds.Contains(ur.UserId))
+            .Join(dbContext.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, RoleName = r.Name ?? string.Empty })
+            .GroupBy(x => x.UserId)
+            .ToDictionaryAsync(g => g.Key, g => (IReadOnlyCollection<string>)g.Select(x => x.RoleName).OrderBy(x => x).ToArray(), cancellationToken);
+
+        var schoolMap = await dbContext.SchoolRoleAssignments
+            .Where(x => userIds.Contains(x.UserProfileId.ToString()))
+            .GroupBy(x => x.UserProfileId)
+            .ToDictionaryAsync(g => g.Key.ToString(), g => (IReadOnlyCollection<string>)g.Select(x => x.SchoolId.ToString()).Distinct().OrderBy(x => x).ToArray(), cancellationToken);
+
+        var items = pageItems.Select(x => new UserListItemContract(
+            x.User.Id,
+            x.User.Email ?? string.Empty,
+            x.User.UserName ?? string.Empty,
+            x.User.AccountLifecycleStatus.ToString(),
+            x.User.EmailConfirmed,
+            x.User.LockoutEnd,
+            x.User.LastLoginAtUtc,
+            x.User.LastActivityAtUtc,
+            x.User.TwoFactorEnabled,
+            x.User.ActivatedAtUtc,
+            x.User.BlockedAtUtc,
+            x.Profile is null ? string.Empty : $"{x.Profile.FirstName} {x.Profile.LastName}".Trim(),
+            x.Profile?.SchoolPlacement,
+            x.Profile?.SchoolContextSummary,
+            roleMap.TryGetValue(x.User.Id, out var roles) ? roles : Array.Empty<string>(),
+            schoolMap.TryGetValue(x.User.Id, out var schools) ? schools : Array.Empty<string>()))
+            .ToArray();
+
+        return Ok(new PagedResult<UserListItemContract>(items, normalizedPageNumber, normalizedPageSize, totalCount));
+    }
+
+    private IQueryable<SkolioIdentityUser> ApplySorting(IQueryable<SkolioIdentityUser> query, string? sortField, bool descending)
+    {
+        var normalized = sortField?.Trim().ToLowerInvariant() ?? "name";
+        return normalized switch
+        {
+            "email" => descending ? query.OrderByDescending(x => x.Email) : query.OrderBy(x => x.Email),
+            "createdat" => descending ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id),
+            "lastlogin" => descending ? query.OrderByDescending(x => x.LastLoginAtUtc) : query.OrderBy(x => x.LastLoginAtUtc),
+            "accountstatus" => descending ? query.OrderByDescending(x => x.AccountLifecycleStatus) : query.OrderBy(x => x.AccountLifecycleStatus),
+            "school" => descending
+                ? query.OrderByDescending(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => p.SchoolPlacement).FirstOrDefault())
+                : query.OrderBy(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => p.SchoolPlacement).FirstOrDefault()),
+            _ => descending
+                ? query.OrderByDescending(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => (p.PreferredDisplayName ?? (p.FirstName + " " + p.LastName))).FirstOrDefault())
+                : query.OrderBy(x => dbContext.UserProfiles.Where(p => p.Id.ToString() == x.Id).Select(p => (p.PreferredDisplayName ?? (p.FirstName + " " + p.LastName))).FirstOrDefault())
+        };
+    }
+
+    private async Task<IReadOnlyCollection<string>> ResolveActorScopedUserIds(CancellationToken cancellationToken)
+    {
+        var actorId = ActorId();
+        var actorProfileId = TryParseGuid(actorId);
+        if (actorProfileId is null) return Array.Empty<string>();
+
+        var actorSchoolIds = await dbContext.SchoolRoleAssignments
+            .Where(x => x.UserProfileId == actorProfileId.Value)
+            .Select(x => x.SchoolId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (actorSchoolIds.Count == 0) return Array.Empty<string>();
+
+        return await dbContext.SchoolRoleAssignments
+            .Where(x => actorSchoolIds.Contains(x.SchoolId))
+            .Select(x => x.UserProfileId.ToString())
+            .Distinct()
+            .ToListAsync(cancellationToken);
     }
 
     [HttpGet("users/{userId}")]
@@ -260,10 +457,14 @@ public sealed class IdentityUserManagementController(
     private static string Display(SkolioIdentityUser user) => string.IsNullOrWhiteSpace(user.UserName) ? user.Email ?? user.Id : user.UserName;
     private void Audit(string actionCode, string targetId, object payload) => logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={TargetId} payload={Payload}", actionCode, ActorId(), targetId, payload);
 
-    public sealed record UserListItemContract(string UserId, string Email, string AccountLifecycleStatus, bool EmailConfirmed, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc);
+    public sealed record UserListItemContract(string UserId, string Email, string UserName, string AccountLifecycleStatus, bool EmailConfirmed, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, bool MfaEnabled, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? BlockedAtUtc, string DisplayName, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
     public sealed record UserDetailContract(string UserId, string Email, string UserName, bool EmailConfirmed, string AccountLifecycleStatus, DateTimeOffset? LockoutEndUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, IReadOnlyCollection<string> Roles);
     public sealed record DeactivateRequest(string Reason);
     public sealed record BlockRequest(string? Reason);
     public sealed record UpdateRoleSetRequest(IReadOnlyCollection<string> Roles);
     public sealed record LifecycleSummaryContract(string Status, DateTimeOffset? ActivationRequestedAtUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc);
+    public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount)
+    {
+        public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    }
 }

@@ -113,6 +113,31 @@ export type MfaSetupStart = {
 };
 export type RecoveryCodeResult = { recoveryCodes: string[] };
 
+
+export type PagedResult<T> = {
+  items: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+export type AdminUserListQuery = {
+  name?: string;
+  emailOrUsername?: string;
+  role?: string;
+  accountStatus?: string;
+  activationStatus?: string;
+  blockStatus?: string;
+  mfaStatus?: string;
+  school?: string;
+  schoolType?: string;
+  inactivityState?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  pageNumber?: number;
+  pageSize?: 10 | 20 | 50 | 100;
+};
 export type IdentityManagedUser = {
   userId: string;
   email: string;
@@ -121,6 +146,15 @@ export type IdentityManagedUser = {
   lockoutEndUtc?: string | null;
   lastLoginAtUtc?: string | null;
   lastActivityAtUtc?: string | null;
+  userName: string;
+  mfaEnabled: boolean;
+  activatedAtUtc?: string | null;
+  blockedAtUtc?: string | null;
+  displayName: string;
+  school?: string | null;
+  schoolType?: string | null;
+  roles: string[];
+  schoolIds: string[];
 };
 
 export type IdentityManagedUserDetail = {
@@ -184,7 +218,24 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
 
     resendActivation: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/resend', { method: 'POST', body: JSON.stringify(payload) }),
     confirmActivation: (payload: { userId: string; token: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/confirm', { method: 'POST', body: JSON.stringify(payload) }),
-    adminUsers: (query?: string) => http<IdentityManagedUser[]>('identity', `/api/identity/user-management/users${query ? `?query=${encodeURIComponent(query)}` : ''}`),
+    adminUsers: (query?: AdminUserListQuery) => {
+      const params = new URLSearchParams();
+      if (query?.name) params.set('name', query.name);
+      if (query?.emailOrUsername) params.set('emailOrUsername', query.emailOrUsername);
+      if (query?.role) params.set('role', query.role);
+      if (query?.accountStatus) params.set('accountStatus', query.accountStatus);
+      if (query?.activationStatus) params.set('activationStatus', query.activationStatus);
+      if (query?.blockStatus) params.set('blockStatus', query.blockStatus);
+      if (query?.mfaStatus) params.set('mfaStatus', query.mfaStatus);
+      if (query?.school) params.set('school', query.school);
+      if (query?.schoolType) params.set('schoolType', query.schoolType);
+      if (query?.inactivityState) params.set('inactivityState', query.inactivityState);
+      if (query?.sortField) params.set('sortField', query.sortField);
+      if (query?.sortDirection) params.set('sortDirection', query.sortDirection);
+      if (query?.pageNumber) params.set('pageNumber', String(query.pageNumber));
+      if (query?.pageSize) params.set('pageSize', String(query.pageSize));
+      return http<PagedResult<IdentityManagedUser>>('identity', `/api/identity/user-management/users${params.size > 0 ? `?${params.toString()}` : ''}`);
+    },
     adminUserDetail: (userId: string) => http<IdentityManagedUserDetail>('identity', `/api/identity/user-management/users/${userId}`),
     adminActivate: (userId: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/activate`, { method: 'POST' }),
     adminDeactivate: (userId: string, reason: string) => http<void>('identity', `/api/identity/user-management/users/${userId}/deactivate`, { method: 'POST', body: JSON.stringify({ reason }) }),
