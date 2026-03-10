@@ -133,6 +133,7 @@ export type SchoolContextOption = {
 
 export type AdminUserListQuery = {
   schoolContextId?: string;
+  search?: string;
   name?: string;
   emailOrUsername?: string;
   role?: string;
@@ -293,6 +294,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     adminUsers: (query?: AdminUserListQuery) => {
       const params = new URLSearchParams();
       if (query?.schoolContextId) params.set('schoolContextId', query.schoolContextId);
+      if (query?.search) params.set('search', query.search);
       if (query?.name) params.set('name', query.name);
       if (query?.emailOrUsername) params.set('emailOrUsername', query.emailOrUsername);
       if (query?.role) params.set('role', query.role);
