@@ -30,7 +30,8 @@ public sealed class IdentityUserManagementController(
         var scopeValidation = await ValidateRequestedSchoolContext(schoolContextId, cancellationToken);
         if (scopeValidation is not null) return scopeValidation;
 
-        var users = await BuildScopedUsersQueryable(schoolContextId, cancellationToken).ToListAsync(cancellationToken);
+        var scopedUsersQueryable = await BuildScopedUsersQueryable(schoolContextId, cancellationToken);
+        var users = await scopedUsersQueryable.ToListAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         return Ok(new UserManagementSummaryContract(
@@ -267,23 +268,23 @@ public sealed class IdentityUserManagementController(
         {
             if (schoolContextId is null) return queryable;
 
-            var scopedUserIds = await ResolveScopedUserIdsForSchool(schoolContextId.Value, cancellationToken);
-            return scopedUserIds.Count == 0 ? queryable.Where(_ => false) : queryable.Where(x => scopedUserIds.Contains(x.Id));
+            var platformSchoolScopedUserIds = await ResolveScopedUserIdsForSchool(schoolContextId.Value, cancellationToken);
+            return platformSchoolScopedUserIds.Count == 0 ? queryable.Where(_ => false) : queryable.Where(x => platformSchoolScopedUserIds.Contains(x.Id));
         }
 
-        var scopedUserIds = await ResolveActorScopedUserIds(cancellationToken);
-        if (scopedUserIds.Count == 0)
+        var actorScopedUserIds = await ResolveActorScopedUserIds(cancellationToken);
+        if (actorScopedUserIds.Count == 0)
         {
             return queryable.Where(_ => false);
         }
 
         if (schoolContextId is null)
         {
-            return queryable.Where(x => scopedUserIds.Contains(x.Id));
+            return queryable.Where(x => actorScopedUserIds.Contains(x.Id));
         }
 
         var schoolScopedUserIds = await ResolveScopedUserIdsForSchool(schoolContextId.Value, cancellationToken);
-        return queryable.Where(x => scopedUserIds.Contains(x.Id) && schoolScopedUserIds.Contains(x.Id));
+        return queryable.Where(x => actorScopedUserIds.Contains(x.Id) && schoolScopedUserIds.Contains(x.Id));
     }
 
     private async Task<HashSet<string>> ResolveScopedUserIdsForSchool(Guid schoolContextId, CancellationToken cancellationToken)
