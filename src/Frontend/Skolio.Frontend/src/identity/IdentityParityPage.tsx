@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { AdminUserListQuery, IdentityManagedUser, PagedResult, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card, StatusBadge } from '../shared/ui/primitives';
@@ -70,6 +70,10 @@ export function IdentityParityPage({
   const [linkedStudents, setLinkedStudents] = useState<UserProfile[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [managedUsers, setManagedUsers] = useState<PagedResult<IdentityManagedUser> | null>(null);
+  const [managedUsersLoading, setManagedUsersLoading] = useState(false);
+  const [managedUsersError, setManagedUsersError] = useState('');
+  const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc' });
   const [schoolPositionOptions, setSchoolPositionOptions] = useState<SchoolPositionOption[]>([]);
   const [schoolPositionLoading, setSchoolPositionLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -149,6 +153,19 @@ export function IdentityParityPage({
     administrativeBoundarySummary: profile.administrativeBoundarySummary ?? ''
   });
 
+  const loadManagedUsers = (next?: Partial<AdminUserListQuery>) => {
+    const merged: AdminUserListQuery = { ...userListFilters, ...next };
+    setUserListFilters(merged);
+    setManagedUsersLoading(true);
+    setManagedUsersError('');
+
+    void api.adminUsers(merged)
+      .then(setManagedUsers)
+      .catch((e: Error) => setManagedUsersError(mapProfileError(e, t)))
+      .finally(() => setManagedUsersLoading(false));
+  };
+
+
   const load = () => {
     setLoading(true);
     setPageError('');
@@ -173,8 +190,11 @@ export function IdentityParityPage({
 
         if (result.isPlatformAdministrator || result.isSchoolAdministrator) {
           tasks.push(api.userProfiles().then(setUsers));
+          loadManagedUsers({ pageNumber: 1 });
         } else {
           setUsers([]);
+          setManagedUsers(null);
+          setManagedUsersError('');
           setSelectedUserId('');
           setAdminDraft(EMPTY_DRAFT);
           setAdminUserType('');
@@ -747,6 +767,78 @@ export function IdentityParityPage({
               ))}
             </ul>
           )}
+        </Card>
+      ) : null}
+
+      {canAdminProfiles ? (
+        <Card>
+          <p className="font-semibold text-sm">{t('userManagementListTitle')}</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
+            <Field label={t('userManagementFilterName')} value={userListFilters.name ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, name: value }))} />
+            <Field label={t('userManagementFilterEmailOrUsername')} value={userListFilters.emailOrUsername ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, emailOrUsername: value }))} />
+            <Field label={t('userManagementFilterRole')} value={userListFilters.role ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, role: value }))} />
+            <Field label={t('userManagementFilterSchool')} value={userListFilters.school ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, school: value }))} />
+            <Field label={t('userManagementFilterSchoolType')} value={userListFilters.schoolType ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, schoolType: value }))} />
+            <Field label={t('userManagementFilterAccountStatus')} value={userListFilters.accountStatus ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, accountStatus: value }))} />
+            <Field label={t('userManagementFilterActivationStatus')} value={userListFilters.activationStatus ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, activationStatus: value }))} />
+            <Field label={t('userManagementFilterBlockStatus')} value={userListFilters.blockStatus ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, blockStatus: value }))} />
+            <Field label={t('userManagementFilterMfaStatus')} value={userListFilters.mfaStatus ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, mfaStatus: value }))} />
+            <Field label={t('userManagementFilterInactivityState')} value={userListFilters.inactivityState ?? ''} onChange={(value) => setUserListFilters((v) => ({ ...v, inactivityState: value }))} />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className="sk-btn sk-btn-primary" type="button" onClick={() => loadManagedUsers({ pageNumber: 1 })}>{t('reload')}</button>
+            <select className="sk-input !w-auto" value={userListFilters.sortField ?? 'name'} onChange={(e) => loadManagedUsers({ sortField: e.target.value, pageNumber: 1 })}>
+              <option value="name">{t('userManagementSortName')}</option>
+              <option value="email">{t('userManagementSortEmail')}</option>
+              <option value="createdAt">{t('userManagementSortCreatedAt')}</option>
+              <option value="lastLogin">{t('userManagementSortLastLogin')}</option>
+              <option value="accountStatus">{t('userManagementSortAccountStatus')}</option>
+              <option value="school">{t('userManagementSortSchool')}</option>
+            </select>
+            <select className="sk-input !w-auto" value={userListFilters.sortDirection ?? 'asc'} onChange={(e) => loadManagedUsers({ sortDirection: e.target.value as 'asc' | 'desc', pageNumber: 1 })}>
+              <option value="asc">{t('userManagementSortAscending')}</option>
+              <option value="desc">{t('userManagementSortDescending')}</option>
+            </select>
+            <select className="sk-input !w-auto" value={userListFilters.pageSize ?? 20} onChange={(e) => loadManagedUsers({ pageSize: Number(e.target.value) as 10 | 20 | 50 | 100, pageNumber: 1 })}>
+              {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{t('userManagementPageSizeLabel')} {size}</option>)}
+            </select>
+          </div>
+          {managedUsersLoading ? <LoadingState text={t('loading')} /> : null}
+          {managedUsersError ? <ErrorState text={managedUsersError} /> : null}
+          {!managedUsersLoading && !managedUsersError && managedUsers ? (
+            managedUsers.items.length === 0 ? <EmptyState text={t('userManagementEmptyState')} /> : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th>{t('userManagementColName')}</th><th>{t('userManagementColEmail')}</th><th>{t('userManagementColStatus')}</th><th>{t('userManagementColSchool')}</th><th>{t('userManagementColLastLogin')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {managedUsers.items.map((user) => (
+                      <tr key={user.userId} className="border-b">
+                        <td>{user.displayName || user.userName}</td>
+                        <td>{user.email}</td>
+                        <td>{user.accountLifecycleStatus}</td>
+                        <td>{user.school ?? '-'}</td>
+                        <td>{user.lastLoginAtUtc ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : null}
+          {managedUsers ? (
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-slate-600">{t('userManagementPagingSummary')} {managedUsers.totalCount}</p>
+              <div className="flex gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber <= 1} onClick={() => loadManagedUsers({ pageNumber: Math.max(1, managedUsers.pageNumber - 1) })}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{managedUsers.pageNumber} / {managedUsers.totalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={managedUsers.pageNumber >= managedUsers.totalPages} onClick={() => loadManagedUsers({ pageNumber: managedUsers.pageNumber + 1 })}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
