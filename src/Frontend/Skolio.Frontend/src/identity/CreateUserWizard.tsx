@@ -31,7 +31,7 @@ type WizardDraft = {
   linkedStudentProfileId: string;
   parentStudentRelationship: string;
   // Step 5 – activation
-  activationPolicy: 'SendActivationEmail' | 'CreateActive';
+  activationPolicy: 'SendActivationEmail';
 };
 
 type SchoolOption = { id: string; name: string; schoolType: string };
@@ -898,22 +898,6 @@ function Step5Activation({
             </div>
           </label>
 
-          {isPlatformAdministrator ? (
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="activationPolicy"
-                value="CreateActive"
-                checked={draft.activationPolicy === 'CreateActive'}
-                onChange={() => set('activationPolicy', 'CreateActive')}
-                className="mt-0.5"
-              />
-              <div>
-                <p className="text-sm font-medium text-slate-800">{t('createUserWizardActivationPolicyCreateActive')}</p>
-                <p className="text-xs text-amber-600">{t('createUserWizardActivationPolicyCreateActiveWarning')}</p>
-              </div>
-            </label>
-          ) : null}
         </div>
         {fieldErrors.activationPolicy ? (
           <p className="mt-0.5 text-xs text-rose-600">{fieldErrors.activationPolicy}</p>

@@ -73,6 +73,13 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 0;
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
+    options.AddFixedWindowLimiter("identity-security-invite-code", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 6;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
     options.AddFixedWindowLimiter("identity-login-primary", limiterOptions =>
     {
         limiterOptions.PermitLimit = 10;

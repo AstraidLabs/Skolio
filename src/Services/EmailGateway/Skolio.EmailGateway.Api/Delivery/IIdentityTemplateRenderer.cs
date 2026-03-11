@@ -9,4 +9,5 @@ public interface IIdentityTemplateRenderer
     RenderedEmail RenderSecurityNotification(SecurityNotificationRequest request);
     RenderedEmail RenderMfaChanged(MfaChangedRequest request);
     RenderedEmail RenderAccountConfirmation(AccountConfirmationRequest request);
+    RenderedEmail RenderAccountInvite(AccountInviteRequest request);
 }

@@ -96,6 +96,13 @@ export type SelfProfileUpdatePayload = {
 
 export type AdminProfileUpdatePayload = SelfProfileUpdatePayload;
 export type SchoolPositionOption = { code: string; label: string };
+
+export type InviteContext = {
+  userId: string;
+  emailMasked: string;
+  inviteStatus: string;
+  expiresAtUtc?: string | null;
+};
 export type SecuritySummary = {
   userId: string;
   currentEmail: string;
@@ -247,7 +254,7 @@ export type CreateUserWizardPayload = {
   linkedStudentProfileId?: string | null;
   parentStudentRelationship?: string | null;
   // Step 5
-  activationPolicy: 'SendActivationEmail' | 'CreateActive';
+  activationPolicy: 'SendActivationEmail';
 };
 
 export type CreateUserWizardResult = {
@@ -332,6 +339,9 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
 
     resendActivation: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/resend', { method: 'POST', body: JSON.stringify(payload) }),
     confirmActivation: (payload: { userId: string; token: string }) => http<{ message: string }>('identity', '/api/identity/security/activation/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    inviteContext: (userId: string, token: string) => http<InviteContext>('identity', `/api/identity/security/invite/context?userId=${encodeURIComponent(userId)}&token=${encodeURIComponent(token)}`),
+    confirmInviteCode: (payload: { userId: string; token: string; activationCode: string }) => http<{ message: string }>('identity', '/api/identity/security/invite/confirm-code', { method: 'POST', body: JSON.stringify(payload) }),
+    completeInvite: (payload: { userId: string; token: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/invite/complete', { method: 'POST', body: JSON.stringify(payload) }),
     adminUserSchools: () => http<SchoolContextOption[]>('identity', '/api/identity/user-management/schools'),
     adminUsers: (query?: AdminUserListQuery) => {
       const params = new URLSearchParams();
