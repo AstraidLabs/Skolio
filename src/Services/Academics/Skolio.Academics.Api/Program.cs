@@ -57,7 +57,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
 var app = builder.Build();
 var logger = app.Logger;
-if (app.Environment.IsDevelopment()) { await app.ApplyAcademicsMigrationsAsync(); app.MapOpenApi(); }
+var enableLocalSeedMode = builder.Configuration.GetValue("Academics:Seed:EnableLocalMode", false);
+if (app.Environment.IsDevelopment() || enableLocalSeedMode) { await app.ApplyAcademicsMigrationsAsync(); }
+if (app.Environment.IsDevelopment()) { app.MapOpenApi(); }
 
 app.Use(async (context, next) =>
 {

@@ -6,6 +6,7 @@ using Skolio.Academics.Application.Abstractions;
 using Skolio.Academics.Infrastructure.Configuration;
 using Skolio.Academics.Infrastructure.Persistence;
 using Skolio.Academics.Infrastructure.Services;
+using Skolio.Academics.Infrastructure.Seeding;
 using StackExchange.Redis;
 
 namespace Skolio.Academics.Infrastructure;
@@ -31,6 +32,7 @@ public static class DependencyInjection
             ConnectTimeout = 5000
         }));
         services.AddStackExchangeRedisCache(options => { options.Configuration = redisOptions.ConnectionString; options.InstanceName = redisOptions.InstanceName; });
+        services.AddScoped<AcademicsReferenceSeeder>();
         return services;
     }
 }
