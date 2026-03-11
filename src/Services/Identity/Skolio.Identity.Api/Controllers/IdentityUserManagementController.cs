@@ -349,10 +349,75 @@ public sealed class IdentityUserManagementController(
             user.LastActivityAtUtc,
             profile?.FirstName ?? string.Empty,
             profile?.LastName ?? string.Empty,
+            profile?.PreferredDisplayName,
+            profile?.PreferredLanguage,
+            profile?.PhoneNumber,
+            profile?.ContactEmail,
             profile?.SchoolPlacement,
             profile?.SchoolContextSummary,
             roles.OrderBy(x => x).ToArray(),
             schoolIds));
+    }
+
+    [HttpPut("users/{userId}/basic-profile")]
+    public async Task<ActionResult<UserDetailContract>> UpdateBasicProfile([FromRoute] string userId, [FromBody] UpdateBasicProfileRequest request, [FromQuery] Guid? schoolContextId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+
+        var profileId = TryParseGuid(userId);
+        if (profileId is null) return this.ValidationForm("User profile context is invalid.");
+
+        var profile = await dbContext.UserProfiles.FirstOrDefaultAsync(x => x.Id == profileId.Value, cancellationToken);
+        if (profile is null) return this.ValidationForm("User profile does not exist.");
+
+        if (string.IsNullOrWhiteSpace(request.FirstName)) return this.ValidationField("firstName", "First name is required.");
+        if (string.IsNullOrWhiteSpace(request.LastName)) return this.ValidationField("lastName", "Last name is required.");
+
+        profile.Update(
+            request.FirstName,
+            request.LastName,
+            profile.UserType,
+            profile.Email,
+            request.PreferredDisplayName,
+            request.PreferredLanguage,
+            request.PhoneNumber,
+            profile.Gender,
+            profile.DateOfBirth,
+            profile.NationalIdNumber,
+            profile.BirthPlace,
+            profile.PermanentAddress,
+            profile.CorrespondenceAddress,
+            request.ContactEmail,
+            profile.LegalGuardian1,
+            profile.LegalGuardian2,
+            request.SchoolPlacement,
+            profile.HealthInsuranceProvider,
+            profile.Pediatrician,
+            profile.HealthSafetyNotes,
+            profile.SupportMeasuresSummary,
+            request.PositionTitle,
+            profile.TeacherRoleLabel,
+            profile.QualificationSummary,
+            request.SchoolContextSummary,
+            request.ParentRelationshipSummary,
+            profile.DeliveryContactName,
+            profile.DeliveryContactPhone,
+            profile.PreferredContactChannel,
+            profile.CommunicationPreferencesSummary,
+            profile.PublicContactNote,
+            profile.PreferredContactNote,
+            profile.AdministrativeWorkDesignation,
+            profile.AdministrativeOrganizationSummary,
+            profile.PlatformRoleContextSummary,
+            profile.ManagedPlatformAreasSummary,
+            profile.AdministrativeBoundarySummary);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        Audit("identity.user-management.basic-profile.updated", user.Id, new { action = "update-basic-profile" });
+
+        return await UserDetail(userId, schoolContextId, cancellationToken);
     }
 
 
@@ -442,6 +507,113 @@ public sealed class IdentityUserManagementController(
         var studentAssignments = await dbContext.SchoolRoleAssignments.CountAsync(x => x.UserProfileId == profileId.Value && x.RoleCode == "Student", cancellationToken);
 
         return Ok(new UserLinksSummaryContract(parentLinks, teacherAssignments, studentAssignments));
+    }
+
+    [HttpPut("users/{userId}/school-context")]
+    public async Task<IActionResult> UpdateSchoolContext([FromRoute] string userId, [FromBody] UpdateSchoolContextRequest request, [FromQuery] Guid? schoolContextId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+
+        var profileId = TryParseGuid(userId);
+        if (profileId is null) return this.ValidationForm("User profile context is invalid.");
+
+        var requestedSchoolIds = request.SchoolIds.Where(x => x != Guid.Empty).Distinct().ToArray();
+        if (requestedSchoolIds.Length == 0) return this.ValidationField("schoolIds", "At least one school assignment is required.");
+
+        if (User.IsInRole("SchoolAdministrator"))
+        {
+            var actorSchoolIds = await ResolveActorSchoolIds(cancellationToken);
+            if (requestedSchoolIds.Any(x => !actorSchoolIds.Contains(x))) return Forbid();
+        }
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        var schoolScopedRoles = currentRoles.Where(x => x is "SchoolAdministrator" or "Teacher" or "Parent" or "Student").Distinct(StringComparer.Ordinal).ToArray();
+        if (schoolScopedRoles.Length == 0) return this.ValidationForm("Current role set does not allow school scoped assignment.");
+
+        var existing = await dbContext.SchoolRoleAssignments.Where(x => x.UserProfileId == profileId.Value).ToListAsync(cancellationToken);
+        dbContext.SchoolRoleAssignments.RemoveRange(existing);
+        foreach (var nextSchoolId in requestedSchoolIds)
+        {
+            foreach (var roleCode in schoolScopedRoles)
+            {
+                dbContext.SchoolRoleAssignments.Add(SchoolRoleAssignment.Create(Guid.NewGuid(), profileId.Value, nextSchoolId, roleCode));
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        Audit("identity.user-management.school-context.updated", user.Id, new { action = "update-school-context", requestedSchoolIds });
+        return Ok();
+    }
+
+    [HttpPut("users/{userId}/links/parent-students")]
+    public async Task<IActionResult> UpdateParentStudentLinks([FromRoute] string userId, [FromBody] UpdateParentLinksRequest request, [FromQuery] Guid? schoolContextId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+
+        var profileId = TryParseGuid(userId);
+        if (profileId is null) return this.ValidationForm("User profile context is invalid.");
+
+        var roles = await userManager.GetRolesAsync(user);
+        if (!roles.Contains("Parent", StringComparer.Ordinal)) return this.ValidationForm("Parent links can be edited only for users with Parent role.");
+
+        var requestedLinks = request.Links
+            .Where(x => x.StudentUserProfileId != Guid.Empty && !string.IsNullOrWhiteSpace(x.Relationship))
+            .GroupBy(x => x.StudentUserProfileId)
+            .Select(x => x.First())
+            .ToArray();
+
+        if (requestedLinks.Length == 0) return this.ValidationField("links", "At least one parent-student link is required.");
+
+        var studentIds = requestedLinks.Select(x => x.StudentUserProfileId).Distinct().ToArray();
+        var validStudentIds = await dbContext.UserProfiles
+            .Where(x => studentIds.Contains(x.Id) && x.UserType == UserType.Student)
+            .Select(x => x.Id)
+            .ToArrayAsync(cancellationToken);
+        if (validStudentIds.Length != studentIds.Length) return this.ValidationField("links", "All linked profiles must be student profiles.");
+
+        var existing = await dbContext.ParentStudentLinks.Where(x => x.ParentUserProfileId == profileId.Value).ToListAsync(cancellationToken);
+        dbContext.ParentStudentLinks.RemoveRange(existing);
+        foreach (var link in requestedLinks)
+        {
+            dbContext.ParentStudentLinks.Add(ParentStudentLink.Create(Guid.NewGuid(), profileId.Value, link.StudentUserProfileId, link.Relationship));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        Audit("identity.user-management.links.parent-student.updated", user.Id, new { action = "update-parent-student-links", links = requestedLinks.Select(x => x.StudentUserProfileId) });
+        return Ok();
+    }
+
+    [HttpPost("users/{userId}/security/unlock-lockout")]
+    public async Task<IActionResult> UnlockSecurityLockout([FromRoute] string userId, [FromQuery] Guid? schoolContextId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+
+        var result = await userManager.SetLockoutEndDateAsync(user, null);
+        if (!result.Succeeded) return BadRequest(result.Errors.Select(x => x.Description));
+
+        Audit("identity.user-management.security.lockout-cleared", user.Id, new { action = "clear-lockout" });
+        return Ok();
+    }
+
+    [HttpPost("users/{userId}/security/disable-mfa")]
+    public async Task<IActionResult> DisableMfaForUser([FromRoute] string userId, [FromQuery] Guid? schoolContextId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return NotFound();
+        if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+
+        var disableResult = await userManager.SetTwoFactorEnabledAsync(user, false);
+        if (!disableResult.Succeeded) return BadRequest(disableResult.Errors.Select(x => x.Description));
+
+        await userManager.ResetAuthenticatorKeyAsync(user);
+        Audit("identity.user-management.security.mfa-disabled", user.Id, new { action = "disable-mfa" });
+        return Ok();
     }
 
     [HttpPost("users/{userId}/resend-activation")]
@@ -825,11 +997,15 @@ public sealed class IdentityUserManagementController(
     private void Audit(string actionCode, string targetId, object payload) => logger.LogInformation("AUDIT {ActionCode} actor={Actor} target={TargetId} payload={Payload}", actionCode, ActorId(), targetId, payload);
 
     public sealed record UserListItemContract(string UserId, string Email, string UserName, string AccountLifecycleStatus, bool EmailConfirmed, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, bool MfaEnabled, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? BlockedAtUtc, string DisplayName, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
-    public sealed record UserDetailContract(string UserId, string Email, string UserName, bool EmailConfirmed, string AccountLifecycleStatus, DateTimeOffset? LockoutEndUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string FirstName, string LastName, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
+    public sealed record UserDetailContract(string UserId, string Email, string UserName, bool EmailConfirmed, string AccountLifecycleStatus, DateTimeOffset? LockoutEndUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string FirstName, string LastName, string? PreferredDisplayName, string? PreferredLanguage, string? PhoneNumber, string? ContactEmail, string? School, string? SchoolType, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> SchoolIds);
     public sealed record DeactivateRequest(string Reason);
     public sealed record BlockRequest(string? Reason);
     public sealed record UpdateRoleSetRequest(IReadOnlyCollection<string> Roles);
     public sealed record RoleMutationRequest(string Role);
+    public sealed record UpdateBasicProfileRequest(string FirstName, string LastName, string? PreferredDisplayName, string? PreferredLanguage, string? PhoneNumber, string? ContactEmail, string? SchoolPlacement, string? SchoolContextSummary, string? PositionTitle, string? ParentRelationshipSummary);
+    public sealed record UpdateSchoolContextRequest(IReadOnlyCollection<Guid> SchoolIds);
+    public sealed record ParentLinkMutationRequest(Guid StudentUserProfileId, string Relationship);
+    public sealed record UpdateParentLinksRequest(IReadOnlyCollection<ParentLinkMutationRequest> Links);
     public sealed record LifecycleSummaryContract(string Status, DateTimeOffset? ActivationRequestedAtUtc, DateTimeOffset? ActivatedAtUtc, DateTimeOffset? DeactivatedAtUtc, string? DeactivationReason, DateTimeOffset? BlockedAtUtc, string? BlockedReason, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc);
     public sealed record UserRolesDetailContract(IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> AvailableRoles, bool CanManagePlatformAdministratorRole);
     public sealed record UserSecurityDetailContract(bool EmailConfirmed, bool MfaEnabled, DateTimeOffset? LockoutEndUtc, DateTimeOffset? LastLoginAtUtc, DateTimeOffset? LastActivityAtUtc, string RecoveryCodesSummary);
