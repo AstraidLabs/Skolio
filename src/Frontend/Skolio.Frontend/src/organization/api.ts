@@ -7,7 +7,10 @@ export type SchoolOperator = {
   legalEntityName: string;
   legalForm: string;
   companyNumberIco?: string;
+  redIzo?: string;
   registeredOfficeAddress: Address;
+  operatorEmail?: string;
+  dataBox?: string;
   resortIdentifier?: string;
   directorSummary?: string;
   statutoryBodySummary?: string;
@@ -22,6 +25,7 @@ export type Founder = {
   founderIco?: string;
   founderAddress: Address;
   founderEmail?: string;
+  founderDataBox?: string;
 };
 
 export type School = {
@@ -67,7 +71,10 @@ export type SchoolMutation = {
     legalEntityName: string;
     legalForm: string;
     companyNumberIco?: string;
+    redIzo?: string;
     registeredOfficeAddress: Address;
+    operatorEmail?: string;
+    dataBox?: string;
     resortIdentifier?: string;
     directorSummary?: string;
     statutoryBodySummary?: string;
@@ -80,6 +87,7 @@ export type SchoolMutation = {
     founderIco?: string;
     founderAddress: Address;
     founderEmail?: string;
+    founderDataBox?: string;
   };
 };
 
