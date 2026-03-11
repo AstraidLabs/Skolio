@@ -41,6 +41,10 @@ public sealed class IdentitySecurityEmailController(
     public Task<ActionResult<EmailDeliveryResponse>> DeliverAccountConfirmation([FromBody] AccountConfirmationRequest request, CancellationToken cancellationToken)
         => DeliverAsync(IdentityEmailTemplateType.AccountConfirmation, request.RecipientEmail, request.RecipientDisplayName, _templateRenderer.RenderAccountConfirmation(request), cancellationToken);
 
+    [HttpPost("account-invite")]
+    public Task<ActionResult<EmailDeliveryResponse>> DeliverAccountInvite([FromBody] AccountInviteRequest request, CancellationToken cancellationToken)
+        => DeliverAsync(IdentityEmailTemplateType.AccountInvite, request.RecipientEmail, request.RecipientDisplayName, _templateRenderer.RenderAccountInvite(request), cancellationToken);
+
     private async Task<ActionResult<EmailDeliveryResponse>> DeliverAsync(
         IdentityEmailTemplateType templateType,
         string recipientEmail,

@@ -61,6 +61,16 @@ public sealed class EmailGatewayIdentityEmailSender(
             delivery.ConfirmationUrl
         }, cancellationToken);
 
+
+    public Task SendAccountInviteAsync(AccountInviteDelivery delivery, CancellationToken cancellationToken) =>
+        SendAsync("internal/email-gateway/account-invite", new
+        {
+            delivery.RecipientEmail,
+            delivery.RecipientDisplayName,
+            delivery.InviteUrl,
+            delivery.ActivationCode,
+            delivery.ExpiresAtUtc
+        }, cancellationToken);
     private async Task SendAsync(string relativeUrl, object payload, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, relativeUrl)

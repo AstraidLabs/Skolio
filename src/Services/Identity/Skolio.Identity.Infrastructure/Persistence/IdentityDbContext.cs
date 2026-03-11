@@ -18,6 +18,12 @@ public sealed class IdentityDbContext : IdentityDbContext<SkolioIdentityUser, Sk
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.UseOpenIddict();
+
+        modelBuilder.Entity<SkolioIdentityUser>(builder =>
+        {
+            builder.Property(x => x.InviteTokenHash).HasMaxLength(128);
+            builder.Property(x => x.InviteCodeHash).HasMaxLength(128);
+        });
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
     }
 }

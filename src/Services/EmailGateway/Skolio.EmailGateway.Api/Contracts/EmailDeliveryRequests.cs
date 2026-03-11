@@ -41,3 +41,10 @@ public sealed record AccountConfirmationRequest(
     [property: Required, Url] string ConfirmationUrl);
 
 public sealed record EmailDeliveryResponse(bool Accepted, string TemplateType, string CorrelationId);
+
+public sealed record AccountInviteRequest(
+    [property: Required, EmailAddress] string RecipientEmail,
+    [property: Required, MinLength(1)] string RecipientDisplayName,
+    [property: Required, Url] string InviteUrl,
+    [property: Required, MinLength(6)] string ActivationCode,
+    [property: Required, MinLength(1)] string ExpiresAtUtc);

@@ -6,5 +6,6 @@ public enum IdentityEmailTemplateType
     ChangeEmailVerification,
     SecurityNotification,
     MfaChanged,
-    AccountConfirmation
+    AccountConfirmation,
+    AccountInvite
 }

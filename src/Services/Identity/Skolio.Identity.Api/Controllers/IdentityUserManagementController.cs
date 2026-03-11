@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -449,16 +450,12 @@ public sealed class IdentityUserManagementController(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return NotFound();
         if (!await CanManageUser(userId, schoolContextId, cancellationToken)) return Forbid();
+        if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Active) return this.ValidationForm("Invite cannot be resent for an active account.");
+        if (user.InviteSentAtUtc is not null && user.InviteSentAtUtc > DateTimeOffset.UtcNow.AddMinutes(-1)) return this.ValidationForm("Invite resend is temporarily limited.");
 
-        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-        var encoded = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
-        var link = $"http://localhost:8080/security/confirm-activation?userId={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encoded)}";
-        await identityEmailSender.SendAccountConfirmationAsync(new AccountConfirmationDelivery(user.Email ?? string.Empty, Display(user), link), cancellationToken);
-
-        user.ActivationRequestedAtUtc = DateTimeOffset.UtcNow;
-        await userManager.UpdateAsync(user);
-        Audit("identity.user-management.activation.resent", user.Id, new { action = "resend-activation" });
-        return Ok(new { message = "Activation email re-sent." });
+        await DispatchInviteEmail(user, cancellationToken);
+        Audit("identity.user-management.invite.resent", user.Id, new { action = "resend-activation" });
+        return Ok(new { message = "Activation invite re-sent." });
     }
 
     [HttpPost("users/{userId}/activate")]
@@ -783,6 +780,43 @@ public sealed class IdentityUserManagementController(
         return null;
     }
 
+
+    private async Task DispatchInviteEmail(SkolioIdentityUser user, CancellationToken cancellationToken)
+    {
+        var inviteToken = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        var inviteTokenEncoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(inviteToken));
+        var activationCode = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddHours(24);
+
+        user.ActivationRequestedAtUtc = now;
+        user.InviteSentAtUtc = now;
+        user.InviteExpiresAtUtc = expiresAt;
+        user.InviteConfirmedAtUtc = null;
+        user.InviteTokenHash = HashSecret(inviteTokenEncoded);
+        user.InviteCodeHash = HashSecret(activationCode);
+        user.InviteStatus = IdentityInviteStatus.InviteSent;
+        user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.PendingActivation;
+
+        await userManager.UpdateAsync(user);
+
+        var origin = Request.Headers.Origin.FirstOrDefault();
+        var baseUrl = string.IsNullOrWhiteSpace(origin) ? "http://localhost:8080" : origin.TrimEnd('/');
+        var inviteLink = $"{baseUrl}/security/invite-activation?userId={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(inviteTokenEncoded)}";
+
+        await identityEmailSender.SendAccountInviteAsync(new AccountInviteDelivery(
+            user.Email ?? string.Empty,
+            Display(user),
+            inviteLink,
+            activationCode,
+            expiresAt.ToString("O")), cancellationToken);
+    }
+
+    private static string HashSecret(string value)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(bytes);
+    }
     private static Guid? TryParseGuid(string value) => Guid.TryParse(value, out var parsed) ? parsed : null;
     private static string BuildSearchPattern(string term)
         => $"%{term.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal)}%";
@@ -958,13 +992,8 @@ public sealed class IdentityUserManagementController(
             ? "SendActivationEmail"
             : request.ActivationPolicy.Trim();
 
-        if (!string.Equals(activationPolicy, "SendActivationEmail", StringComparison.Ordinal)
-            && !string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal))
-            return this.ValidationField("activationPolicy", "Invalid activation policy.");
-
-        if (string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal)
-            && !User.IsInRole("PlatformAdministrator"))
-            return Forbid();
+        if (!string.Equals(activationPolicy, "SendActivationEmail", StringComparison.Ordinal))
+            return this.ValidationField("activationPolicy", "Only SendActivationEmail policy is allowed for admin onboarding.");
 
         // ── Parent role: linked student required ───────────────────────────
         if (string.Equals(request.Role, "Parent", StringComparison.Ordinal))
@@ -1104,55 +1133,10 @@ public sealed class IdentityUserManagementController(
             new { action = "create-wizard.role-assigned", role = request.Role });
 
         // ── Activation ────────────────────────────────────────────────────
-        bool activationEmailSent = false;
-
-        if (string.Equals(activationPolicy, "SendActivationEmail", StringComparison.Ordinal))
-        {
-            var token = await userManager.GenerateEmailConfirmationTokenAsync(newUser);
-            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var origin = Request.Headers.Origin.FirstOrDefault();
-            var baseUrl = string.IsNullOrWhiteSpace(origin) ? "http://localhost:8080" : origin.TrimEnd('/');
-            var activationUrl = $"{baseUrl}/security/confirm-activation?userId={Uri.EscapeDataString(newUser.Id)}&token={Uri.EscapeDataString(encodedToken)}";
-
-            newUser.ActivationRequestedAtUtc = DateTimeOffset.UtcNow;
-            await userManager.UpdateAsync(newUser);
-
-            await identityEmailSender.SendAccountConfirmationAsync(
-                new AccountConfirmationDelivery(
-                    newUser.Email ?? request.Email.Trim(),
-                    $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim(),
-                    activationUrl),
-                cancellationToken);
-
-            activationEmailSent = true;
-            Audit("identity.user-management.create-wizard.activation-email-sent", newUser.Id,
-                new { action = "create-wizard.activation-email-sent" });
-        }
-        else if (string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal))
-        {
-            newUser.EmailConfirmed = true;
-            newUser.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
-            newUser.ActivatedAtUtc = DateTimeOffset.UtcNow;
-            await userManager.UpdateAsync(newUser);
-
-            var passwordToken = await userManager.GeneratePasswordResetTokenAsync(newUser);
-            var encodedPasswordToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(passwordToken));
-            var origin = Request.Headers.Origin.FirstOrDefault();
-            var baseUrl = string.IsNullOrWhiteSpace(origin) ? "http://localhost:8080" : origin.TrimEnd('/');
-            var passwordSetupUrl = $"{baseUrl}/security/reset-password?userId={Uri.EscapeDataString(newUser.Id)}&token={Uri.EscapeDataString(encodedPasswordToken)}";
-
-            await identityEmailSender.SendPasswordResetAsync(
-                new PasswordResetEmailDelivery(
-                    newUser.Email ?? request.Email.Trim(),
-                    $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim(),
-                    passwordSetupUrl,
-                    "token"),
-                cancellationToken);
-
-            activationEmailSent = true;
-            Audit("identity.user-management.create-wizard.created-active", newUser.Id,
-                new { action = "create-wizard.created-active" });
-        }
+        await DispatchInviteEmail(newUser, cancellationToken);
+        var activationEmailSent = true;
+        Audit("identity.user-management.create-wizard.activation-email-sent", newUser.Id,
+            new { action = "create-wizard.activation-email-sent" });
 
         // ── Final audit ───────────────────────────────────────────────────
         Audit("identity.user-management.create-wizard.completed", newUser.Id,

@@ -6,8 +6,15 @@ namespace Skolio.Identity.Infrastructure.Auth;
 public sealed class SkolioIdentityUser : IdentityUser
 {
     public IdentityAccountLifecycleStatus AccountLifecycleStatus { get; set; } = IdentityAccountLifecycleStatus.PendingActivation;
+    public IdentityInviteStatus InviteStatus { get; set; } = IdentityInviteStatus.PendingActivation;
     public DateTimeOffset? ActivationRequestedAtUtc { get; set; }
     public DateTimeOffset? ActivatedAtUtc { get; set; }
+    public DateTimeOffset? InviteSentAtUtc { get; set; }
+    public DateTimeOffset? InviteExpiresAtUtc { get; set; }
+    public DateTimeOffset? InviteConfirmedAtUtc { get; set; }
+    public DateTimeOffset? OnboardingCompletedAtUtc { get; set; }
+    public string? InviteTokenHash { get; set; }
+    public string? InviteCodeHash { get; set; }
     public DateTimeOffset? DeactivatedAtUtc { get; set; }
     public string? DeactivationReason { get; set; }
     public string? DeactivatedByUserId { get; set; }

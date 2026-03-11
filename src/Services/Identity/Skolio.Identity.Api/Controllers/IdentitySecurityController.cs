@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -106,6 +107,75 @@ public sealed class IdentitySecurityController(
         await identityEmailSender.SendSecurityNotificationAsync(new SecurityNotificationDelivery(user.Email ?? string.Empty, BuildDisplayName(user), "Account activated", "Your Skolio account activation is complete."), cancellationToken);
         Audit("identity.security.activation.confirmed", user.Id, new { action = "activation-confirm" });
         return Ok(new { message = "Account activated." });
+    }
+
+    [HttpGet("invite/context")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InviteContextContract>> InviteContext([FromQuery] string userId, [FromQuery] string token, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return this.ValidationForm("Invite is invalid or expired.");
+        if (!IsInviteTokenValid(user, token)) return this.ValidationForm("Invite is invalid or expired.");
+        if (user.InviteExpiresAtUtc is null || user.InviteExpiresAtUtc <= DateTimeOffset.UtcNow)
+        {
+            user.InviteStatus = Skolio.Identity.Domain.Enums.IdentityInviteStatus.InviteExpired;
+            await userManager.UpdateAsync(user);
+            return this.ValidationForm("Invite is invalid or expired.");
+        }
+
+        return Ok(new InviteContextContract(user.Id, MaskEmail(user.Email ?? string.Empty), user.InviteStatus.ToString(), user.InviteExpiresAtUtc));
+    }
+
+    [HttpPost("invite/confirm-code")]
+    [AllowAnonymous]
+    [EnableRateLimiting("identity-security-invite-code")]
+    public async Task<IActionResult> ConfirmInviteCode([FromBody] ConfirmInviteCodeRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId);
+        if (user is null) return this.ValidationForm("Invite is invalid or expired.");
+        if (!IsInviteTokenValid(user, request.Token)) return this.ValidationForm("Invite is invalid or expired.");
+        if (user.InviteExpiresAtUtc is null || user.InviteExpiresAtUtc <= DateTimeOffset.UtcNow) return this.ValidationForm("Invite is invalid or expired.");
+        if (!VerifyHash(request.ActivationCode.Trim(), user.InviteCodeHash)) return this.ValidationField("activationCode", "Activation code is invalid.");
+
+        user.InviteStatus = Skolio.Identity.Domain.Enums.IdentityInviteStatus.InviteConfirmed;
+        user.InviteConfirmedAtUtc = DateTimeOffset.UtcNow;
+        user.InviteCodeHash = null;
+        await userManager.UpdateAsync(user);
+        Audit("identity.security.invite.confirmed", user.Id, new { action = "invite-code-confirm" });
+        return Ok(new { message = "Invite code confirmed." });
+    }
+
+    [HttpPost("invite/complete")]
+    [AllowAnonymous]
+    [EnableRateLimiting("identity-security-reset-password")]
+    public async Task<IActionResult> CompleteInvite([FromBody] CompleteInviteRequest request, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal)) return this.ValidationField("confirmNewPassword", "Password confirmation does not match.");
+
+        var user = await userManager.FindByIdAsync(request.UserId);
+        if (user is null) return this.ValidationForm("Invite onboarding cannot be completed.");
+        if (!IsInviteTokenValid(user, request.Token)) return this.ValidationForm("Invite onboarding cannot be completed.");
+        if (user.InviteStatus != Skolio.Identity.Domain.Enums.IdentityInviteStatus.InviteConfirmed) return this.ValidationForm("Invite code confirmation is required.");
+        if (user.InviteExpiresAtUtc is null || user.InviteExpiresAtUtc <= DateTimeOffset.UtcNow) return this.ValidationForm("Invite onboarding cannot be completed.");
+
+        var confirmToken = DecodeToken(request.Token);
+        var confirmResult = await userManager.ConfirmEmailAsync(user, confirmToken);
+        if (!confirmResult.Succeeded && !user.EmailConfirmed) return BadRequest(ToValidationProblem(confirmResult));
+
+        var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+        var resetResult = await userManager.ResetPasswordAsync(user, resetToken, request.NewPassword);
+        if (!resetResult.Succeeded) return BadRequest(ToValidationProblem(resetResult));
+
+        user.AccountLifecycleStatus = Skolio.Identity.Domain.Enums.IdentityAccountLifecycleStatus.Active;
+        user.InviteStatus = Skolio.Identity.Domain.Enums.IdentityInviteStatus.Active;
+        user.ActivatedAtUtc = DateTimeOffset.UtcNow;
+        user.OnboardingCompletedAtUtc = DateTimeOffset.UtcNow;
+        user.InviteExpiresAtUtc = null;
+        user.InviteTokenHash = null;
+        await userManager.UpdateAsync(user);
+
+        Audit("identity.security.invite.completed", user.Id, new { action = "invite-complete" });
+        return Ok(new { message = "Account activation is complete." });
     }
 
     [HttpPost("forgot-password")]
@@ -344,6 +414,21 @@ public sealed class IdentitySecurityController(
         return await userManager.FindByIdAsync(actor);
     }
 
+
+    private static bool VerifyHash(string plain, string? expectedHash)
+    {
+        if (string.IsNullOrWhiteSpace(expectedHash)) return false;
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(plain));
+        var hashed = Convert.ToHexString(bytes);
+        return string.Equals(hashed, expectedHash, StringComparison.Ordinal);
+    }
+
+    private static bool IsInviteTokenValid(SkolioIdentityUser user, string encodedToken)
+    {
+        if (string.IsNullOrWhiteSpace(encodedToken) || string.IsNullOrWhiteSpace(user.InviteTokenHash)) return false;
+        return VerifyHash(encodedToken, user.InviteTokenHash);
+    }
+
     private string BuildFrontendUrl(string pathAndQuery)
     {
         var origin = Request.Headers.Origin.FirstOrDefault();
@@ -439,11 +524,14 @@ public sealed class IdentitySecurityController(
     }
 
     public sealed record SecuritySummaryContract(string UserId, string CurrentEmail, bool EmailConfirmed, bool MfaEnabled, bool HasAuthenticatorKey, int RecoveryCodesLeft);
+    public sealed record InviteContextContract(string UserId, string EmailMasked, string InviteStatus, DateTimeOffset? ExpiresAtUtc);
     public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmNewPassword);
     public sealed record ForgotPasswordRequest(string Email);
     public sealed record ResetPasswordRequest(string UserId, string Token, string NewPassword, string ConfirmNewPassword);
     public sealed record ResendActivationRequest(string Email);
     public sealed record ConfirmActivationRequest(string UserId, string Token);
+    public sealed record ConfirmInviteCodeRequest(string UserId, string Token, string ActivationCode);
+    public sealed record CompleteInviteRequest(string UserId, string Token, string NewPassword, string ConfirmNewPassword);
     public sealed record RequestEmailChangeRequest(string CurrentPassword, string NewEmail);
     public sealed record ConfirmEmailChangeRequest(string UserId, string NewEmail, string Token);
     public sealed record MfaStatusContract(bool Enabled, bool HasAuthenticatorKey, int RecoveryCodesLeft);

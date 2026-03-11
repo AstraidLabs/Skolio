@@ -708,6 +708,83 @@ export function ConfirmEmailChangePage({
 }
 
 
+
+export function InviteActivationPage({
+  api,
+  userId,
+  token
+}: {
+  api: ReturnType<typeof createIdentityApi>;
+  userId: string;
+  token: string;
+}) {
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<'code' | 'password' | 'done'>('code');
+  const [error, setError] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    void api.inviteContext(userId, token)
+      .then(() => setStep('code'))
+      .catch(() => setError(t('securityInviteExpired')))
+      .finally(() => setLoading(false));
+  }, [api, token, userId, t]);
+
+  const confirmCode = () => {
+    setError('');
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError(t('securityInviteCodeFormatError'));
+      return;
+    }
+
+    void api.confirmInviteCode({ userId, token, activationCode: code.trim() })
+      .then(() => setStep('password'))
+      .catch((e: unknown) => setError(mapValidationMessage(e, t)));
+  };
+
+  const complete = () => {
+    setError('');
+    if (!password.trim() || !confirmPassword.trim()) {
+      setError(t('profileFieldRequired'));
+      return;
+    }
+
+    void api.completeInvite({ userId, token, newPassword: password, confirmNewPassword: confirmPassword })
+      .then(() => setStep('done'))
+      .catch((e: unknown) => setError(mapValidationMessage(e, t)));
+  };
+
+  if (loading) return <section className="mx-auto max-w-lg p-4"><LoadingState text={t('securityInviteLoading')} /></section>;
+  if (error && step === 'code' && error === t('securityInviteExpired')) return <section className="mx-auto max-w-lg p-4"><ErrorState text={error} /></section>;
+  if (step === 'done') return <section className="mx-auto max-w-lg p-4"><Card className="border-emerald-200 bg-emerald-50 text-emerald-900"><p className="text-sm font-medium">{t('securityInviteCompleted')}</p></Card></section>;
+
+  return (
+    <section className="mx-auto max-w-lg space-y-3 p-4">
+      {error ? <ErrorState text={error} /> : null}
+      {step === 'code' ? (
+        <Card>
+          <h2 className="text-base font-semibold">{t('securityInviteCodeTitle')}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t('securityInviteCodeDescription')}</p>
+          <input className="sk-input mt-3" value={code} onChange={(event) => setCode(event.target.value)} maxLength={6} />
+          <button type="button" className="sk-btn sk-btn-primary mt-3" onClick={confirmCode}>{t('securityInviteCodeConfirm')}</button>
+        </Card>
+      ) : (
+        <Card>
+          <h2 className="text-base font-semibold">{t('securityInvitePasswordTitle')}</h2>
+          <input type="password" className="sk-input mt-3" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('securityNewPassword')} />
+          <input type="password" className="sk-input mt-2" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder={t('securityConfirmPassword')} />
+          <button type="button" className="sk-btn sk-btn-primary mt-3" onClick={complete}>{t('securityInviteComplete')}</button>
+        </Card>
+      )}
+    </section>
+  );
+}
+
 export function ConfirmActivationPage({
   api,
   userId,
