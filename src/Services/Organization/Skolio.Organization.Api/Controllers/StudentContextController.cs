@@ -103,11 +103,14 @@ public sealed class StudentContextController(OrganizationDbContext dbContext) : 
                     school.SchoolOperator.LegalEntityName,
                     school.SchoolOperator.LegalForm,
                     school.SchoolOperator.CompanyNumberIco,
+                    school.SchoolOperator.RedIzo,
                     new AddressContract(
                         school.SchoolOperator.RegisteredOfficeAddress.Street,
                         school.SchoolOperator.RegisteredOfficeAddress.City,
                         school.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                         school.SchoolOperator.RegisteredOfficeAddress.Country),
+                    school.SchoolOperator.OperatorEmail,
+                    school.SchoolOperator.DataBox,
                     school.SchoolOperator.ResortIdentifier,
                     school.SchoolOperator.DirectorSummary,
                     school.SchoolOperator.StatutoryBodySummary),
@@ -125,7 +128,8 @@ public sealed class StudentContextController(OrganizationDbContext dbContext) : 
                         school.Founder.FounderAddress.City,
                         school.Founder.FounderAddress.PostalCode,
                         school.Founder.FounderAddress.Country),
-                    school.Founder.FounderEmail));
+                    school.Founder.FounderEmail,
+                    school.Founder.FounderDataBox));
 
         return Ok(new StudentContextContract(
             schoolContract,

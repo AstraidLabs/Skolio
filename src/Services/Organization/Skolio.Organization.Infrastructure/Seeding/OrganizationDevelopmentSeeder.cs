@@ -13,8 +13,18 @@ public sealed class OrganizationDevelopmentSeeder(
     IConfiguration configuration,
     ILogger<OrganizationDevelopmentSeeder> logger)
 {
+    private static Guid ParseSeedGuid(string value)
+    {
+        if (Guid.TryParse(value, out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException($"Organization seed contains invalid GUID literal '{value}'.");
+    }
+
     private static readonly SchoolOperatorDefinition KindergartenOperator = new(
-        Guid.Parse("41111111-1111-1111-1111-111111111111"),
+        ParseSeedGuid("41111111-1111-1111-1111-111111111111"),
         "Skolio Kindergarten Operations s.r.o.",
         LegalForm.LimitedLiabilityCompany,
         "12345670",
@@ -27,7 +37,7 @@ public sealed class OrganizationDevelopmentSeeder(
         "Jednatel");
 
     private static readonly SchoolOperatorDefinition ElementaryOperator = new(
-        Guid.Parse("42222222-2222-2222-2222-222222222222"),
+        ParseSeedGuid("42222222-2222-2222-2222-222222222222"),
         "Skolio Elementary Operations a.s.",
         LegalForm.JointStockCompany,
         "22345671",
@@ -40,7 +50,7 @@ public sealed class OrganizationDevelopmentSeeder(
         "Predstavenstvo");
 
     private static readonly SchoolOperatorDefinition SecondaryOperator = new(
-        Guid.Parse("43333333-3333-3333-3333-333333333333"),
+        ParseSeedGuid("43333333-3333-3333-3333-333333333333"),
         "Skolio Secondary Operations z.u.",
         LegalForm.NonProfitOrganization,
         "32345672",
@@ -53,7 +63,7 @@ public sealed class OrganizationDevelopmentSeeder(
         "Spravni rada");
 
     private static readonly FounderDefinition KindergartenFounder = new(
-        Guid.Parse("51111111-1111-1111-1111-111111111111"),
+        ParseSeedGuid("51111111-1111-1111-1111-111111111111"),
         FounderType.Municipality,
         FounderCategory.Public,
         "Mesto Brno",
@@ -64,7 +74,7 @@ public sealed class OrganizationDevelopmentSeeder(
         null);
 
     private static readonly FounderDefinition ElementaryFounder = new(
-        Guid.Parse("52222222-2222-2222-2222-222222222222"),
+        ParseSeedGuid("52222222-2222-2222-2222-222222222222"),
         FounderType.Region,
         FounderCategory.Public,
         "Hlavni mesto Praha",
@@ -75,8 +85,8 @@ public sealed class OrganizationDevelopmentSeeder(
         null);
 
     private static readonly FounderDefinition SecondaryFounder = new(
-        Guid.Parse("53333333-3333-3333-3333-333333333333"),
-        FounderType.LegalEntity,
+        ParseSeedGuid("53333333-3333-3333-3333-333333333333"),
+        FounderType.PrivateLegalEntity,
         FounderCategory.Private,
         "Skolio Education Foundation",
         LegalForm.NonProfitOrganization,
@@ -86,7 +96,7 @@ public sealed class OrganizationDevelopmentSeeder(
         null);
 
     private static readonly SchoolDefinition KindergartenSchool = new(
-        Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        ParseSeedGuid("11111111-1111-1111-1111-111111111111"),
         "Skolio Kindergarten Brno",
         SchoolType.Kindergarten,
         SchoolKind.General,
@@ -105,7 +115,7 @@ public sealed class OrganizationDevelopmentSeeder(
         PlatformStatus.Active);
 
     private static readonly SchoolDefinition ElementarySchool = new(
-        Guid.Parse("22222222-2222-2222-2222-222222222222"),
+        ParseSeedGuid("22222222-2222-2222-2222-222222222222"),
         "Skolio Elementary Prague",
         SchoolType.ElementarySchool,
         SchoolKind.General,
@@ -124,7 +134,7 @@ public sealed class OrganizationDevelopmentSeeder(
         PlatformStatus.Active);
 
     private static readonly SchoolDefinition SecondarySchool = new(
-        Guid.Parse("33333333-3333-3333-3333-333333333333"),
+        ParseSeedGuid("33333333-3333-3333-3333-333333333333"),
         "Skolio Secondary Ostrava",
         SchoolType.SecondarySchool,
         SchoolKind.Specialized,
@@ -144,45 +154,45 @@ public sealed class OrganizationDevelopmentSeeder(
 
     private static readonly SchoolYearDefinition[] SchoolYears =
     [
-        new(Guid.Parse("20000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30)),
-        new(Guid.Parse("20000000-0000-0000-0000-000000000201"), ElementarySchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30)),
-        new(Guid.Parse("20000000-0000-0000-0000-000000000301"), SecondarySchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30))
+        new(ParseSeedGuid("20000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30)),
+        new(ParseSeedGuid("20000000-0000-0000-0000-000000000201"), ElementarySchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30)),
+        new(ParseSeedGuid("20000000-0000-0000-0000-000000000301"), SecondarySchool.Id, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30))
     ];
 
     private static readonly GradeLevelDefinition[] GradeLevels =
     [
-        new(Guid.Parse("21000000-0000-0000-0000-000000000201"), ElementarySchool.Id, SchoolType.ElementarySchool, 1, "1. rocnik"),
-        new(Guid.Parse("21000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolType.SecondarySchool, 1, "1. rocnik")
+        new(ParseSeedGuid("21000000-0000-0000-0000-000000000201"), ElementarySchool.Id, SchoolType.ElementarySchool, 1, "1. rocnik"),
+        new(ParseSeedGuid("21000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolType.SecondarySchool, 1, "1. rocnik")
     ];
 
     private static readonly ClassRoomDefinition[] ClassRooms =
     [
-        new(Guid.Parse("22000000-0000-0000-0000-000000000201"), ElementarySchool.Id, GradeLevels[0].Id, SchoolType.ElementarySchool, "1A", "Trida 1A"),
-        new(Guid.Parse("22000000-0000-0000-0000-000000000301"), SecondarySchool.Id, GradeLevels[1].Id, SchoolType.SecondarySchool, "S1A", "Trida S1A")
+        new(ParseSeedGuid("22000000-0000-0000-0000-000000000201"), ElementarySchool.Id, GradeLevels[0].Id, SchoolType.ElementarySchool, "1A", "Trida 1A"),
+        new(ParseSeedGuid("22000000-0000-0000-0000-000000000301"), SecondarySchool.Id, GradeLevels[1].Id, SchoolType.SecondarySchool, "S1A", "Trida S1A")
     ];
 
     private static readonly TeachingGroupDefinition[] TeachingGroups =
     [
-        new(Guid.Parse("23000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, null, "Berusky", true),
-        new(Guid.Parse("23000000-0000-0000-0000-000000000201"), ElementarySchool.Id, ClassRooms[0].Id, "Skupina 1A", false),
-        new(Guid.Parse("23000000-0000-0000-0000-000000000301"), SecondarySchool.Id, ClassRooms[1].Id, "Skupina S1A", false)
+        new(ParseSeedGuid("23000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, null, "Berusky", true),
+        new(ParseSeedGuid("23000000-0000-0000-0000-000000000201"), ElementarySchool.Id, ClassRooms[0].Id, "Skupina 1A", false),
+        new(ParseSeedGuid("23000000-0000-0000-0000-000000000301"), SecondarySchool.Id, ClassRooms[1].Id, "Skupina S1A", false)
     ];
 
     private static readonly SubjectDefinition[] Subjects =
     [
-        new(Guid.Parse("24000000-0000-0000-0000-000000000201"), ElementarySchool.Id, "MAT", "Matematika"),
-        new(Guid.Parse("24000000-0000-0000-0000-000000000301"), SecondarySchool.Id, "INF", "Informatika")
+        new(ParseSeedGuid("24000000-0000-0000-0000-000000000201"), ElementarySchool.Id, "MAT", "Matematika"),
+        new(ParseSeedGuid("24000000-0000-0000-0000-000000000301"), SecondarySchool.Id, "INF", "Informatika")
     ];
 
     private static readonly SecondaryFieldOfStudyDefinition[] SecondaryFields =
     [
-        new(Guid.Parse("25000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolType.SecondarySchool, "IT", "Informacni technologie")
+        new(ParseSeedGuid("25000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolType.SecondarySchool, "IT", "Informacni technologie")
     ];
 
     // School Context Scope Matrix IDs — stable seed identifiers, one per SchoolType
-    private static readonly Guid MatrixKindergartenId = Guid.Parse("a0000001-0000-0000-0000-000000000001");
-    private static readonly Guid MatrixElementaryId = Guid.Parse("a0000002-0000-0000-0000-000000000002");
-    private static readonly Guid MatrixSecondaryId = Guid.Parse("a0000003-0000-0000-0000-000000000003");
+    private static readonly Guid MatrixKindergartenId = ParseSeedGuid("a0000001-0000-0000-0000-000000000001");
+    private static readonly Guid MatrixElementaryId = ParseSeedGuid("a0000002-0000-0000-0000-000000000002");
+    private static readonly Guid MatrixSecondaryId = ParseSeedGuid("a0000003-0000-0000-0000-000000000003");
 
     private static readonly ScopeMatrixDefinition[] ScopeMatrices =
     [
@@ -196,185 +206,185 @@ public sealed class OrganizationDevelopmentSeeder(
     private static readonly CapabilityDefinition[] Capabilities =
     [
         // Kindergarten: group-centric, daily reports, attendance only
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, ScopeCapabilityCode.UsesClasses, false, "scope.capability.uses_classes"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, ScopeCapabilityCode.UsesSubjects, false, "scope.capability.uses_subjects"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, ScopeCapabilityCode.UsesFieldOfStudy, false, "scope.capability.uses_field_of_study"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, ScopeCapabilityCode.UsesDailyReports, true, "scope.capability.uses_daily_reports"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000007"), MatrixKindergartenId, ScopeCapabilityCode.UsesGrades, false, "scope.capability.uses_grades"),
-        new(Guid.Parse("b1000001-0000-0000-0000-000000000008"), MatrixKindergartenId, ScopeCapabilityCode.UsesHomework, false, "scope.capability.uses_homework"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, ScopeCapabilityCode.UsesClasses, false, "scope.capability.uses_classes"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, ScopeCapabilityCode.UsesSubjects, false, "scope.capability.uses_subjects"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, ScopeCapabilityCode.UsesFieldOfStudy, false, "scope.capability.uses_field_of_study"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, ScopeCapabilityCode.UsesDailyReports, true, "scope.capability.uses_daily_reports"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000007"), MatrixKindergartenId, ScopeCapabilityCode.UsesGrades, false, "scope.capability.uses_grades"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000008"), MatrixKindergartenId, ScopeCapabilityCode.UsesHomework, false, "scope.capability.uses_homework"),
 
         // ElementarySchool: class + subject centric, attendance + grades + homework
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000001"), MatrixElementaryId, ScopeCapabilityCode.UsesClasses, true, "scope.capability.uses_classes"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000002"), MatrixElementaryId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000003"), MatrixElementaryId, ScopeCapabilityCode.UsesSubjects, true, "scope.capability.uses_subjects"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000004"), MatrixElementaryId, ScopeCapabilityCode.UsesFieldOfStudy, false, "scope.capability.uses_field_of_study"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000005"), MatrixElementaryId, ScopeCapabilityCode.UsesDailyReports, false, "scope.capability.uses_daily_reports"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000006"), MatrixElementaryId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000007"), MatrixElementaryId, ScopeCapabilityCode.UsesGrades, true, "scope.capability.uses_grades"),
-        new(Guid.Parse("b2000002-0000-0000-0000-000000000008"), MatrixElementaryId, ScopeCapabilityCode.UsesHomework, true, "scope.capability.uses_homework"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000001"), MatrixElementaryId, ScopeCapabilityCode.UsesClasses, true, "scope.capability.uses_classes"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000002"), MatrixElementaryId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000003"), MatrixElementaryId, ScopeCapabilityCode.UsesSubjects, true, "scope.capability.uses_subjects"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000004"), MatrixElementaryId, ScopeCapabilityCode.UsesFieldOfStudy, false, "scope.capability.uses_field_of_study"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000005"), MatrixElementaryId, ScopeCapabilityCode.UsesDailyReports, false, "scope.capability.uses_daily_reports"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000006"), MatrixElementaryId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000007"), MatrixElementaryId, ScopeCapabilityCode.UsesGrades, true, "scope.capability.uses_grades"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000008"), MatrixElementaryId, ScopeCapabilityCode.UsesHomework, true, "scope.capability.uses_homework"),
 
         // SecondarySchool: class + subject + field-of-study centric
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, ScopeCapabilityCode.UsesClasses, true, "scope.capability.uses_classes"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, ScopeCapabilityCode.UsesSubjects, true, "scope.capability.uses_subjects"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, ScopeCapabilityCode.UsesFieldOfStudy, true, "scope.capability.uses_field_of_study"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, ScopeCapabilityCode.UsesDailyReports, false, "scope.capability.uses_daily_reports"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, ScopeCapabilityCode.UsesGrades, true, "scope.capability.uses_grades"),
-        new(Guid.Parse("b3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, ScopeCapabilityCode.UsesHomework, true, "scope.capability.uses_homework")
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, ScopeCapabilityCode.UsesClasses, true, "scope.capability.uses_classes"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, ScopeCapabilityCode.UsesGroups, true, "scope.capability.uses_groups"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, ScopeCapabilityCode.UsesSubjects, true, "scope.capability.uses_subjects"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, ScopeCapabilityCode.UsesFieldOfStudy, true, "scope.capability.uses_field_of_study"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, ScopeCapabilityCode.UsesDailyReports, false, "scope.capability.uses_daily_reports"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, ScopeCapabilityCode.UsesAttendance, true, "scope.capability.uses_attendance"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, ScopeCapabilityCode.UsesGrades, true, "scope.capability.uses_grades"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, ScopeCapabilityCode.UsesHomework, true, "scope.capability.uses_homework")
     ];
 
     // Allowed roles — PlatformAdministrator is global, not school-scoped; matrix covers school-scoped roles only
     private static readonly AllowedRoleDefinition[] AllowedRoles =
     [
-        new(Guid.Parse("c1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "SchoolAdministrator", "role.school_administrator"),
-        new(Guid.Parse("c1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, "Teacher", "role.teacher"),
-        new(Guid.Parse("c1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, "Parent", "role.parent"),
-        new(Guid.Parse("c1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, "Student", "role.student"),
+        new(ParseSeedGuid("c1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "SchoolAdministrator", "role.school_administrator"),
+        new(ParseSeedGuid("c1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, "Teacher", "role.teacher"),
+        new(ParseSeedGuid("c1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, "Parent", "role.parent"),
+        new(ParseSeedGuid("c1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, "Student", "role.student"),
 
-        new(Guid.Parse("c2000002-0000-0000-0000-000000000001"), MatrixElementaryId, "SchoolAdministrator", "role.school_administrator"),
-        new(Guid.Parse("c2000002-0000-0000-0000-000000000002"), MatrixElementaryId, "Teacher", "role.teacher"),
-        new(Guid.Parse("c2000002-0000-0000-0000-000000000003"), MatrixElementaryId, "Parent", "role.parent"),
-        new(Guid.Parse("c2000002-0000-0000-0000-000000000004"), MatrixElementaryId, "Student", "role.student"),
+        new(ParseSeedGuid("c2000002-0000-0000-0000-000000000001"), MatrixElementaryId, "SchoolAdministrator", "role.school_administrator"),
+        new(ParseSeedGuid("c2000002-0000-0000-0000-000000000002"), MatrixElementaryId, "Teacher", "role.teacher"),
+        new(ParseSeedGuid("c2000002-0000-0000-0000-000000000003"), MatrixElementaryId, "Parent", "role.parent"),
+        new(ParseSeedGuid("c2000002-0000-0000-0000-000000000004"), MatrixElementaryId, "Student", "role.student"),
 
-        new(Guid.Parse("c3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, "SchoolAdministrator", "role.school_administrator"),
-        new(Guid.Parse("c3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, "Teacher", "role.teacher"),
-        new(Guid.Parse("c3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "Parent", "role.parent"),
-        new(Guid.Parse("c3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, "Student", "role.student")
+        new(ParseSeedGuid("c3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, "SchoolAdministrator", "role.school_administrator"),
+        new(ParseSeedGuid("c3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, "Teacher", "role.teacher"),
+        new(ParseSeedGuid("c3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "Parent", "role.parent"),
+        new(ParseSeedGuid("c3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, "Student", "role.student")
     ];
 
     // Allowed profile sections
     private static readonly AllowedProfileSectionDefinition[] AllowedProfileSections =
     [
         // Kindergarten: student health + legal guardians relevant, no qualifications
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, ProfileSectionCode.Address, "profile.section.address"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000007"), MatrixKindergartenId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
-        new(Guid.Parse("d1000001-0000-0000-0000-000000000008"), MatrixKindergartenId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, ProfileSectionCode.Address, "profile.section.address"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000007"), MatrixKindergartenId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
+        new(ParseSeedGuid("d1000001-0000-0000-0000-000000000008"), MatrixKindergartenId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context"),
 
         // ElementarySchool: adds support measures and qualifications
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000001"), MatrixElementaryId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000002"), MatrixElementaryId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000003"), MatrixElementaryId, ProfileSectionCode.Address, "profile.section.address"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000004"), MatrixElementaryId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000005"), MatrixElementaryId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000006"), MatrixElementaryId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000007"), MatrixElementaryId, ProfileSectionCode.SupportMeasures, "profile.section.support_measures"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000008"), MatrixElementaryId, ProfileSectionCode.Qualifications, "profile.section.qualifications"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000009"), MatrixElementaryId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
-        new(Guid.Parse("d2000002-0000-0000-0000-000000000010"), MatrixElementaryId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000001"), MatrixElementaryId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000002"), MatrixElementaryId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000003"), MatrixElementaryId, ProfileSectionCode.Address, "profile.section.address"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000004"), MatrixElementaryId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000005"), MatrixElementaryId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000006"), MatrixElementaryId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000007"), MatrixElementaryId, ProfileSectionCode.SupportMeasures, "profile.section.support_measures"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000008"), MatrixElementaryId, ProfileSectionCode.Qualifications, "profile.section.qualifications"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000009"), MatrixElementaryId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
+        new(ParseSeedGuid("d2000002-0000-0000-0000-000000000010"), MatrixElementaryId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context"),
 
         // SecondarySchool: all sections
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, ProfileSectionCode.Address, "profile.section.address"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, ProfileSectionCode.SupportMeasures, "profile.section.support_measures"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, ProfileSectionCode.Qualifications, "profile.section.qualifications"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000009"), MatrixSecondaryId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
-        new(Guid.Parse("d3000003-0000-0000-0000-000000000010"), MatrixSecondaryId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context")
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, ProfileSectionCode.BasicInfo, "profile.section.basic_info"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, ProfileSectionCode.ContactInfo, "profile.section.contact_info"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, ProfileSectionCode.Address, "profile.section.address"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, ProfileSectionCode.HealthAndSafety, "profile.section.health_and_safety"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, ProfileSectionCode.LegalGuardians, "profile.section.legal_guardians"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, ProfileSectionCode.SchoolPlacement, "profile.section.school_placement"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, ProfileSectionCode.SupportMeasures, "profile.section.support_measures"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, ProfileSectionCode.Qualifications, "profile.section.qualifications"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000009"), MatrixSecondaryId, ProfileSectionCode.SchoolContext, "profile.section.school_context"),
+        new(ParseSeedGuid("d3000003-0000-0000-0000-000000000010"), MatrixSecondaryId, ProfileSectionCode.AdministratorContext, "profile.section.administrator_context")
     ];
 
     // Allowed create-user flows — all types support all 4 flows
     private static readonly AllowedCreateUserFlowDefinition[] AllowedCreateUserFlows =
     [
-        new(Guid.Parse("e1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
-        new(Guid.Parse("e1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
-        new(Guid.Parse("e1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
-        new(Guid.Parse("e1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator"),
+        new(ParseSeedGuid("e1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
+        new(ParseSeedGuid("e1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
+        new(ParseSeedGuid("e1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
+        new(ParseSeedGuid("e1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator"),
 
-        new(Guid.Parse("e2000002-0000-0000-0000-000000000001"), MatrixElementaryId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
-        new(Guid.Parse("e2000002-0000-0000-0000-000000000002"), MatrixElementaryId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
-        new(Guid.Parse("e2000002-0000-0000-0000-000000000003"), MatrixElementaryId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
-        new(Guid.Parse("e2000002-0000-0000-0000-000000000004"), MatrixElementaryId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator"),
+        new(ParseSeedGuid("e2000002-0000-0000-0000-000000000001"), MatrixElementaryId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
+        new(ParseSeedGuid("e2000002-0000-0000-0000-000000000002"), MatrixElementaryId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
+        new(ParseSeedGuid("e2000002-0000-0000-0000-000000000003"), MatrixElementaryId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
+        new(ParseSeedGuid("e2000002-0000-0000-0000-000000000004"), MatrixElementaryId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator"),
 
-        new(Guid.Parse("e3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
-        new(Guid.Parse("e3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
-        new(Guid.Parse("e3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
-        new(Guid.Parse("e3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator")
+        new(ParseSeedGuid("e3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, CreateUserFlowCode.CreateStudent, "flow.create.student"),
+        new(ParseSeedGuid("e3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, CreateUserFlowCode.CreateParent, "flow.create.parent"),
+        new(ParseSeedGuid("e3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, CreateUserFlowCode.CreateTeacher, "flow.create.teacher"),
+        new(ParseSeedGuid("e3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, CreateUserFlowCode.CreateSchoolAdministrator, "flow.create.school_administrator")
     ];
 
     // Allowed user management flows — all types support all 6 flows
     private static readonly AllowedUserManagementFlowDefinition[] AllowedUserManagementFlows =
     [
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
-        new(Guid.Parse("f1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
+        new(ParseSeedGuid("f1000001-0000-0000-0000-000000000006"), MatrixKindergartenId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user"),
 
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000001"), MatrixElementaryId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000002"), MatrixElementaryId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000003"), MatrixElementaryId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000004"), MatrixElementaryId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000005"), MatrixElementaryId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
-        new(Guid.Parse("f2000002-0000-0000-0000-000000000006"), MatrixElementaryId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000001"), MatrixElementaryId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000002"), MatrixElementaryId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000003"), MatrixElementaryId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000004"), MatrixElementaryId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000005"), MatrixElementaryId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
+        new(ParseSeedGuid("f2000002-0000-0000-0000-000000000006"), MatrixElementaryId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user"),
 
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
-        new(Guid.Parse("f3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user")
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, UserManagementFlowCode.EditStudent, "flow.manage.edit_student"),
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, UserManagementFlowCode.EditParent, "flow.manage.edit_parent"),
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, UserManagementFlowCode.EditTeacher, "flow.manage.edit_teacher"),
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, UserManagementFlowCode.EditSchoolAdministrator, "flow.manage.edit_school_administrator"),
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, UserManagementFlowCode.DeactivateUser, "flow.manage.deactivate_user"),
+        new(ParseSeedGuid("f3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, UserManagementFlowCode.ReactivateUser, "flow.manage.reactivate_user")
     ];
 
     // Allowed organization sections
     private static readonly AllowedOrganizationSectionDefinition[] AllowedOrganizationSections =
     [
         // Kindergarten: no classes, no subjects, no fields of study, no grade levels
-        new(Guid.Parse("g1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
-        new(Guid.Parse("g1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
-        new(Guid.Parse("g1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, OrganizationSectionCode.Founder, "org.section.founder"),
-        new(Guid.Parse("g1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
-        new(Guid.Parse("g1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, OrganizationSectionCode.Groups, "org.section.groups"),
+        new(ParseSeedGuid("a1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
+        new(ParseSeedGuid("a1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
+        new(ParseSeedGuid("a1000001-0000-0000-0000-000000000003"), MatrixKindergartenId, OrganizationSectionCode.Founder, "org.section.founder"),
+        new(ParseSeedGuid("a1000001-0000-0000-0000-000000000004"), MatrixKindergartenId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
+        new(ParseSeedGuid("a1000001-0000-0000-0000-000000000005"), MatrixKindergartenId, OrganizationSectionCode.Groups, "org.section.groups"),
 
         // ElementarySchool: adds classes, grade levels, subjects; no fields of study
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000001"), MatrixElementaryId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000002"), MatrixElementaryId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000003"), MatrixElementaryId, OrganizationSectionCode.Founder, "org.section.founder"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000004"), MatrixElementaryId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000005"), MatrixElementaryId, OrganizationSectionCode.GradeLevels, "org.section.grade_levels"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000006"), MatrixElementaryId, OrganizationSectionCode.Classes, "org.section.classes"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000007"), MatrixElementaryId, OrganizationSectionCode.Groups, "org.section.groups"),
-        new(Guid.Parse("g2000002-0000-0000-0000-000000000008"), MatrixElementaryId, OrganizationSectionCode.Subjects, "org.section.subjects"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000001"), MatrixElementaryId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000002"), MatrixElementaryId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000003"), MatrixElementaryId, OrganizationSectionCode.Founder, "org.section.founder"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000004"), MatrixElementaryId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000005"), MatrixElementaryId, OrganizationSectionCode.GradeLevels, "org.section.grade_levels"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000006"), MatrixElementaryId, OrganizationSectionCode.Classes, "org.section.classes"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000007"), MatrixElementaryId, OrganizationSectionCode.Groups, "org.section.groups"),
+        new(ParseSeedGuid("a2000002-0000-0000-0000-000000000008"), MatrixElementaryId, OrganizationSectionCode.Subjects, "org.section.subjects"),
 
         // SecondarySchool: all sections including fields of study
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, OrganizationSectionCode.Founder, "org.section.founder"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, OrganizationSectionCode.GradeLevels, "org.section.grade_levels"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, OrganizationSectionCode.Classes, "org.section.classes"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, OrganizationSectionCode.Groups, "org.section.groups"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, OrganizationSectionCode.Subjects, "org.section.subjects"),
-        new(Guid.Parse("g3000003-0000-0000-0000-000000000009"), MatrixSecondaryId, OrganizationSectionCode.FieldsOfStudy, "org.section.fields_of_study")
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, OrganizationSectionCode.SchoolInfo, "org.section.school_info"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, OrganizationSectionCode.SchoolOperator, "org.section.school_operator"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, OrganizationSectionCode.Founder, "org.section.founder"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000004"), MatrixSecondaryId, OrganizationSectionCode.SchoolYears, "org.section.school_years"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000005"), MatrixSecondaryId, OrganizationSectionCode.GradeLevels, "org.section.grade_levels"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000006"), MatrixSecondaryId, OrganizationSectionCode.Classes, "org.section.classes"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000007"), MatrixSecondaryId, OrganizationSectionCode.Groups, "org.section.groups"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000008"), MatrixSecondaryId, OrganizationSectionCode.Subjects, "org.section.subjects"),
+        new(ParseSeedGuid("a3000003-0000-0000-0000-000000000009"), MatrixSecondaryId, OrganizationSectionCode.FieldsOfStudy, "org.section.fields_of_study")
     ];
 
     // Allowed academics sections
     private static readonly AllowedAcademicsSectionDefinition[] AllowedAcademicsSections =
     [
         // Kindergarten: daily reports + attendance
-        new(Guid.Parse("h1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, AcademicsSectionCode.DailyReports, "academics.section.daily_reports"),
-        new(Guid.Parse("h1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000001"), MatrixKindergartenId, AcademicsSectionCode.DailyReports, "academics.section.daily_reports"),
+        new(ParseSeedGuid("b1000001-0000-0000-0000-000000000002"), MatrixKindergartenId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
 
         // ElementarySchool: attendance + grades + homework
-        new(Guid.Parse("h2000002-0000-0000-0000-000000000001"), MatrixElementaryId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
-        new(Guid.Parse("h2000002-0000-0000-0000-000000000002"), MatrixElementaryId, AcademicsSectionCode.Grades, "academics.section.grades"),
-        new(Guid.Parse("h2000002-0000-0000-0000-000000000003"), MatrixElementaryId, AcademicsSectionCode.Homework, "academics.section.homework"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000001"), MatrixElementaryId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000002"), MatrixElementaryId, AcademicsSectionCode.Grades, "academics.section.grades"),
+        new(ParseSeedGuid("b2000002-0000-0000-0000-000000000003"), MatrixElementaryId, AcademicsSectionCode.Homework, "academics.section.homework"),
 
         // SecondarySchool: attendance + grades + homework
-        new(Guid.Parse("h3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
-        new(Guid.Parse("h3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, AcademicsSectionCode.Grades, "academics.section.grades"),
-        new(Guid.Parse("h3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, AcademicsSectionCode.Homework, "academics.section.homework")
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000001"), MatrixSecondaryId, AcademicsSectionCode.Attendance, "academics.section.attendance"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000002"), MatrixSecondaryId, AcademicsSectionCode.Grades, "academics.section.grades"),
+        new(ParseSeedGuid("b3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, AcademicsSectionCode.Homework, "academics.section.homework")
     ];
 
     public async Task SeedAsync(CancellationToken cancellationToken)
@@ -437,9 +447,17 @@ public sealed class OrganizationDevelopmentSeeder(
 
         if (existingRequiredSchools == requiredSchools.Length && existingRequiredMatrices == requiredMatrices.Length)
         {
-            await ValidateConsistencyAsync(cancellationToken);
-            logger.LogInformation("Organization seed state detected as FullyInitialized.");
-            return SeedState.FullyInitialized;
+            try
+            {
+                await ValidateConsistencyAsync(cancellationToken);
+                logger.LogInformation("Organization seed state detected as FullyInitialized.");
+                return SeedState.FullyInitialized;
+            }
+            catch (InvalidOperationException exception)
+            {
+                logger.LogWarning(exception, "Organization seed state detected as PartiallyInitialized. Baseline entities exist but dependent scope data is incomplete and will be repaired.");
+                return SeedState.PartiallyInitialized;
+            }
         }
 
         if (existingRequiredSchools > 0 || existingRequiredMatrices > 0)
@@ -869,3 +887,4 @@ public sealed class OrganizationDevelopmentSeeder(
         Inconsistent
     }
 }
+

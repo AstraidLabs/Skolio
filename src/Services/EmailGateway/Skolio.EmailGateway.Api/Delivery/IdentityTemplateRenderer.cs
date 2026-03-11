@@ -8,7 +8,7 @@ public sealed class IdentityTemplateRenderer : IIdentityTemplateRenderer
     {
         var subject = "Skolio: Password reset";
         var text = $"Hello {request.RecipientDisplayName},\n\nUse this secure link to reset your password:\n{request.ResetUrl}\n\nSecurity code reference: {request.SecurityCodeMasked}\n\nIf you did not request this change, contact your school administrator.";
-        var html = $"<p>Hello {request.RecipientDisplayName},</p><p>A Skolio account has been created for you by administrator.</p><p><a href=\"{request.InviteUrl}\">Open activation invite</a></p><p>Activation code: <strong>{request.ActivationCode}</strong></p><p>Complete activation and password setup within 24 hours (valid until <strong>{request.ExpiresAtUtc}</strong>). Until onboarding is completed, your account cannot be used.</p>";
+        var html = $"<p>Hello {request.RecipientDisplayName},</p><p>Use this secure link to reset your password:</p><p><a href=\"{request.ResetUrl}\">Reset password</a></p><p>Security code reference: <strong>{request.SecurityCodeMasked}</strong></p><p>If you did not request this change, contact your school administrator.</p>";
         return new RenderedEmail(subject, text, html);
     }
 
@@ -47,17 +47,8 @@ public sealed class IdentityTemplateRenderer : IIdentityTemplateRenderer
     public RenderedEmail RenderAccountInvite(AccountInviteRequest request)
     {
         var subject = "Skolio: Account activation invite";
-        var text = $"Hello {request.RecipientDisplayName},
-
-A Skolio account has been created for you by administrator.
-
-Open invite link:
-{request.InviteUrl}
-
-Activation code: {request.ActivationCode}
-
-Complete activation and password setup within 24 hours (valid until {request.ExpiresAtUtc}). Until onboarding is completed, your account cannot be used.";
-        var html = $"<p>Hello {request.RecipientDisplayName},</p><p>A Skolio account has been created for you by administrator.</p><p><a href='{request.InviteUrl}'>Open activation invite</a></p><p>Activation code: <strong>{request.ActivationCode}</strong></p><p>Complete activation and password setup within 24 hours (valid until <strong>{request.ExpiresAtUtc}</strong>). Until onboarding is completed, your account cannot be used.</p>";
+        var text = $"Hello {request.RecipientDisplayName},\n\nA Skolio account has been created for you by administrator.\n\nOpen invite link:\n{request.InviteUrl}\n\nActivation code: {request.ActivationCode}\n\nComplete activation and password setup within 24 hours (valid until {request.ExpiresAtUtc}). Until onboarding is completed, your account cannot be used.";
+        var html = $"<p>Hello {request.RecipientDisplayName},</p><p>A Skolio account has been created for you by administrator.</p><p><a href=\"{request.InviteUrl}\">Open activation invite</a></p><p>Activation code: <strong>{request.ActivationCode}</strong></p><p>Complete activation and password setup within 24 hours (valid until <strong>{request.ExpiresAtUtc}</strong>). Until onboarding is completed, your account cannot be used.</p>";
         return new RenderedEmail(subject, text, html);
     }
 

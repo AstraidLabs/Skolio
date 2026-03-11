@@ -44,13 +44,13 @@ public sealed class SchoolContextScopeMatrix
     public string TranslationKey { get; private set; } = string.Empty;
     public string? Description { get; private set; }
 
-    public IReadOnlyCollection<SchoolContextScopeCapability> Capabilities { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedRole> AllowedRoles { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedProfileSection> AllowedProfileSections { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedCreateUserFlow> AllowedCreateUserFlows { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedUserManagementFlow> AllowedUserManagementFlows { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedOrganizationSection> AllowedOrganizationSections { get; private set; } = [];
-    public IReadOnlyCollection<SchoolContextScopeAllowedAcademicsSection> AllowedAcademicsSections { get; private set; } = [];
+    public IReadOnlyCollection<SchoolContextScopeCapability> Capabilities { get; private set; } = new List<SchoolContextScopeCapability>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedRole> AllowedRoles { get; private set; } = new List<SchoolContextScopeAllowedRole>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedProfileSection> AllowedProfileSections { get; private set; } = new List<SchoolContextScopeAllowedProfileSection>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedCreateUserFlow> AllowedCreateUserFlows { get; private set; } = new List<SchoolContextScopeAllowedCreateUserFlow>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedUserManagementFlow> AllowedUserManagementFlows { get; private set; } = new List<SchoolContextScopeAllowedUserManagementFlow>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedOrganizationSection> AllowedOrganizationSections { get; private set; } = new List<SchoolContextScopeAllowedOrganizationSection>();
+    public IReadOnlyCollection<SchoolContextScopeAllowedAcademicsSection> AllowedAcademicsSections { get; private set; } = new List<SchoolContextScopeAllowedAcademicsSection>();
 
     public static SchoolContextScopeMatrix Create(
         Guid id,
