@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Skolio.Identity.Application.Abstractions;
 using Skolio.Identity.Domain.Entities;
@@ -804,5 +806,369 @@ public sealed class IdentityUserManagementController(
     public sealed record PagedResult<T>(IReadOnlyCollection<T> Items, int PageNumber, int PageSize, int TotalCount)
     {
         public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    }
+
+    // ── Create User Wizard contracts ──────────────────────────────────────────
+
+    public sealed record CreateUserWizardRequest(
+        // Step 1 – basic account
+        string Email,
+        string UserName,
+        string FirstName,
+        string LastName,
+        string? DisplayName,
+        string? PreferredLanguage,
+        // Step 2 – role and scope
+        string Role,
+        Guid? SchoolId,
+        // Step 3 – profile data
+        string? PhoneNumber,
+        string? PositionTitle,
+        string? SchoolPlacement,
+        string? SchoolContextSummary,
+        string? ParentRelationshipSummary,
+        string? ContactEmail,
+        // Step 4 – role-specific links
+        Guid? LinkedStudentProfileId,
+        string? ParentStudentRelationship,
+        // Step 5 – activation
+        string ActivationPolicy);
+
+    public sealed record CreateUserWizardResult(
+        string UserId,
+        string Email,
+        string UserName,
+        string DisplayName,
+        string Role,
+        string AccountLifecycleStatus,
+        bool ActivationEmailSent);
+
+    public sealed record WizardStudentCandidateContract(
+        string ProfileId,
+        string DisplayName,
+        string Email,
+        string? SchoolPlacement);
+
+    // ── Create User Wizard endpoints ──────────────────────────────────────────
+
+    [HttpGet("create-wizard/student-candidates")]
+    public async Task<ActionResult<IReadOnlyCollection<WizardStudentCandidateContract>>> WizardStudentCandidates(
+        [FromQuery] Guid? schoolId,
+        CancellationToken cancellationToken)
+    {
+        if (schoolId.HasValue)
+        {
+            var scopeValidation = await ValidateRequestedSchoolContext(schoolId, cancellationToken);
+            if (scopeValidation is not null) return scopeValidation;
+        }
+
+        IQueryable<UserProfile> profileQuery = dbContext.UserProfiles
+            .AsNoTracking()
+            .Where(x => x.UserType == UserType.Student && x.IsActive);
+
+        if (schoolId.HasValue)
+        {
+            var studentIdsInSchool = await dbContext.SchoolRoleAssignments
+                .Where(x => x.SchoolId == schoolId.Value && x.RoleCode == "Student")
+                .Select(x => x.UserProfileId)
+                .ToListAsync(cancellationToken);
+
+            profileQuery = profileQuery.Where(x => studentIdsInSchool.Contains(x.Id));
+        }
+        else if (!User.IsInRole("PlatformAdministrator"))
+        {
+            var actorProfileId = TryParseGuid(ActorId());
+            if (actorProfileId is null) return Forbid();
+
+            var actorSchoolIds = await dbContext.SchoolRoleAssignments
+                .Where(x => x.UserProfileId == actorProfileId.Value)
+                .Select(x => x.SchoolId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var studentIdsInScope = await dbContext.SchoolRoleAssignments
+                .Where(x => actorSchoolIds.Contains(x.SchoolId) && x.RoleCode == "Student")
+                .Select(x => x.UserProfileId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            profileQuery = profileQuery.Where(x => studentIdsInScope.Contains(x.Id));
+        }
+
+        var profiles = await profileQuery
+            .OrderBy(x => x.LastName).ThenBy(x => x.FirstName)
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        var result = profiles
+            .Select(p => new WizardStudentCandidateContract(
+                p.Id.ToString(),
+                $"{p.FirstName} {p.LastName}".Trim(),
+                p.Email,
+                p.SchoolPlacement))
+            .ToArray();
+
+        return Ok(result);
+    }
+
+    [HttpPost("create-wizard")]
+    public async Task<ActionResult<CreateUserWizardResult>> CreateWizard(
+        [FromBody] CreateUserWizardRequest request,
+        CancellationToken cancellationToken)
+    {
+        // ── Step 1 validation ──────────────────────────────────────────────
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return this.ValidationField("email", "Email is required.");
+        if (string.IsNullOrWhiteSpace(request.UserName))
+            return this.ValidationField("userName", "Username is required.");
+        if (string.IsNullOrWhiteSpace(request.FirstName))
+            return this.ValidationField("firstName", "First name is required.");
+        if (string.IsNullOrWhiteSpace(request.LastName))
+            return this.ValidationField("lastName", "Last name is required.");
+
+        // ── Step 2 validation ──────────────────────────────────────────────
+        if (string.IsNullOrWhiteSpace(request.Role))
+            return this.ValidationField("role", "Role is required.");
+        if (!SupportedRoles.Contains(request.Role, StringComparer.Ordinal))
+            return this.ValidationField("role", "Unsupported role.");
+        if (string.Equals(request.Role, "PlatformAdministrator", StringComparison.Ordinal)
+            && !User.IsInRole("PlatformAdministrator"))
+            return Forbid();
+
+        // Resolve and validate school scope
+        Guid? resolvedSchoolId = request.SchoolId;
+        if (!User.IsInRole("PlatformAdministrator"))
+        {
+            var actorSchoolIds = await ResolveActorSchoolIds(cancellationToken);
+            if (actorSchoolIds.Count == 0) return Forbid();
+
+            if (resolvedSchoolId.HasValue && !actorSchoolIds.Contains(resolvedSchoolId.Value))
+                return this.ValidationField("schoolId", "You do not have permission to create users in the selected school.");
+
+            if (!resolvedSchoolId.HasValue)
+                resolvedSchoolId = actorSchoolIds.First();
+        }
+
+        if (!resolvedSchoolId.HasValue
+            && !string.Equals(request.Role, "PlatformAdministrator", StringComparison.Ordinal))
+            return this.ValidationField("schoolId", "School scope is required for this role.");
+
+        // ── Activation policy validation ───────────────────────────────────
+        var activationPolicy = string.IsNullOrWhiteSpace(request.ActivationPolicy)
+            ? "SendActivationEmail"
+            : request.ActivationPolicy.Trim();
+
+        if (!string.Equals(activationPolicy, "SendActivationEmail", StringComparison.Ordinal)
+            && !string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal))
+            return this.ValidationField("activationPolicy", "Invalid activation policy.");
+
+        if (string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal)
+            && !User.IsInRole("PlatformAdministrator"))
+            return Forbid();
+
+        // ── Parent role: linked student required ───────────────────────────
+        if (string.Equals(request.Role, "Parent", StringComparison.Ordinal))
+        {
+            if (!request.LinkedStudentProfileId.HasValue || request.LinkedStudentProfileId.Value == Guid.Empty)
+                return this.ValidationField("linkedStudentProfileId", "Linked student is required for Parent role.");
+            if (string.IsNullOrWhiteSpace(request.ParentStudentRelationship))
+                return this.ValidationField("parentStudentRelationship", "Relationship type is required for Parent role.");
+
+            var studentExists = await dbContext.UserProfiles
+                .AnyAsync(x => x.Id == request.LinkedStudentProfileId.Value && x.UserType == UserType.Student, cancellationToken);
+            if (!studentExists)
+                return this.ValidationField("linkedStudentProfileId", "Selected student profile does not exist or is not a student.");
+        }
+
+        // ── Uniqueness checks ──────────────────────────────────────────────
+        var existingByEmail = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (existingByEmail is not null)
+            return this.ValidationField("email", "This email address is already in use.");
+
+        var existingByName = await userManager.FindByNameAsync(request.UserName.Trim());
+        if (existingByName is not null)
+            return this.ValidationField("userName", "This username is already in use.");
+
+        // ── Role existence check ───────────────────────────────────────────
+        if (!await roleManager.RoleExistsAsync(request.Role))
+            return this.ValidationField("role", $"Role '{request.Role}' is not configured in the system.");
+
+        // ── Create SkolioIdentityUser ──────────────────────────────────────
+        var newUser = new SkolioIdentityUser
+        {
+            Email = request.Email.Trim(),
+            UserName = request.UserName.Trim(),
+            AccountLifecycleStatus = IdentityAccountLifecycleStatus.PendingActivation
+        };
+
+        var createResult = await userManager.CreateAsync(newUser);
+        if (!createResult.Succeeded)
+            return BadRequest(createResult.Errors.Select(x => x.Description));
+
+        Audit("identity.user-management.create-wizard.user-created", newUser.Id,
+            new { action = "create-wizard.user-created", email = newUser.Email, role = request.Role });
+
+        // ── Map UserType from role ─────────────────────────────────────────
+        var userType = request.Role switch
+        {
+            "Teacher"              => UserType.Teacher,
+            "Parent"               => UserType.Parent,
+            "Student"              => UserType.Student,
+            "SchoolAdministrator"  => UserType.SchoolAdministrator,
+            "PlatformAdministrator" => UserType.SupportStaff,
+            _                      => UserType.Teacher
+        };
+
+        // ── Create UserProfile ─────────────────────────────────────────────
+        var profileId = Guid.Parse(newUser.Id);
+        var profile = UserProfile.Create(
+            profileId,
+            request.FirstName.Trim(),
+            request.LastName.Trim(),
+            userType,
+            request.Email.Trim(),
+            preferredDisplayName: request.DisplayName?.Trim(),
+            preferredLanguage: request.PreferredLanguage?.Trim(),
+            phoneNumber: request.PhoneNumber?.Trim(),
+            gender: null,
+            dateOfBirth: null,
+            nationalIdNumber: null,
+            birthPlace: null,
+            permanentAddress: null,
+            correspondenceAddress: null,
+            contactEmail: request.ContactEmail?.Trim(),
+            legalGuardian1: null,
+            legalGuardian2: null,
+            schoolPlacement: request.SchoolPlacement?.Trim(),
+            healthInsuranceProvider: null,
+            pediatrician: null,
+            healthSafetyNotes: null,
+            supportMeasuresSummary: null,
+            positionTitle: request.PositionTitle?.Trim(),
+            teacherRoleLabel: null,
+            qualificationSummary: null,
+            schoolContextSummary: request.SchoolContextSummary?.Trim(),
+            parentRelationshipSummary: request.ParentRelationshipSummary?.Trim(),
+            deliveryContactName: null,
+            deliveryContactPhone: null,
+            preferredContactChannel: null,
+            communicationPreferencesSummary: null,
+            publicContactNote: null,
+            preferredContactNote: null,
+            administrativeWorkDesignation: null,
+            administrativeOrganizationSummary: null,
+            platformRoleContextSummary: null,
+            managedPlatformAreasSummary: null,
+            administrativeBoundarySummary: null);
+
+        dbContext.UserProfiles.Add(profile);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Audit("identity.user-management.create-wizard.profile-created", newUser.Id,
+            new { action = "create-wizard.profile-created", userType });
+
+        // ── Create SchoolRoleAssignment ────────────────────────────────────
+        if (resolvedSchoolId.HasValue
+            && !string.Equals(request.Role, "PlatformAdministrator", StringComparison.Ordinal))
+        {
+            var assignment = SchoolRoleAssignment.Create(
+                Guid.NewGuid(), profileId, resolvedSchoolId.Value, request.Role);
+            dbContext.SchoolRoleAssignments.Add(assignment);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            Audit("identity.user-management.create-wizard.school-assignment-created", newUser.Id,
+                new { action = "create-wizard.school-assignment-created", schoolId = resolvedSchoolId, roleCode = request.Role });
+        }
+
+        // ── Create ParentStudentLink ───────────────────────────────────────
+        if (string.Equals(request.Role, "Parent", StringComparison.Ordinal)
+            && request.LinkedStudentProfileId.HasValue
+            && request.LinkedStudentProfileId.Value != Guid.Empty)
+        {
+            var relationship = request.ParentStudentRelationship!.Trim();
+            var link = ParentStudentLink.Create(
+                Guid.NewGuid(), profileId, request.LinkedStudentProfileId.Value, relationship);
+            dbContext.ParentStudentLinks.Add(link);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            Audit("identity.user-management.create-wizard.parent-link-created", newUser.Id,
+                new { action = "create-wizard.parent-link-created", studentId = request.LinkedStudentProfileId });
+        }
+
+        // ── Assign Identity role ───────────────────────────────────────────
+        var roleAssignResult = await userManager.AddToRoleAsync(newUser, request.Role);
+        if (!roleAssignResult.Succeeded)
+            return BadRequest(roleAssignResult.Errors.Select(x => x.Description));
+
+        Audit("identity.user-management.create-wizard.role-assigned", newUser.Id,
+            new { action = "create-wizard.role-assigned", role = request.Role });
+
+        // ── Activation ────────────────────────────────────────────────────
+        bool activationEmailSent = false;
+
+        if (string.Equals(activationPolicy, "SendActivationEmail", StringComparison.Ordinal))
+        {
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(newUser);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            var baseUrl = string.IsNullOrWhiteSpace(origin) ? "http://localhost:8080" : origin.TrimEnd('/');
+            var activationUrl = $"{baseUrl}/security/confirm-activation?userId={Uri.EscapeDataString(newUser.Id)}&token={Uri.EscapeDataString(encodedToken)}";
+
+            newUser.ActivationRequestedAtUtc = DateTimeOffset.UtcNow;
+            await userManager.UpdateAsync(newUser);
+
+            await identityEmailSender.SendAccountConfirmationAsync(
+                new AccountConfirmationDelivery(
+                    newUser.Email ?? request.Email.Trim(),
+                    $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim(),
+                    activationUrl),
+                cancellationToken);
+
+            activationEmailSent = true;
+            Audit("identity.user-management.create-wizard.activation-email-sent", newUser.Id,
+                new { action = "create-wizard.activation-email-sent" });
+        }
+        else if (string.Equals(activationPolicy, "CreateActive", StringComparison.Ordinal))
+        {
+            newUser.EmailConfirmed = true;
+            newUser.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
+            newUser.ActivatedAtUtc = DateTimeOffset.UtcNow;
+            await userManager.UpdateAsync(newUser);
+
+            var passwordToken = await userManager.GeneratePasswordResetTokenAsync(newUser);
+            var encodedPasswordToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(passwordToken));
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            var baseUrl = string.IsNullOrWhiteSpace(origin) ? "http://localhost:8080" : origin.TrimEnd('/');
+            var passwordSetupUrl = $"{baseUrl}/security/reset-password?userId={Uri.EscapeDataString(newUser.Id)}&token={Uri.EscapeDataString(encodedPasswordToken)}";
+
+            await identityEmailSender.SendPasswordResetAsync(
+                new PasswordResetEmailDelivery(
+                    newUser.Email ?? request.Email.Trim(),
+                    $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim(),
+                    passwordSetupUrl,
+                    "token"),
+                cancellationToken);
+
+            activationEmailSent = true;
+            Audit("identity.user-management.create-wizard.created-active", newUser.Id,
+                new { action = "create-wizard.created-active" });
+        }
+
+        // ── Final audit ───────────────────────────────────────────────────
+        Audit("identity.user-management.create-wizard.completed", newUser.Id,
+            new { action = "create-wizard.completed", activationPolicy, role = request.Role, schoolId = resolvedSchoolId });
+
+        var displayName = !string.IsNullOrWhiteSpace(request.DisplayName)
+            ? request.DisplayName.Trim()
+            : $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim();
+
+        return StatusCode(201, new CreateUserWizardResult(
+            newUser.Id,
+            newUser.Email ?? string.Empty,
+            newUser.UserName ?? string.Empty,
+            displayName,
+            request.Role,
+            newUser.AccountLifecycleStatus.ToString(),
+            activationEmailSent));
     }
 }
