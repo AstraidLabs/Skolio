@@ -20,6 +20,15 @@ public sealed class OrganizationDbContext : DbContext
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<SecondaryFieldOfStudy> SecondaryFieldsOfStudy => Set<SecondaryFieldOfStudy>();
+    public DbSet<SchoolContextScopeMatrix> SchoolContextScopeMatrices => Set<SchoolContextScopeMatrix>();
+    public DbSet<SchoolContextScopeCapability> SchoolContextScopeCapabilities => Set<SchoolContextScopeCapability>();
+    public DbSet<SchoolContextScopeAllowedRole> SchoolContextScopeAllowedRoles => Set<SchoolContextScopeAllowedRole>();
+    public DbSet<SchoolContextScopeAllowedProfileSection> SchoolContextScopeAllowedProfileSections => Set<SchoolContextScopeAllowedProfileSection>();
+    public DbSet<SchoolContextScopeAllowedCreateUserFlow> SchoolContextScopeAllowedCreateUserFlows => Set<SchoolContextScopeAllowedCreateUserFlow>();
+    public DbSet<SchoolContextScopeAllowedUserManagementFlow> SchoolContextScopeAllowedUserManagementFlows => Set<SchoolContextScopeAllowedUserManagementFlow>();
+    public DbSet<SchoolContextScopeAllowedOrganizationSection> SchoolContextScopeAllowedOrganizationSections => Set<SchoolContextScopeAllowedOrganizationSection>();
+    public DbSet<SchoolContextScopeAllowedAcademicsSection> SchoolContextScopeAllowedAcademicsSections => Set<SchoolContextScopeAllowedAcademicsSection>();
+    public DbSet<SchoolScopeOverride> SchoolScopeOverrides => Set<SchoolScopeOverride>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

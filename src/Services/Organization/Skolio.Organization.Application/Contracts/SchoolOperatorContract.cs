@@ -7,7 +7,10 @@ public sealed record SchoolOperatorContract(
     string LegalEntityName,
     LegalForm LegalForm,
     string? CompanyNumberIco,
+    string? RedIzo,
     AddressContract RegisteredOfficeAddress,
+    string? OperatorEmail,
+    string? DataBox,
     string? ResortIdentifier,
     string? DirectorSummary,
     string? StatutoryBodySummary);

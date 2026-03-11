@@ -17,11 +17,14 @@ public sealed class CreateSchoolCommandHandler(IOrganizationCommandStore command
             request.SchoolOperator.LegalEntityName,
             request.SchoolOperator.LegalForm,
             request.SchoolOperator.CompanyNumberIco,
+            request.SchoolOperator.RedIzo,
             Address.Create(
                 request.SchoolOperator.RegisteredOfficeAddress.Street,
                 request.SchoolOperator.RegisteredOfficeAddress.City,
                 request.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                 request.SchoolOperator.RegisteredOfficeAddress.Country),
+            request.SchoolOperator.OperatorEmail,
+            request.SchoolOperator.DataBox,
             request.SchoolOperator.ResortIdentifier,
             request.SchoolOperator.DirectorSummary,
             request.SchoolOperator.StatutoryBodySummary);
@@ -38,7 +41,8 @@ public sealed class CreateSchoolCommandHandler(IOrganizationCommandStore command
                 request.Founder.FounderAddress.City,
                 request.Founder.FounderAddress.PostalCode,
                 request.Founder.FounderAddress.Country),
-            request.Founder.FounderEmail);
+            request.Founder.FounderEmail,
+            request.Founder.FounderDataBox);
 
         var school = School.Create(
             Guid.NewGuid(),
