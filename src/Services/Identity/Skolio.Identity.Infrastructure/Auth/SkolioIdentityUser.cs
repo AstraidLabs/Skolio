@@ -5,6 +5,10 @@ namespace Skolio.Identity.Infrastructure.Auth;
 
 public sealed class SkolioIdentityUser : IdentityUser
 {
+    public bool IsBootstrapPlatformAdministrator { get; set; }
+    public DateTimeOffset? BootstrapMfaCompletedAtUtc { get; set; }
+    public DateTimeOffset? BootstrapActivationCompletedAtUtc { get; set; }
+    public DateTimeOffset? BootstrapFirstLoginCompletedAtUtc { get; set; }
     public IdentityAccountLifecycleStatus AccountLifecycleStatus { get; set; } = IdentityAccountLifecycleStatus.PendingActivation;
     public IdentityInviteStatus InviteStatus { get; set; } = IdentityInviteStatus.PendingActivation;
     public DateTimeOffset? ActivationRequestedAtUtc { get; set; }

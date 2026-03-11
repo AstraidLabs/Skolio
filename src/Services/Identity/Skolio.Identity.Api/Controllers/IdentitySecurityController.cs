@@ -102,6 +102,12 @@ public sealed class IdentitySecurityController(
         user.ActivatedAtUtc = DateTimeOffset.UtcNow;
         user.DeactivatedAtUtc = null;
         user.DeactivationReason = null;
+        if (user.IsBootstrapPlatformAdministrator)
+        {
+            user.BootstrapActivationCompletedAtUtc = DateTimeOffset.UtcNow;
+            Audit("identity.bootstrap.activation.completed", user.Id, new { action = "bootstrap-activation-confirm" });
+        }
+
         await userManager.UpdateAsync(user);
 
         await identityEmailSender.SendSecurityNotificationAsync(new SecurityNotificationDelivery(user.Email ?? string.Empty, BuildDisplayName(user), "Account activated", "Your Skolio account activation is complete."), cancellationToken);

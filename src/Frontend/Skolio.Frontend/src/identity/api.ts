@@ -121,6 +121,10 @@ export type MfaSetupStart = {
 export type RecoveryCodeResult = { recoveryCodes: string[] };
 
 
+
+export type BootstrapAvailability = { state: string; allowed: boolean; bootstrapUserId?: string | null };
+export type BootstrapMfaSetupStart = { sharedKey: string; authenticatorUri: string; issuer: string; accountLabel: string };
+export type BootstrapMfaSetupConfirm = { recoveryCodes: string[] };
 export type PagedResult<T> = {
   items: T[];
   pageNumber: number;
@@ -400,6 +404,11 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     startMfaSetup: () => http<MfaSetupStart>('identity', '/api/identity/security/mfa/setup/start', { method: 'POST' }),
     confirmMfaSetup: (payload: { verificationCode: string }) => http<RecoveryCodeResult>('identity', '/api/identity/security/mfa/setup/confirm', { method: 'POST', body: JSON.stringify(payload) }),
     disableMfa: (payload: { currentPassword: string; verificationCode: string }) => http<{ message: string }>('identity', '/api/identity/security/mfa/disable', { method: 'POST', body: JSON.stringify(payload) }),
-    regenerateRecoveryCodes: (payload: { currentPassword: string }) => http<RecoveryCodeResult>('identity', '/api/identity/security/mfa/recovery-codes/regenerate', { method: 'POST', body: JSON.stringify(payload) })
+    regenerateRecoveryCodes: (payload: { currentPassword: string }) => http<RecoveryCodeResult>('identity', '/api/identity/security/mfa/recovery-codes/regenerate', { method: 'POST', body: JSON.stringify(payload) }),
+    bootstrapAvailability: () => http<BootstrapAvailability>('identity', '/api/identity/bootstrap/availability'),
+    bootstrapState: () => http<BootstrapAvailability>('identity', '/api/identity/bootstrap/state'),
+    bootstrapCreateFirstAdmin: (payload: { userName: string; email: string; password: string; confirmPassword: string }) => http<BootstrapAvailability>('identity', '/api/identity/bootstrap/platform-admin/create', { method: 'POST', body: JSON.stringify(payload) }),
+    bootstrapMfaStart: (payload: { userId: string; password: string }) => http<BootstrapMfaSetupStart>('identity', '/api/identity/bootstrap/platform-admin/mfa/setup/start', { method: 'POST', body: JSON.stringify(payload) }),
+    bootstrapMfaConfirm: (payload: { userId: string; password: string; verificationCode: string }) => http<BootstrapMfaSetupConfirm>('identity', '/api/identity/bootstrap/platform-admin/mfa/setup/confirm', { method: 'POST', body: JSON.stringify(payload) })
   };
 }

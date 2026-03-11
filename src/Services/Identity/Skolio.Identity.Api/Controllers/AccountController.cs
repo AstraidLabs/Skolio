@@ -238,6 +238,13 @@ public sealed class AccountController(
         user.LastLoginAtUtc = DateTimeOffset.UtcNow;
         user.LastActivityAtUtc = DateTimeOffset.UtcNow;
         if (user.AccountLifecycleStatus == IdentityAccountLifecycleStatus.Locked) user.AccountLifecycleStatus = IdentityAccountLifecycleStatus.Active;
+        if (user.IsBootstrapPlatformAdministrator && user.BootstrapFirstLoginCompletedAtUtc is null && user.EmailConfirmed && await userManager.GetTwoFactorEnabledAsync(user))
+        {
+            user.BootstrapFirstLoginCompletedAtUtc = DateTimeOffset.UtcNow;
+            Audit("identity.bootstrap.first-login.completed", user.Id, new { action = "bootstrap-first-login" });
+            Audit("identity.bootstrap.closed", user.Id, new { action = "bootstrap-closed" });
+        }
+
         await userManager.UpdateAsync(user);
         Audit(useRecoveryCode ? "identity.auth.login.mfa.recovery-code.succeeded" : "identity.auth.login.mfa.succeeded", user.Id, new { challengeId, rememberMe = challenge.RememberMe });
         return LocalRedirect(challenge.ReturnUrl);
