@@ -8,6 +8,7 @@ using Skolio.Administration.Application.Abstractions;
 using Skolio.Administration.Infrastructure.Configuration;
 using Skolio.Administration.Infrastructure.Persistence;
 using Skolio.Administration.Infrastructure.Services;
+using Skolio.Administration.Infrastructure.Seeding;
 using StackExchange.Redis;
 
 namespace Skolio.Administration.Infrastructure;
@@ -41,6 +42,7 @@ public static class DependencyInjection
             var hangfireOptions = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AdministrationHangfireOptions>>().Value;
             config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(hangfireOptions.StorageConnectionString));
         });
+        services.AddScoped<AdministrationSystemSeeder>();
         return services;
     }
 }

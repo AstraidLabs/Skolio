@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Skolio.Administration.Infrastructure.Persistence;
+using Skolio.Administration.Infrastructure.Seeding;
 
 namespace Skolio.Administration.Infrastructure.Extensions;
+
 public static class MigrationExtensions
 {
     public static async Task ApplyAdministrationMigrationsAsync(this IHost host)
@@ -19,6 +22,21 @@ public static class MigrationExtensions
             var dbContext = scope.ServiceProvider.GetRequiredService<AdministrationDbContext>();
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Database migration completed for {ServiceName}.", serviceName);
+
+            var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+            var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var allowLocalSeedOutsideDevelopment = configuration.GetValue("Administration:Seed:EnableLocalMode", false);
+
+            if (environment.IsDevelopment() || allowLocalSeedOutsideDevelopment)
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<AdministrationSystemSeeder>();
+                await seeder.SeedAsync(CancellationToken.None);
+                logger.LogInformation("Administration seed completed for {ServiceName}.", serviceName);
+            }
+            else
+            {
+                logger.LogInformation("Administration seed skipped for {ServiceName}: environment={Environment}.", serviceName, environment.EnvironmentName);
+            }
         }
         catch (Exception exception)
         {

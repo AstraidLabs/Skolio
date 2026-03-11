@@ -53,7 +53,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });builder.Services.AddRouting();builder.Services.AddProblemDetails();builder.Services.AddOpenApi();builder.Services.AddCors(options => options.AddPolicy("SkolioDevelopment", policy => policy.WithOrigins("http://localhost:8080", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));builder.Services.AddHangfireServer();
 builder.Services.AddHealthChecks().AddDbContextCheck<AdministrationDbContext>(tags: ["ready"]).AddCheck<RedisHealthCheck>("redis", tags: ["ready"]).AddCheck<HangfireHealthCheck>("hangfire", tags: ["ready"]);
 var app = builder.Build();
-if (app.Environment.IsDevelopment()) { await app.ApplyAdministrationMigrationsAsync(); app.MapOpenApi(); }
+var enableLocalSeedMode = builder.Configuration.GetValue("Administration:Seed:EnableLocalMode", false);
+if (app.Environment.IsDevelopment() || enableLocalSeedMode) { await app.ApplyAdministrationMigrationsAsync(); }
+if (app.Environment.IsDevelopment()) { app.MapOpenApi(); }
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault() ?? Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
