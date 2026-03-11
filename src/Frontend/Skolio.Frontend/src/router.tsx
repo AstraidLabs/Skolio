@@ -273,7 +273,7 @@ export function RouterShell({ config }: RouterProps) {
       )}
       {active === '/communication' && <CommunicationParityPage api={apis.communication} session={session} />}
       {active === '/administration' && <AdministrationParityPage api={apis.administration} session={session} />}
-      {active === '/administration/user-management' && <IdentityParityPage api={apis.identity} session={session} viewMode="user-management" />}
+      {active === '/administration/user-management' && <IdentityParityPage api={apis.identity} organizationApi={apis.organization} session={session} viewMode="user-management" />}
       {active === '/identity' && <IdentityParityPage api={apis.identity} session={session} />}
       {active === '/identity/security' && <SecuritySelfServicePage api={apis.identity} />}
       {!nav.includes(active) && active !== '/identity' && active !== '/identity/security' && <p className="text-sm text-red-700">{t('authFailed')}</p>}

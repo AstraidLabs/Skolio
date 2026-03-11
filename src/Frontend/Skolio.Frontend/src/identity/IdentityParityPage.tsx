@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AdminUserListQuery, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, SchoolContextOption, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
+import type { AdminUserListQuery, CreateUserWizardResult, IdentityManagedUser, IdentityManagedUserDetail, IdentityManagedUserSummary, PagedResult, SchoolContextOption, createIdentityApi, MyProfileSummary, SchoolPositionOption, SelfProfileUpdatePayload, UserProfile } from './api';
 import type { SessionState } from '../shared/auth/session';
 import type { createOrganizationApi, TeacherAssignment } from '../organization/api';
 import { Card } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
 import { localeLabels, supportedLocales, useI18n } from '../i18n';
 import { extractValidationErrors } from '../shared/http/httpClient';
+import { CreateUserWizard } from './CreateUserWizard';
 
 type ProfileDraft = SelfProfileUpdatePayload;
 type TeacherProfileTab = 'basic' | 'address' | 'employment' | 'schoolContext' | 'teachingAssignments';
@@ -146,6 +147,11 @@ export function IdentityParityPage({
   const [adminSchoolPositionLoading, setAdminSchoolPositionLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const managedUsersSectionRef = useRef<HTMLElement | null>(null);
+
+  // Create user wizard state
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSuccessMessage, setWizardSuccessMessage] = useState('');
+  const [wizardHighlightUserId, setWizardHighlightUserId] = useState('');
 
   const isPlatformAdministrator = session.roles.includes('PlatformAdministrator');
   const isSchoolAdministrator = session.roles.includes('SchoolAdministrator');
@@ -583,8 +589,39 @@ export function IdentityParityPage({
       return <ErrorState text={t('unauthorizedIdentity')} />;
     }
 
+    const handleWizardSuccess = (result: CreateUserWizardResult) => {
+      setWizardOpen(false);
+      setWizardSuccessMessage(t('createUserWizardSuccessActivationSent', { email: result.email }));
+      setWizardHighlightUserId(result.userId);
+      void loadManagedUsers({ pageNumber: 1, search: result.email });
+      setTimeout(() => setWizardSuccessMessage(''), 8000);
+    };
+
+    if (wizardOpen) {
+      return (
+        <section className="space-y-4">
+          <Card>
+            <CreateUserWizard
+              api={api}
+              organizationApi={organizationApi}
+              session={session}
+              initialSchoolId={managedSchoolContextId || undefined}
+              onSuccess={handleWizardSuccess}
+              onCancel={() => setWizardOpen(false)}
+            />
+          </Card>
+        </section>
+      );
+    }
+
     return (
       <section className="space-y-4">
+        {wizardSuccessMessage ? (
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm text-emerald-800 flex items-center justify-between">
+            <span>{wizardSuccessMessage}</span>
+            <button type="button" className="ml-3 text-emerald-600 hover:text-emerald-900" onClick={() => setWizardSuccessMessage('')}>&times;</button>
+          </div>
+        ) : null}
         <ManagedUsersSection
           sectionRef={managedUsersSectionRef}
           t={t}
@@ -617,6 +654,8 @@ export function IdentityParityPage({
           managedSchoolOptionsLoading={managedSchoolOptionsLoading}
           managedSchoolOptionsError={managedSchoolOptionsError}
           onManagedSchoolContextChange={onManagedSchoolContextChange}
+          onOpenCreateWizard={() => setWizardOpen(true)}
+          wizardHighlightUserId={wizardHighlightUserId}
         />
       </section>
     );
@@ -1052,9 +1091,11 @@ function ManagedUsersSection({
   managedSchoolOptionsLoading,
   managedSchoolOptionsError,
   onManagedSchoolContextChange,
+  onOpenCreateWizard,
+  wizardHighlightUserId,
   sectionRef
 }: any) {
-  const { locale } = useI18n();
+  const { locale, t: tSection } = useI18n();
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [actionMenuUserId, setActionMenuUserId] = useState('');
@@ -1289,7 +1330,22 @@ function ManagedUsersSection({
   return (
     <Card className="sk-user-management">
       <section ref={sectionRef} id="identity-user-management">
-      <p className="font-semibold text-sm inline-flex items-center gap-2"><UserManagementSectionIcon className="h-4 w-4 text-slate-600" />{t('userManagementListTitle')}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-sm inline-flex items-center gap-2">
+          <UserManagementSectionIcon className="h-4 w-4 text-slate-600" />
+          {t('userManagementListTitle')}
+        </p>
+        {onOpenCreateWizard ? (
+          <button
+            type="button"
+            className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1.5"
+            onClick={onOpenCreateWizard}
+          >
+            <CreateUserActionIcon className="h-3.5 w-3.5" />
+            {tSection('createUserAction')}
+          </button>
+        ) : null}
+      </div>
 
       {/* School context switcher (platform admin only) */}
       {isPlatformAdministrator ? (
@@ -2135,6 +2191,16 @@ function ThreeDotsIcon({ className = 'h-4 w-4' }: { className?: string }) {
       <circle cx="12" cy="5" r="1.5" />
       <circle cx="12" cy="12" r="1.5" />
       <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
+function CreateUserActionIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <circle cx="10" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 20c0-4 3.2-7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18 13v6M15 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

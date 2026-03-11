@@ -218,6 +218,48 @@ export type IdentityManagedUserLinksSummary = {
   studentAssignmentCount: number;
 };
 
+export type WizardStudentCandidate = {
+  profileId: string;
+  displayName: string;
+  email: string;
+  schoolPlacement?: string | null;
+};
+
+export type CreateUserWizardPayload = {
+  // Step 1
+  email: string;
+  userName: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string | null;
+  preferredLanguage?: string | null;
+  // Step 2
+  role: string;
+  schoolId?: string | null;
+  // Step 3
+  phoneNumber?: string | null;
+  positionTitle?: string | null;
+  schoolPlacement?: string | null;
+  schoolContextSummary?: string | null;
+  parentRelationshipSummary?: string | null;
+  contactEmail?: string | null;
+  // Step 4
+  linkedStudentProfileId?: string | null;
+  parentStudentRelationship?: string | null;
+  // Step 5
+  activationPolicy: 'SendActivationEmail' | 'CreateActive';
+};
+
+export type CreateUserWizardResult = {
+  userId: string;
+  email: string;
+  userName: string;
+  displayName: string;
+  role: string;
+  accountLifecycleStatus: string;
+  activationEmailSent: boolean;
+};
+
 export type IdentityManagedUserDetail = {
   userId: string;
   email: string;
@@ -329,6 +371,8 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     adminAssignRole: (userId: string, role: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles/assign`, schoolContextId), { method: 'POST', body: JSON.stringify({ role }) }),
     adminRemoveRole: (userId: string, role: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles/remove`, schoolContextId), { method: 'POST', body: JSON.stringify({ role }) }),
     adminUpdateRoleSet: (userId: string, roles: string[], schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles`, schoolContextId), { method: 'PUT', body: JSON.stringify({ roles }) }),
+    adminWizardStudentCandidates: (schoolId?: string) => http<WizardStudentCandidate[]>('identity', `/api/identity/user-management/create-wizard/student-candidates${schoolId ? `?schoolId=${schoolId}` : ''}`),
+    adminCreateWizard: (payload: CreateUserWizardPayload) => http<CreateUserWizardResult>('identity', '/api/identity/user-management/create-wizard', { method: 'POST', body: JSON.stringify(payload) }),
     forgotPassword: (payload: { email: string }) => http<{ message: string }>('identity', '/api/identity/security/forgot-password', { method: 'POST', body: JSON.stringify(payload) }),
     resetPassword: (payload: { userId: string; token: string; newPassword: string; confirmNewPassword: string }) => http<{ message: string }>('identity', '/api/identity/security/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
     requestEmailChange: (payload: { currentPassword: string; newEmail: string }) => http<{ message: string }>('identity', '/api/identity/security/change-email/request', { method: 'POST', body: JSON.stringify(payload) }),
