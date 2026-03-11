@@ -16,11 +16,11 @@ public sealed class IdentityAuthSeeder(
 {
     private static readonly SeedRoleDefinition[] RequiredRoles =
     [
-        new("PlatformAdministrator", isGlobal: true, isSchoolScoped: false, requiresSchoolContext: false, requiresRoleSpecificLinks: false, allowedForBootstrap: true, allowedForCreateUser: false, allowedForUserManagementEdit: true),
-        new("SchoolAdministrator", isGlobal: false, isSchoolScoped: true, requiresSchoolContext: true, requiresRoleSpecificLinks: false, allowedForBootstrap: false, allowedForCreateUser: true, allowedForUserManagementEdit: true),
-        new("Teacher", isGlobal: false, isSchoolScoped: true, requiresSchoolContext: true, requiresRoleSpecificLinks: true, allowedForBootstrap: false, allowedForCreateUser: true, allowedForUserManagementEdit: true),
-        new("Parent", isGlobal: false, isSchoolScoped: true, requiresSchoolContext: true, requiresRoleSpecificLinks: true, allowedForBootstrap: false, allowedForCreateUser: true, allowedForUserManagementEdit: true),
-        new("Student", isGlobal: false, isSchoolScoped: true, requiresSchoolContext: true, requiresRoleSpecificLinks: true, allowedForBootstrap: false, allowedForCreateUser: true, allowedForUserManagementEdit: true)
+        new("PlatformAdministrator", IsGlobal: true, IsSchoolScoped: false, RequiresSchoolContext: false, RequiresRoleSpecificLinks: false, AllowedForBootstrap: true, AllowedForCreateUser: false, AllowedForUserManagementEdit: true),
+        new("SchoolAdministrator", IsGlobal: false, IsSchoolScoped: true, RequiresSchoolContext: true, RequiresRoleSpecificLinks: false, AllowedForBootstrap: false, AllowedForCreateUser: true, AllowedForUserManagementEdit: true),
+        new("Teacher", IsGlobal: false, IsSchoolScoped: true, RequiresSchoolContext: true, RequiresRoleSpecificLinks: true, AllowedForBootstrap: false, AllowedForCreateUser: true, AllowedForUserManagementEdit: true),
+        new("Parent", IsGlobal: false, IsSchoolScoped: true, RequiresSchoolContext: true, RequiresRoleSpecificLinks: true, AllowedForBootstrap: false, AllowedForCreateUser: true, AllowedForUserManagementEdit: true),
+        new("Student", IsGlobal: false, IsSchoolScoped: true, RequiresSchoolContext: true, RequiresRoleSpecificLinks: true, AllowedForBootstrap: false, AllowedForCreateUser: true, AllowedForUserManagementEdit: true)
     ];
 
     public async Task SeedAsync(CancellationToken cancellationToken)
