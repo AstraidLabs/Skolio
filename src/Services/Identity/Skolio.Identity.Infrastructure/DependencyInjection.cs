@@ -148,6 +148,7 @@ public static class DependencyInjection
             options.InstanceName = redisOptions.InstanceName;
         });
         services.AddScoped<IdentityAuthSeeder>();
+        services.AddScoped<IdentityDevelopmentAccountSeeder>();
 
         return services;
     }

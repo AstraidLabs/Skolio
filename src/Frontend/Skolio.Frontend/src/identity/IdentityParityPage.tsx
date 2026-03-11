@@ -720,9 +720,18 @@ export function IdentityParityPage({
           managedUserDetailLoading={managedUserDetailLoading}
           managedUserDetailError={managedUserDetailError}
           managedUserDetail={managedUserDetail}
+          managedBasicDraft={managedBasicDraft}
+          setManagedBasicDraft={setManagedBasicDraft}
+          saveManagedBasic={saveManagedBasic}
           managedRoleSetDraft={managedRoleSetDraft}
           setManagedRoleSetDraft={setManagedRoleSetDraft}
           saveManagedRoleSet={saveManagedRoleSet}
+          managedSchoolIdsDraft={managedSchoolIdsDraft}
+          setManagedSchoolIdsDraft={setManagedSchoolIdsDraft}
+          saveManagedSchoolContext={saveManagedSchoolContext}
+          managedParentLinksDraft={managedParentLinksDraft}
+          setManagedParentLinksDraft={setManagedParentLinksDraft}
+          saveManagedParentLinks={saveManagedParentLinks}
           activeManagedUserTab={activeManagedUserTab}
           setActiveManagedUserTab={setActiveManagedUserTab}
           isPlatformAdministrator={isPlatformAdministrator}
@@ -1157,9 +1166,18 @@ function ManagedUsersSection({
   managedUserDetailLoading,
   managedUserDetailError,
   managedUserDetail,
+  managedBasicDraft,
+  setManagedBasicDraft,
+  saveManagedBasic,
   managedRoleSetDraft,
   setManagedRoleSetDraft,
   saveManagedRoleSet,
+  managedSchoolIdsDraft,
+  setManagedSchoolIdsDraft,
+  saveManagedSchoolContext,
+  managedParentLinksDraft,
+  setManagedParentLinksDraft,
+  saveManagedParentLinks,
   activeManagedUserTab,
   setActiveManagedUserTab,
   isPlatformAdministrator,
@@ -1706,7 +1724,12 @@ function ManagedUsersSection({
                     <Field label={t('profileFieldFirstName')} value={managedBasicDraft.firstName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, firstName: value }))} />
                     <Field label={t('profileFieldLastName')} value={managedBasicDraft.lastName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, lastName: value }))} />
                     <Field label={t('profileFieldPreferredDisplayName')} value={managedBasicDraft.preferredDisplayName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredDisplayName: value }))} />
-                    <Field label={t('profileFieldPreferredLanguage')} value={managedBasicDraft.preferredLanguage} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredLanguage: value }))} />
+                    <LanguageField
+                      label={t('profileFieldPreferredLanguage')}
+                      value={managedBasicDraft.preferredLanguage}
+                      placeholder={t('profileSelectLanguagePlaceholder')}
+                      onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredLanguage: value }))}
+                    />
                     <Field label={t('profileFieldPhoneNumber')} value={managedBasicDraft.phoneNumber} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, phoneNumber: value }))} />
                     <Field label={t('profileFieldContactEmail')} value={managedBasicDraft.contactEmail} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, contactEmail: value }))} />
                     <Field label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled />

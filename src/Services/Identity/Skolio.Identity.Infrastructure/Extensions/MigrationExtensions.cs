@@ -40,8 +40,11 @@ public static class MigrationExtensions
 
             if (environment.IsDevelopment() || allowLocalSeedOutsideDevelopment)
             {
-                var seeder = scope.ServiceProvider.GetRequiredService<IdentityAuthSeeder>();
-                await seeder.SeedAsync(CancellationToken.None);
+                var authSeeder = scope.ServiceProvider.GetRequiredService<IdentityAuthSeeder>();
+                await authSeeder.SeedAsync(CancellationToken.None);
+
+                var accountSeeder = scope.ServiceProvider.GetRequiredService<IdentityDevelopmentAccountSeeder>();
+                await accountSeeder.SeedAsync(CancellationToken.None);
                 logger.LogInformation("Identity seed completed for {ServiceName}.", serviceName);
             }
             else
