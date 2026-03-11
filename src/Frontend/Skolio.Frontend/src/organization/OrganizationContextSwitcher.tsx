@@ -1,5 +1,7 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../i18n';
 import type { School } from './api';
+import { getSchoolTypeLabel } from './schoolLabels';
 
 export function OrganizationContextSwitcher({
   schools,
@@ -10,6 +12,7 @@ export function OrganizationContextSwitcher({
   activeSchoolId: string;
   onSelectSchool: (schoolId: string) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const activeSchool = useMemo(
@@ -42,7 +45,7 @@ export function OrganizationContextSwitcher({
       >
         <span className="flex min-w-0 flex-col items-start text-left">
           <span className="truncate text-sm font-semibold text-slate-900">{activeSchool.name}</span>
-          <span className="text-xs text-slate-500">{activeSchool.schoolType}</span>
+          <span className="text-xs text-slate-500">{getSchoolTypeLabel(t, activeSchool.schoolType)}</span>
         </span>
         <span className="ml-3 text-xs text-slate-500">{open ? '^' : 'v'}</span>
       </button>
@@ -51,6 +54,7 @@ export function OrganizationContextSwitcher({
         <OrganizationContextMenu
           activeSchoolId={activeSchool.id}
           schools={schools}
+          t={t}
           onSelect={(schoolId) => {
             setOpen(false);
             onSelectSchool(schoolId);
@@ -64,10 +68,12 @@ export function OrganizationContextSwitcher({
 export function OrganizationContextMenu({
   schools,
   activeSchoolId,
+  t,
   onSelect
 }: {
   schools: School[];
   activeSchoolId: string;
+  t: (key: string, params?: Record<string, string>) => string;
   onSelect: (schoolId: string) => void;
 }) {
   return (
@@ -83,7 +89,7 @@ export function OrganizationContextMenu({
             onClick={() => onSelect(school.id)}
           >
             <span className="block truncate font-medium">{school.name}</span>
-            <span className="block text-xs text-slate-500">{school.schoolType}</span>
+            <span className="block text-xs text-slate-500">{getSchoolTypeLabel(t, school.schoolType)}</span>
           </button>
         );
       })}

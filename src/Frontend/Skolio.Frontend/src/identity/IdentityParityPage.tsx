@@ -1258,7 +1258,7 @@ function ManagedUsersSection({
   const sortIndicator = (field: string) => {
     const active = (userListFilters.sortField ?? 'name') === field;
     const dir = userListFilters.sortDirection ?? 'asc';
-    return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (dir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}</span>;
+    return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (dir === 'asc' ? '▲' : '▼') : '▴'}</span>;
   };
 
   const allSelected = managedUsers?.items?.length > 0 && managedUsers.items.every((u: IdentityManagedUser) => selectedUserIds.includes(u.userId));
@@ -1843,7 +1843,7 @@ function SelectField({
   value,
   options,
   onChange,
-  placeholder = '\u2014'
+  placeholder = '—'
 }: {
   label: string;
   value: string;

@@ -1,4 +1,5 @@
 import type { createHttpClient } from '../shared/http/httpClient';
+import { normalizePlatformStatus, normalizeSchoolKind, normalizeSchoolType } from './schoolLabels';
 
 export type Address = { street: string; city: string; postalCode: string; country: string };
 
@@ -110,6 +111,15 @@ export type StudentContext = {
 
 type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
 
+function normalizeSchool(school: School): School {
+  return {
+    ...school,
+    schoolType: normalizeSchoolType(school.schoolType),
+    schoolKind: normalizeSchoolKind(school.schoolKind),
+    platformStatus: normalizePlatformStatus(school.platformStatus)
+  };
+}
+
 export function createOrganizationApi(http: ReturnType<typeof createHttpClient>) {
   return {
     schools: async (query?: { search?: string; schoolType?: string; isActive?: boolean }) => {
@@ -118,13 +128,13 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
       if (query?.schoolType) params.set('schoolType', query.schoolType);
       if (typeof query?.isActive === 'boolean') params.set('isActive', String(query.isActive));
       const result = await http<PagedResult<School>>('organization', `/api/organization/schools${params.size > 0 ? `?${params.toString()}` : ''}`);
-      return result.items;
+      return result.items.map(normalizeSchool);
     },
-    school: (id: string) => http<School>('organization', `/api/organization/schools/${id}`),
-    createSchool: (payload: SchoolMutation) => http<School>('organization', '/api/organization/schools', { method: 'POST', body: JSON.stringify(payload) }),
-    updateSchool: (id: string, payload: SchoolMutation) => http<School>('organization', `/api/organization/schools/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-    setSchoolStatus: (id: string, isActive: boolean) => http<School>('organization', `/api/organization/schools/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
-    assignSchoolAdministrator: (id: string, userProfileId: string) => http<School>('organization', `/api/organization/schools/${id}/school-administrator`, { method: 'PUT', body: JSON.stringify({ userProfileId }) }),
+    school: async (id: string) => normalizeSchool(await http<School>('organization', `/api/organization/schools/${id}`)),
+    createSchool: async (payload: SchoolMutation) => normalizeSchool(await http<School>('organization', '/api/organization/schools', { method: 'POST', body: JSON.stringify(payload) })),
+    updateSchool: async (id: string, payload: SchoolMutation) => normalizeSchool(await http<School>('organization', `/api/organization/schools/${id}`, { method: 'PUT', body: JSON.stringify(payload) })),
+    setSchoolStatus: async (id: string, isActive: boolean) => normalizeSchool(await http<School>('organization', `/api/organization/schools/${id}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) })),
+    assignSchoolAdministrator: async (id: string, userProfileId: string) => normalizeSchool(await http<School>('organization', `/api/organization/schools/${id}/school-administrator`, { method: 'PUT', body: JSON.stringify({ userProfileId }) })),
     createInitialSchoolYear: (id: string, payload: { label: string; startDate: string; endDate: string }) => http<SchoolYear>('organization', `/api/organization/schools/${id}/initial-school-year`, { method: 'POST', body: JSON.stringify(payload) }),
     createSchoolYear: (payload: Omit<SchoolYear, 'id'>) => http<SchoolYear>('organization', '/api/organization/school-years', { method: 'POST', body: JSON.stringify(payload) }),
     updateSchoolYear: (id: string, payload: { startDate: string; endDate: string }) => http<SchoolYear>('organization', `/api/organization/school-years/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
@@ -151,6 +161,12 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     myTeacherAssignments: (schoolId: string) => http<TeacherAssignment[]>('organization', `/api/organization/teacher-assignments/me?schoolId=${schoolId}`),
     createTeacherAssignment: (payload: Omit<TeacherAssignment, 'id'>) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments', { method: 'POST', body: JSON.stringify(payload) }),
     overrideTeacherAssignment: (payload: { existingAssignmentId?: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string; overrideReason: string }) => http<TeacherAssignment>('organization', '/api/organization/teacher-assignments/override/reassign', { method: 'POST', body: JSON.stringify(payload) }),
-    studentContext: (schoolId: string) => http<StudentContext>('organization', `/api/organization/student-context?schoolId=${schoolId}`)
+    studentContext: async (schoolId: string) => {
+      const context = await http<StudentContext>('organization', `/api/organization/student-context?schoolId=${schoolId}`);
+      return {
+        ...context,
+        school: normalizeSchool(context.school)
+      };
+    }
   };
 }
