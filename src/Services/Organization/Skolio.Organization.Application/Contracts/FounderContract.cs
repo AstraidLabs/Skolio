@@ -10,4 +10,5 @@ public sealed record FounderContract(
     LegalForm FounderLegalForm,
     string? FounderIco,
     AddressContract FounderAddress,
-    string? FounderEmail);
+    string? FounderEmail,
+    string? FounderDataBox);

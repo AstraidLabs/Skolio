@@ -17,6 +17,7 @@ public sealed class FounderConfiguration : IEntityTypeConfiguration<Founder>
         builder.Property(x => x.FounderLegalForm).HasColumnName("founder_legal_form").HasConversion<string>().HasMaxLength(64).IsRequired();
         builder.Property(x => x.FounderIco).HasColumnName("founder_ico").HasMaxLength(32);
         builder.Property(x => x.FounderEmail).HasColumnName("founder_email").HasMaxLength(256);
+        builder.Property(x => x.FounderDataBox).HasColumnName("founder_data_box").HasMaxLength(64);
 
         builder.OwnsOne(x => x.FounderAddress, address =>
         {

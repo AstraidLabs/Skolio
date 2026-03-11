@@ -18,7 +18,8 @@ public sealed class Founder
         LegalForm founderLegalForm,
         string? founderIco,
         Address founderAddress,
-        string? founderEmail)
+        string? founderEmail,
+        string? founderDataBox)
     {
         if (id == Guid.Empty)
         {
@@ -26,7 +27,7 @@ public sealed class Founder
         }
 
         Id = id;
-        Update(founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail);
+        Update(founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail, founderDataBox);
     }
 
     public Guid Id { get; private set; }
@@ -37,6 +38,7 @@ public sealed class Founder
     public string? FounderIco { get; private set; }
     public Address FounderAddress { get; private set; } = Address.Create("Unknown", "Unknown", "00000", "CZ");
     public string? FounderEmail { get; private set; }
+    public string? FounderDataBox { get; private set; }
 
     public static Founder Create(
         Guid id,
@@ -46,8 +48,9 @@ public sealed class Founder
         LegalForm founderLegalForm,
         string? founderIco,
         Address founderAddress,
-        string? founderEmail)
-        => new(id, founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail);
+        string? founderEmail,
+        string? founderDataBox = null)
+        => new(id, founderType, founderCategory, founderName, founderLegalForm, founderIco, founderAddress, founderEmail, founderDataBox);
 
     public void Update(
         FounderType founderType,
@@ -56,7 +59,8 @@ public sealed class Founder
         LegalForm founderLegalForm,
         string? founderIco,
         Address founderAddress,
-        string? founderEmail)
+        string? founderEmail,
+        string? founderDataBox)
     {
         if (string.IsNullOrWhiteSpace(founderName))
         {
@@ -70,6 +74,7 @@ public sealed class Founder
         FounderIco = NormalizeOptional(founderIco);
         FounderAddress = founderAddress;
         FounderEmail = NormalizeOptional(founderEmail);
+        FounderDataBox = NormalizeOptional(founderDataBox);
     }
 
     private static string? NormalizeOptional(string? value)

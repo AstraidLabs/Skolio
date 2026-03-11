@@ -117,11 +117,14 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                 request.SchoolOperator.LegalEntityName,
                 request.SchoolOperator.LegalForm,
                 request.SchoolOperator.CompanyNumberIco,
+                request.SchoolOperator.RedIzo,
                 new AddressContract(
                     request.SchoolOperator.RegisteredOfficeAddress.Street,
                     request.SchoolOperator.RegisteredOfficeAddress.City,
                     request.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                     request.SchoolOperator.RegisteredOfficeAddress.Country),
+                request.SchoolOperator.OperatorEmail,
+                request.SchoolOperator.DataBox,
                 request.SchoolOperator.ResortIdentifier,
                 request.SchoolOperator.DirectorSummary,
                 request.SchoolOperator.StatutoryBodySummary),
@@ -137,7 +140,8 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                     request.Founder.FounderAddress.City,
                     request.Founder.FounderAddress.PostalCode,
                     request.Founder.FounderAddress.Country),
-                request.Founder.FounderEmail)), cancellationToken);
+                request.Founder.FounderEmail,
+                request.Founder.FounderDataBox)), cancellationToken);
 
         Audit("organization.school.created", contract.Id, new { contract.SchoolType, contract.PlatformStatus });
         return CreatedAtAction(nameof(Detail), new { id = contract.Id }, contract);
@@ -175,11 +179,14 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                 request.SchoolOperator.LegalEntityName,
                 request.SchoolOperator.LegalForm,
                 request.SchoolOperator.CompanyNumberIco,
+                request.SchoolOperator.RedIzo,
                 Skolio.Organization.Domain.ValueObjects.Address.Create(
                     request.SchoolOperator.RegisteredOfficeAddress.Street,
                     request.SchoolOperator.RegisteredOfficeAddress.City,
                     request.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                     request.SchoolOperator.RegisteredOfficeAddress.Country),
+                request.SchoolOperator.OperatorEmail,
+                request.SchoolOperator.DataBox,
                 request.SchoolOperator.ResortIdentifier,
                 request.SchoolOperator.DirectorSummary,
                 request.SchoolOperator.StatutoryBodySummary);
@@ -191,11 +198,14 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                 request.SchoolOperator.LegalEntityName,
                 request.SchoolOperator.LegalForm,
                 request.SchoolOperator.CompanyNumberIco,
+                request.SchoolOperator.RedIzo,
                 Skolio.Organization.Domain.ValueObjects.Address.Create(
                     request.SchoolOperator.RegisteredOfficeAddress.Street,
                     request.SchoolOperator.RegisteredOfficeAddress.City,
                     request.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                     request.SchoolOperator.RegisteredOfficeAddress.Country),
+                request.SchoolOperator.OperatorEmail,
+                request.SchoolOperator.DataBox,
                 request.SchoolOperator.ResortIdentifier,
                 request.SchoolOperator.DirectorSummary,
                 request.SchoolOperator.StatutoryBodySummary);
@@ -216,7 +226,8 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                     request.Founder.FounderAddress.City,
                     request.Founder.FounderAddress.PostalCode,
                     request.Founder.FounderAddress.Country),
-                request.Founder.FounderEmail);
+                request.Founder.FounderEmail,
+                request.Founder.FounderDataBox);
             dbContext.Founders.Add(founder);
         }
         else
@@ -232,7 +243,8 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                     request.Founder.FounderAddress.City,
                     request.Founder.FounderAddress.PostalCode,
                     request.Founder.FounderAddress.Country),
-                request.Founder.FounderEmail);
+                request.Founder.FounderEmail,
+                request.Founder.FounderDataBox);
         }
 
         school.Rename(request.Name);
@@ -354,11 +366,14 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                 school.SchoolOperator.LegalEntityName,
                 school.SchoolOperator.LegalForm,
                 school.SchoolOperator.CompanyNumberIco,
+                school.SchoolOperator.RedIzo,
                 new AddressContract(
                     school.SchoolOperator.RegisteredOfficeAddress.Street,
                     school.SchoolOperator.RegisteredOfficeAddress.City,
                     school.SchoolOperator.RegisteredOfficeAddress.PostalCode,
                     school.SchoolOperator.RegisteredOfficeAddress.Country),
+                school.SchoolOperator.OperatorEmail,
+                school.SchoolOperator.DataBox,
                 school.SchoolOperator.ResortIdentifier,
                 school.SchoolOperator.DirectorSummary,
                 school.SchoolOperator.StatutoryBodySummary);
@@ -377,7 +392,8 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
                     school.Founder.FounderAddress.City,
                     school.Founder.FounderAddress.PostalCode,
                     school.Founder.FounderAddress.Country),
-                school.Founder.FounderEmail);
+                school.Founder.FounderEmail,
+                school.Founder.FounderDataBox);
 
         return new SchoolContract(
             school.Id,
@@ -443,8 +459,18 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
         [RegularExpression("^\\d{8}$")]
         public string? CompanyNumberIco { get; init; }
 
+        [MaxLength(32)]
+        public string? RedIzo { get; init; }
+
         [Required]
         public AddressRequest RegisteredOfficeAddress { get; init; } = new();
+
+        [EmailAddress]
+        [MaxLength(256)]
+        public string? OperatorEmail { get; init; }
+
+        [MaxLength(64)]
+        public string? DataBox { get; init; }
 
         [MaxLength(64)]
         public string? ResortIdentifier { get; init; }
@@ -480,6 +506,9 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
         [EmailAddress]
         [MaxLength(256)]
         public string? FounderEmail { get; init; }
+
+        [MaxLength(64)]
+        public string? FounderDataBox { get; init; }
     }
 
     public class CreateSchoolRequest

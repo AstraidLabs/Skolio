@@ -15,7 +15,10 @@ public sealed class SchoolOperator
         string legalEntityName,
         LegalForm legalForm,
         string? companyNumberIco,
+        string? redIzo,
         Address registeredOfficeAddress,
+        string? operatorEmail,
+        string? dataBox,
         string? resortIdentifier,
         string? directorSummary,
         string? statutoryBodySummary)
@@ -26,14 +29,17 @@ public sealed class SchoolOperator
         }
 
         Id = id;
-        Update(legalEntityName, legalForm, companyNumberIco, registeredOfficeAddress, resortIdentifier, directorSummary, statutoryBodySummary);
+        Update(legalEntityName, legalForm, companyNumberIco, redIzo, registeredOfficeAddress, operatorEmail, dataBox, resortIdentifier, directorSummary, statutoryBodySummary);
     }
 
     public Guid Id { get; private set; }
     public string LegalEntityName { get; private set; } = string.Empty;
     public LegalForm LegalForm { get; private set; }
     public string? CompanyNumberIco { get; private set; }
+    public string? RedIzo { get; private set; }
     public Address RegisteredOfficeAddress { get; private set; } = Address.Create("Unknown", "Unknown", "00000", "CZ");
+    public string? OperatorEmail { get; private set; }
+    public string? DataBox { get; private set; }
     public string? ResortIdentifier { get; private set; }
     public string? DirectorSummary { get; private set; }
     public string? StatutoryBodySummary { get; private set; }
@@ -43,17 +49,23 @@ public sealed class SchoolOperator
         string legalEntityName,
         LegalForm legalForm,
         string? companyNumberIco,
+        string? redIzo,
         Address registeredOfficeAddress,
+        string? operatorEmail,
+        string? dataBox,
         string? resortIdentifier,
         string? directorSummary,
         string? statutoryBodySummary)
-        => new(id, legalEntityName, legalForm, companyNumberIco, registeredOfficeAddress, resortIdentifier, directorSummary, statutoryBodySummary);
+        => new(id, legalEntityName, legalForm, companyNumberIco, redIzo, registeredOfficeAddress, operatorEmail, dataBox, resortIdentifier, directorSummary, statutoryBodySummary);
 
     public void Update(
         string legalEntityName,
         LegalForm legalForm,
         string? companyNumberIco,
+        string? redIzo,
         Address registeredOfficeAddress,
+        string? operatorEmail,
+        string? dataBox,
         string? resortIdentifier,
         string? directorSummary,
         string? statutoryBodySummary)
@@ -66,7 +78,10 @@ public sealed class SchoolOperator
         LegalEntityName = legalEntityName.Trim();
         LegalForm = legalForm;
         CompanyNumberIco = NormalizeOptional(companyNumberIco);
+        RedIzo = NormalizeOptional(redIzo);
         RegisteredOfficeAddress = registeredOfficeAddress;
+        OperatorEmail = NormalizeOptional(operatorEmail);
+        DataBox = NormalizeOptional(dataBox);
         ResortIdentifier = NormalizeOptional(resortIdentifier);
         DirectorSummary = NormalizeOptional(directorSummary);
         StatutoryBodySummary = NormalizeOptional(statutoryBodySummary);
