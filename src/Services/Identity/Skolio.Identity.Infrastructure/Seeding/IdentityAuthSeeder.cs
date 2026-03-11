@@ -25,15 +25,6 @@ public sealed class IdentityAuthSeeder(
     private static readonly Guid ElementarySchoolId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid SecondarySchoolId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
-    private static readonly SeedUserDefinition PlatformAdministrator = new(
-        Guid.Parse("10000000-0000-0000-0000-000000000001"),
-        "platform.admin@skolio.local",
-        "Platform",
-        "Administrator",
-        UserType.SupportStaff,
-        "PlatformAdministrator",
-        null);
-
     private static readonly SeedUserDefinition KindergartenSchoolAdministrator = new(
         Guid.Parse("10000000-0000-0000-0000-000000000101"),
         "kindergarten.admin@skolio.local",
@@ -153,7 +144,6 @@ public sealed class IdentityAuthSeeder(
 
     private static readonly SeedUserDefinition[] SeedUsers =
     [
-        PlatformAdministrator,
         KindergartenSchoolAdministrator,
         KindergartenTeacher,
         KindergartenParent,

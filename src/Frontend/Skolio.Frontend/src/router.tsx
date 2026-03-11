@@ -4,7 +4,7 @@ import { localeLabels, supportedLocales, useI18n } from './i18n';
 import { createAdministrationApi } from './administration/api';
 import { createAcademicsApi } from './academics/api';
 import { createCommunicationApi } from './communication/api';
-import { createIdentityApi, type MyProfileSummary } from './identity/api';
+import { createIdentityApi, type BootstrapAvailability, type MyProfileSummary } from './identity/api';
 import { createOrganizationApi } from './organization/api';
 import { clearPkce, clearSession, extractRolesFromClaims, loadPkce, loadSession, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
@@ -48,7 +48,8 @@ type AppRoute =
   | '/security/confirm-email-change'
   | '/security/confirm-activation'
   | '/security/invite-activation'
-  | '/login';
+  | '/login'
+  | '/bootstrap/platform-admin';
 
 const idleTimeoutMs = 30 * 60 * 1000;
 const idleWarningWindowMs = 2 * 60 * 1000;
@@ -186,6 +187,10 @@ export function RouterShell({ config }: RouterProps) {
       window.removeEventListener('popstate', onRouteActivity);
     };
   }, [config, session?.subject]);
+
+  if (route === '/bootstrap/platform-admin') {
+    return <BootstrapPlatformAdminPage config={config} api={apis.identity} />;
+  }
 
   if (route === '/login') {
     return <IdentityLoginPage config={config} />;
@@ -1263,6 +1268,132 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
           <p className="mt-4 text-center text-xs text-slate-500">{t('loginCopyright', { platform: 'Skolio', year: copyrightYear })}</p>
         </div>
       </div>
+    </section>
+  );
+}
+
+
+function BootstrapPlatformAdminPage({ config, api }: { config: SkolioBootstrapConfig; api: ReturnType<typeof createIdentityApi> }) {
+  const { t } = useI18n();
+  const [state, setState] = useState<BootstrapAvailability | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [sharedKey, setSharedKey] = useState('');
+  const [authenticatorUri, setAuthenticatorUri] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+
+  const reload = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const next = await api.bootstrapState();
+      setState(next);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void reload(); }, []);
+
+  const createAdmin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const next = await api.bootstrapCreateFirstAdmin({ userName, email, password, confirmPassword });
+      setState(next);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startMfa = async () => {
+    if (!state?.bootstrapUserId) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await api.bootstrapMfaStart({ userId: state.bootstrapUserId, password });
+      setSharedKey(data.sharedKey);
+      setAuthenticatorUri(data.authenticatorUri);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmMfa = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!state?.bootstrapUserId) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await api.bootstrapMfaConfirm({ userId: state.bootstrapUserId, password, verificationCode });
+      setRecoveryCodes(data.recoveryCodes);
+      await reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) return <section className="p-6"><LoadingState text={t('bootstrapLoading')} /></section>;
+  if (error) return <section className="p-6"><ErrorState text={error} /></section>;
+  if (!state) return <section className="p-6"><ErrorState text={t('bootstrapUnavailable')} /></section>;
+
+  return (
+    <section className="mx-auto mt-6 max-w-3xl space-y-4 px-4">
+      <SectionHeader title={t('bootstrapInitialSetup')} subtitle={t('bootstrapCreateFirstAdmin')} />
+      <Card><p className="text-sm">{t('bootstrapStatusLabel')}: <strong>{state.state}</strong></p></Card>
+      {state.state === 'BootstrapClosed' || state.state === 'Active' ? <ErrorState text={t('bootstrapUnavailable')} /> : null}
+
+      {state.state === 'BootstrapAvailable' ? (
+        <Card>
+          <form className="sk-form space-y-3" onSubmit={createAdmin}>
+            <label className="sk-label">{t('bootstrapUsername')}</label>
+            <input className="sk-input" value={userName} onChange={(e) => setUserName(e.target.value)} required />
+            <label className="sk-label">{t('bootstrapEmail')}</label>
+            <input className="sk-input" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+            <label className="sk-label">{t('bootstrapPassword')}</label>
+            <input className="sk-input" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
+            <label className="sk-label">{t('bootstrapConfirmPassword')}</label>
+            <input className="sk-input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" required />
+            <button className="sk-btn sk-btn-primary" type="submit" disabled={busy}>{busy ? t('bootstrapSubmitting') : t('bootstrapCreateAction')}</button>
+          </form>
+        </Card>
+      ) : null}
+
+      {state.state === 'BootstrapAccountCreated' ? (
+        <Card>
+          <p className="text-sm mb-2">{t('bootstrapMfaSetup')}</p>
+          {!sharedKey ? <button className="sk-btn sk-btn-primary" onClick={() => { void startMfa(); }} disabled={busy}>{t('bootstrapStartMfa')}</button> : null}
+          {sharedKey ? (
+            <form className="sk-form mt-3 space-y-2" onSubmit={confirmMfa}>
+              <p className="text-xs">{t('bootstrapSharedKey')}: <code>{sharedKey}</code></p>
+              <p className="text-xs break-all">URI: <code>{authenticatorUri}</code></p>
+              <label className="sk-label">{t('bootstrapVerificationCode')}</label>
+              <input className="sk-input" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} required />
+              <button className="sk-btn sk-btn-primary" type="submit" disabled={busy}>{t('bootstrapConfirmMfa')}</button>
+            </form>
+          ) : null}
+          {recoveryCodes.length > 0 ? <div className="mt-3"><p className="text-sm font-semibold">{t('bootstrapRecoveryCodes')}</p><ul className="sk-list">{recoveryCodes.map((x) => <li className="sk-list-item" key={x}>{x}</li>)}</ul></div> : null}
+        </Card>
+      ) : null}
+
+      {state.state === 'PendingActivation' ? <Card><p>{t('bootstrapActivationEmailSent')}</p><p className="text-sm">{t('bootstrapWaitingActivation')}</p></Card> : null}
+      {state.state === 'PendingFirstLogin' ? <Card><p>{t('bootstrapPendingFirstLogin')}</p><a className="sk-btn sk-btn-primary mt-2 inline-flex" href={`/login?returnUrl=${encodeURIComponent(config.oidcRedirectUri)}`}>{t('goToLogin')}</a></Card> : null}
+      {state.state === 'Active' ? <Card><p>{t('bootstrapCompleted')}</p></Card> : null}
     </section>
   );
 }
