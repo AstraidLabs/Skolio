@@ -127,6 +127,9 @@ export function IdentityParityPage({
   const [managedUserDetailLoading, setManagedUserDetailLoading] = useState(false);
   const [managedUserDetailError, setManagedUserDetailError] = useState('');
   const [managedRoleSetDraft, setManagedRoleSetDraft] = useState<string[]>([]);
+  const [managedBasicDraft, setManagedBasicDraft] = useState({ firstName: '', lastName: '', preferredDisplayName: '', preferredLanguage: '', phoneNumber: '', contactEmail: '', schoolPlacement: '', schoolContextSummary: '', positionTitle: '', parentRelationshipSummary: '' });
+  const [managedSchoolIdsDraft, setManagedSchoolIdsDraft] = useState<string[]>([]);
+  const [managedParentLinksDraft, setManagedParentLinksDraft] = useState('');
   const [activeManagedUserTab, setActiveManagedUserTab] = useState<ManagedUserDetailTab>('basic');
   const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc', search: '' });
   const [managedSchoolContextId, setManagedSchoolContextId] = useState<string>(() => localStorage.getItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY) ?? '');
@@ -257,6 +260,20 @@ export function IdentityParityPage({
       .then((detail) => {
         setManagedUserDetail(detail);
         setManagedRoleSetDraft(detail.roles);
+        setManagedBasicDraft({
+          firstName: detail.firstName ?? '',
+          lastName: detail.lastName ?? '',
+          preferredDisplayName: detail.preferredDisplayName ?? '',
+          preferredLanguage: detail.preferredLanguage ?? '',
+          phoneNumber: detail.phoneNumber ?? '',
+          contactEmail: detail.contactEmail ?? '',
+          schoolPlacement: detail.school ?? '',
+          schoolContextSummary: detail.schoolType ?? '',
+          positionTitle: '',
+          parentRelationshipSummary: ''
+        });
+        setManagedSchoolIdsDraft(detail.schoolIds ?? []);
+        setManagedParentLinksDraft('');
       })
       .catch((e: Error) => setManagedUserDetailError(mapProfileError(e, t)))
       .finally(() => setManagedUserDetailLoading(false));
@@ -268,6 +285,8 @@ export function IdentityParityPage({
     setManagedUserDetailError('');
     setManagedUserDetailLoading(false);
     setManagedRoleSetDraft([]);
+    setManagedSchoolIdsDraft([]);
+    setManagedParentLinksDraft('');
   };
 
   const runManagedLifecycleAction = (userId: string, action: () => Promise<unknown>) => {
@@ -301,6 +320,64 @@ export function IdentityParityPage({
         setFormSuccess(t('userManagementRolesSavedSuccess'));
         openManagedDetail(managedUserDetail.userId);
         loadManagedUsers();
+      })
+      .catch((e: Error) => setFormError(mapProfileError(e, t)))
+      .finally(() => setManagedActionBusyUserId(''));
+  };
+
+  const saveManagedBasic = () => {
+    if (!managedUserDetail) return;
+    if (!managedBasicDraft.firstName.trim() || !managedBasicDraft.lastName.trim()) {
+      setFormError(t('userManagementValidationBasicRequired'));
+      return;
+    }
+
+    setManagedActionBusyUserId(managedUserDetail.userId);
+    setFormError('');
+    setFormSuccess('');
+    void api.adminUpdateBasicProfile(managedUserDetail.userId, managedBasicDraft, managedSchoolContextId || undefined)
+      .then((detail) => {
+        setManagedUserDetail(detail);
+        setFormSuccess(t('userManagementBasicSavedSuccess'));
+        loadManagedUsers();
+      })
+      .catch((e: Error) => setFormError(mapProfileError(e, t)))
+      .finally(() => setManagedActionBusyUserId(''));
+  };
+
+  const saveManagedSchoolContext = () => {
+    if (!managedUserDetail) return;
+    if (managedSchoolIdsDraft.length === 0) {
+      setFormError(t('userManagementValidationSchoolContextRequired'));
+      return;
+    }
+
+    setManagedActionBusyUserId(managedUserDetail.userId);
+    setFormError('');
+    setFormSuccess('');
+    void api.adminUpdateSchoolContext(managedUserDetail.userId, managedSchoolIdsDraft, managedSchoolContextId || undefined)
+      .then(() => {
+        setFormSuccess(t('userManagementSchoolContextSavedSuccess'));
+        openManagedDetail(managedUserDetail.userId);
+        loadManagedUsers();
+      })
+      .catch((e: Error) => setFormError(mapProfileError(e, t)))
+      .finally(() => setManagedActionBusyUserId(''));
+  };
+
+  const saveManagedParentLinks = () => {
+    if (!managedUserDetail) return;
+    const parsed = managedParentLinksDraft.split('\n').map((x) => x.trim()).filter((x) => x.length > 0).map((line) => {
+      const [studentUserProfileId, relationship] = line.split(':').map((x) => x.trim());
+      return { studentUserProfileId, relationship };
+    }).filter((x) => x.studentUserProfileId && x.relationship);
+
+    setManagedActionBusyUserId(managedUserDetail.userId);
+    setFormError('');
+    setFormSuccess('');
+    void api.adminUpdateParentLinks(managedUserDetail.userId, parsed, managedSchoolContextId || undefined)
+      .then(() => {
+        setFormSuccess(t('userManagementLinksSavedSuccess'));
       })
       .catch((e: Error) => setFormError(mapProfileError(e, t)))
       .finally(() => setManagedActionBusyUserId(''));
@@ -1626,11 +1703,17 @@ function ManagedUsersSection({
 
                 {activeManagedUserTab === 'basic' ? (
                   <div className="grid gap-2">
-                    <Field label={t('profileFieldFirstName')} value={managedUserDetail.firstName} onChange={() => {}} disabled />
-                    <Field label={t('profileFieldLastName')} value={managedUserDetail.lastName} onChange={() => {}} disabled />
-                    <Field label={t('profileFieldPreferredDisplayName')} value={managedUserRow?.displayName ?? '-'} onChange={() => {}} disabled />
+                    <Field label={t('profileFieldFirstName')} value={managedBasicDraft.firstName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, firstName: value }))} />
+                    <Field label={t('profileFieldLastName')} value={managedBasicDraft.lastName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, lastName: value }))} />
+                    <Field label={t('profileFieldPreferredDisplayName')} value={managedBasicDraft.preferredDisplayName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredDisplayName: value }))} />
+                    <Field label={t('profileFieldPreferredLanguage')} value={managedBasicDraft.preferredLanguage} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredLanguage: value }))} />
+                    <Field label={t('profileFieldPhoneNumber')} value={managedBasicDraft.phoneNumber} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, phoneNumber: value }))} />
+                    <Field label={t('profileFieldContactEmail')} value={managedBasicDraft.contactEmail} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, contactEmail: value }))} />
                     <Field label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled />
                     <Field label={t('userManagementLabelUsername')} value={managedUserDetail.userName} onChange={() => {}} disabled />
+                    <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveBasic'), saveManagedBasic)}>
+                      <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveBasic')}
+                    </button>
                   </div>
                 ) : null}
 
@@ -1670,23 +1753,39 @@ function ManagedUsersSection({
                     <Field label={t('userManagementSecurityMfaEnabled')} value={managedUserRow?.mfaEnabled ? t('profileValueYes') : t('profileValueNo')} onChange={() => {}} disabled />
                     <Field label={t('userManagementSecurityLockout')} value={formatManagedDate(managedUserDetail.lockoutEndUtc)} onChange={() => {}} disabled />
                     <Field label={t('userManagementSecurityRecoverySummary')} value={t('userManagementSecurityRecoveryNotExposed')} onChange={() => {}} disabled />
+                    <div className="flex flex-wrap gap-2">
+                      <button className="sk-btn sk-btn-secondary text-xs" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmDisableMfa'), () => runManagedLifecycleAction(managedUserDetail.userId, () => api.adminDisableMfa(managedUserDetail.userId, managedSchoolContextId || undefined)))}>{t('userManagementActionDisableMfa')}</button>
+                      <button className="sk-btn sk-btn-secondary text-xs" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmUnlockLockout'), () => runManagedLifecycleAction(managedUserDetail.userId, () => api.adminUnlockLockout(managedUserDetail.userId, managedSchoolContextId || undefined)))}>{t('userManagementActionUnlockLockout')}</button>
+                    </div>
                   </div>
                 ) : null}
 
                 {activeManagedUserTab === 'schoolContext' ? (
                   <div className="grid gap-2">
-                    <Field label={t('userManagementColSchool')} value={managedUserDetail.school ?? '-'} onChange={() => {}} disabled />
-                    <Field label={t('userManagementFilterSchoolType')} value={translateSchoolType(managedUserDetail.schoolType)} onChange={() => {}} disabled />
-                    <Field label={t('profileLabelAssignedSchools')} value={managedUserDetail.schoolIds.join(', ') || '-'} onChange={() => {}} disabled />
+                    <Field label={t('userManagementColSchool')} value={managedBasicDraft.schoolPlacement} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolPlacement: value }))} />
+                    <Field label={t('userManagementFilterSchoolType')} value={managedBasicDraft.schoolContextSummary} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolContextSummary: value }))} />
+                    <Field label={t('profileLabelAssignedSchools')} value={managedSchoolIdsDraft.join(', ')} onChange={(value) => setManagedSchoolIdsDraft(value.split(',').map((x) => x.trim()).filter((x) => x.length > 0))} />
                     <Field label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled />
+                    <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveSchoolContext'), saveManagedSchoolContext)}>
+                      <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveSchoolContext')}
+                    </button>
                   </div>
                 ) : null}
 
                 {activeManagedUserTab === 'links' ? (
-                  <div className="space-y-2">
+                  <div className="grid gap-2">
                     <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Parent') ? t('userManagementLinksParentSummary') : t('userManagementLinksNoParent')}</p>
                     <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Teacher') ? t('userManagementLinksTeacherSummary') : t('userManagementLinksNoTeacher')}</p>
                     <p className="text-sm text-slate-700">{managedUserDetail.roles.includes('Student') ? t('userManagementLinksStudentSummary') : t('userManagementLinksNoStudent')}</p>
+                    {managedUserDetail.roles.includes('Parent') ? (
+                      <>
+                        <label className="sk-label">{t('userManagementParentLinksEditorLabel')}</label>
+                        <textarea className="sk-input min-h-24" value={managedParentLinksDraft} onChange={(e) => setManagedParentLinksDraft(e.target.value)} />
+                        <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveLinks'), saveManagedParentLinks)}>
+                          <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveLinks')}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

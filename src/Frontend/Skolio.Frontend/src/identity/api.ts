@@ -283,6 +283,10 @@ export type IdentityManagedUserDetail = {
   lastActivityAtUtc?: string | null;
   firstName: string;
   lastName: string;
+  preferredDisplayName?: string | null;
+  preferredLanguage?: string | null;
+  phoneNumber?: string | null;
+  contactEmail?: string | null;
   school?: string | null;
   schoolType?: string | null;
   roles: string[];
@@ -365,6 +369,7 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     },
     adminUserSummary: (schoolContextId?: string) => http<IdentityManagedUserSummary>('identity', withSchoolContext('/api/identity/user-management/summary', schoolContextId)),
     adminUserDetail: (userId: string, schoolContextId?: string) => http<IdentityManagedUserDetail>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}`, schoolContextId)),
+    adminUpdateBasicProfile: (userId: string, payload: { firstName: string; lastName: string; preferredDisplayName?: string | null; preferredLanguage?: string | null; phoneNumber?: string | null; contactEmail?: string | null; schoolPlacement?: string | null; schoolContextSummary?: string | null; positionTitle?: string | null; parentRelationshipSummary?: string | null }, schoolContextId?: string) => http<IdentityManagedUserDetail>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/basic-profile`, schoolContextId), { method: 'PUT', body: JSON.stringify(payload) }),
 
     adminUserRolesDetail: (userId: string, schoolContextId?: string) => http<IdentityManagedUserRolesDetail>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles-detail`, schoolContextId)),
     adminUserLifecycleDetail: (userId: string, schoolContextId?: string) => http<IdentityManagedUserLifecycleDetail>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/lifecycle-detail`, schoolContextId)),
@@ -377,6 +382,10 @@ export function createIdentityApi(http: ReturnType<typeof createHttpClient>) {
     adminBlock: (userId: string, reason?: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/block`, schoolContextId), { method: 'POST', body: JSON.stringify({ reason }) }),
     adminUnblock: (userId: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/unblock`, schoolContextId), { method: 'POST' }),
     adminResendActivation: (userId: string, schoolContextId?: string) => http<{ message: string }>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/resend-activation`, schoolContextId), { method: 'POST' }),
+    adminDisableMfa: (userId: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/security/disable-mfa`, schoolContextId), { method: 'POST' }),
+    adminUnlockLockout: (userId: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/security/unlock-lockout`, schoolContextId), { method: 'POST' }),
+    adminUpdateSchoolContext: (userId: string, schoolIds: string[], schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/school-context`, schoolContextId), { method: 'PUT', body: JSON.stringify({ schoolIds }) }),
+    adminUpdateParentLinks: (userId: string, links: { studentUserProfileId: string; relationship: string }[], schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/links/parent-students`, schoolContextId), { method: 'PUT', body: JSON.stringify({ links }) }),
     adminRoles: (userId: string, schoolContextId?: string) => http<string[]>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles`, schoolContextId)),
     adminAssignRole: (userId: string, role: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles/assign`, schoolContextId), { method: 'POST', body: JSON.stringify({ role }) }),
     adminRemoveRole: (userId: string, role: string, schoolContextId?: string) => http<void>('identity', withSchoolContext(`/api/identity/user-management/users/${userId}/roles/remove`, schoolContextId), { method: 'POST', body: JSON.stringify({ role }) }),
