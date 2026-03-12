@@ -376,6 +376,23 @@ export function OrganizationParityPage({
     elementaryAndSecondary: schools.filter((school) => school.schoolType !== 'Kindergarten').length
   }), [filteredSchools.length, schools]);
 
+  const gradeLevelById = useMemo(
+    () => Object.fromEntries(gradeLevels.map((g) => [g.id, g])),
+    [gradeLevels]
+  );
+  const classRoomById = useMemo(
+    () => Object.fromEntries(classRooms.map((c) => [c.id, c])),
+    [classRooms]
+  );
+  const subjectById = useMemo(
+    () => Object.fromEntries(subjects.map((s) => [s.id, s])),
+    [subjects]
+  );
+  const teachingGroupById = useMemo(
+    () => Object.fromEntries(teachingGroups.map((g) => [g.id, g])),
+    [teachingGroups]
+  );
+
   const contextSwitcherBlock = (showHelperText: boolean) => {
     if (!canSwitchSchoolContext && !showReadOnlySchoolContext) return null;
 
@@ -695,10 +712,34 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgSchoolYearsTitle')} description={t('orgSchoolYearsDescription')} />
         {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">{t('orgSchoolYearsList')}</p>
-          {schoolYears.length === 0 ? <EmptyState text={t('orgSchoolYearsEmpty')} /> : (
-            <ul className="sk-list">{schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label} ({x.startDate} - {x.endDate})</li>)}</ul>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t('orgSchoolYearsList')}</p>
+            <p className="mt-1 text-xs text-slate-500">{schoolYears.length}</p>
+          </div>
+          {schoolYears.length === 0 ? (
+            <div className="p-4"><EmptyState text={t('orgSchoolYearsEmpty')} /></div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgColLabel')}</th>
+                    <th>{t('orgColStartDate')}</th>
+                    <th>{t('orgColEndDate')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schoolYears.map((x) => (
+                    <tr key={x.id} className="sk-user-management-row border-b">
+                      <td><span className="font-medium text-slate-900">{x.label}</span></td>
+                      <td className="text-sm text-slate-600">{x.startDate}</td>
+                      <td className="text-sm text-slate-600">{x.endDate}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
         {canWriteSchoolContext ? (
@@ -723,10 +764,32 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgGradeLevelsTitle')} description={t('orgGradeLevelsDescription')} />
         {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">{t('orgGradeLevelsList')}</p>
-          {gradeLevels.length === 0 ? <EmptyState text={t('orgGradeLevelsEmpty')} /> : (
-            <ul className="sk-list">{gradeLevels.map((x) => <li className="sk-list-item" key={x.id}>{x.level} - {x.displayName}</li>)}</ul>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t('orgGradeLevelsList')}</p>
+            <p className="mt-1 text-xs text-slate-500">{gradeLevels.length}</p>
+          </div>
+          {gradeLevels.length === 0 ? (
+            <div className="p-4"><EmptyState text={t('orgGradeLevelsEmpty')} /></div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgColLevel')}</th>
+                    <th>{t('orgColDisplayName')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...gradeLevels].sort((a, b) => a.level - b.level).map((x) => (
+                    <tr key={x.id} className="sk-user-management-row border-b">
+                      <td><span className="font-medium text-slate-900">{x.level}</span></td>
+                      <td className="text-sm text-slate-600">{x.displayName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
         {canWriteSchoolContext ? (
@@ -748,10 +811,38 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgClassRoomsTitle')} description={t('orgClassRoomsDescription')} />
         {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">{t('orgClassRoomsList')}</p>
-          {classRooms.length === 0 ? <EmptyState text={t('orgClassRoomsEmpty')} /> : (
-            <ul className="sk-list">{classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.displayName}</li>)}</ul>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t('orgClassRoomsList')}</p>
+            <p className="mt-1 text-xs text-slate-500">{classRooms.length}</p>
+          </div>
+          {classRooms.length === 0 ? (
+            <div className="p-4"><EmptyState text={t('orgClassRoomsEmpty')} /></div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgColCode')}</th>
+                    <th>{t('orgColDisplayName')}</th>
+                    <th>{t('orgColGradeLevelRef')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classRooms.map((x) => (
+                    <tr key={x.id} className="sk-user-management-row border-b">
+                      <td><span className="font-medium text-slate-900">{x.code}</span></td>
+                      <td className="text-sm text-slate-600">{x.displayName}</td>
+                      <td className="text-sm text-slate-600">
+                        {gradeLevelById[x.gradeLevelId]
+                          ? `${gradeLevelById[x.gradeLevelId].level}. – ${gradeLevelById[x.gradeLevelId].displayName}`
+                          : <span className="text-slate-400">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
         {canWriteSchoolContext ? (
@@ -774,10 +865,43 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgTeachingGroupsTitle')} description={t('orgTeachingGroupsDescription')} />
         {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">{t('orgTeachingGroupsList')}</p>
-          {teachingGroups.length === 0 ? <EmptyState text={t('orgTeachingGroupsEmpty')} /> : (
-            <ul className="sk-list">{teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t('orgTeachingGroupsList')}</p>
+            <p className="mt-1 text-xs text-slate-500">{teachingGroups.length}</p>
+          </div>
+          {teachingGroups.length === 0 ? (
+            <div className="p-4"><EmptyState text={t('orgTeachingGroupsEmpty')} /></div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgColName')}</th>
+                    <th>{t('orgColClassRoomRef')}</th>
+                    <th>{t('orgColDailyOps')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teachingGroups.map((x) => (
+                    <tr key={x.id} className="sk-user-management-row border-b">
+                      <td><span className="font-medium text-slate-900">{x.name}</span></td>
+                      <td className="text-sm text-slate-600">
+                        {x.classRoomId && classRoomById[x.classRoomId]
+                          ? classRoomById[x.classRoomId].code
+                          : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td>
+                        <StatusBadge
+                          label={x.isDailyOperationsGroup ? t('profileValueYes') : t('profileValueNo')}
+                          tone={x.isDailyOperationsGroup ? 'good' : 'neutral'}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
         {canWriteSchoolContext ? (
@@ -800,10 +924,32 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgSubjectsTitle')} description={t('orgSubjectsDescription')} />
         {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">{t('orgSubjectsList')}</p>
-          {subjects.length === 0 ? <EmptyState text={t('orgSubjectsEmpty')} /> : (
-            <ul className="sk-list">{subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.name}</li>)}</ul>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t('orgSubjectsList')}</p>
+            <p className="mt-1 text-xs text-slate-500">{subjects.length}</p>
+          </div>
+          {subjects.length === 0 ? (
+            <div className="p-4"><EmptyState text={t('orgSubjectsEmpty')} /></div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgColCode')}</th>
+                    <th>{t('orgColName')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subjects.map((x) => (
+                    <tr key={x.id} className="sk-user-management-row border-b">
+                      <td><span className="font-medium text-slate-900">{x.code}</span></td>
+                      <td className="text-sm text-slate-600">{x.name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
         {canWriteSchoolContext ? (
@@ -824,10 +970,48 @@ export function OrganizationParityPage({
     <section className="space-y-3">
       <SectionHeader title={t('orgTeacherAssignmentsTitle')} description={t('orgTeacherAssignmentsDescription')} />
       {contextSwitcherBlock(false)}
-      <Card>
-        <p className="font-semibold text-sm">{t('orgTeacherAssignmentsList')}</p>
-        {teacherAssignments.length === 0 ? <EmptyState text={t('orgTeacherAssignmentsEmpty')} /> : (
-          <ul className="sk-list">{teacherAssignments.map((x) => <li className="sk-list-item" key={x.id}>{x.teacherUserId} | {x.scope}</li>)}</ul>
+      <Card className="sk-user-management overflow-hidden">
+        <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-semibold text-slate-900">{t('orgTeacherAssignmentsList')}</p>
+          <p className="mt-1 text-xs text-slate-500">{teacherAssignments.length}</p>
+        </div>
+        {teacherAssignments.length === 0 ? (
+          <div className="p-4"><EmptyState text={t('orgTeacherAssignmentsEmpty')} /></div>
+        ) : (
+          <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+            <table className="sk-table sk-user-management-table sk-sticky">
+              <thead>
+                <tr className="border-b text-left">
+                  <th>{t('orgColScope')}</th>
+                  <th>{t('orgColClassRoomRef')}</th>
+                  <th>{t('orgColGroup')}</th>
+                  <th>{t('orgColSubject')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teacherAssignments.map((x) => (
+                  <tr key={x.id} className="sk-user-management-row border-b">
+                    <td><span className="font-medium text-slate-900">{x.scope}</span></td>
+                    <td className="text-sm text-slate-600">
+                      {x.classRoomId && classRoomById[x.classRoomId]
+                        ? classRoomById[x.classRoomId].code
+                        : <span className="text-slate-400">—</span>}
+                    </td>
+                    <td className="text-sm text-slate-600">
+                      {x.teachingGroupId && teachingGroupById[x.teachingGroupId]
+                        ? teachingGroupById[x.teachingGroupId].name
+                        : <span className="text-slate-400">—</span>}
+                    </td>
+                    <td className="text-sm text-slate-600">
+                      {x.subjectId && subjectById[x.subjectId]
+                        ? `${subjectById[x.subjectId].code} – ${subjectById[x.subjectId].name}`
+                        : <span className="text-slate-400">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
       {canWriteSchoolContext ? (

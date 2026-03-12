@@ -828,6 +828,21 @@ const en = {
   orgStudentClassRooms: 'Class rooms',
   orgStudentGroups: 'Groups',
   orgStudentSubjects: 'Subjects',
+  // Sub-section table column headers
+  orgColLabel: 'Label',
+  orgColStartDate: 'Start date',
+  orgColEndDate: 'End date',
+  orgColLevel: 'Level',
+  orgColDisplayName: 'Display name',
+  orgColCode: 'Code',
+  orgColName: 'Name',
+  orgColGradeLevelRef: 'Grade level',
+  orgColClassRoomRef: 'Class room',
+  orgColDailyOps: 'Daily ops group',
+  orgColTeacher: 'Teacher',
+  orgColScope: 'Scope',
+  orgColGroup: 'Group',
+  orgColSubject: 'Subject',
 } as const;
 
 type TranslationKey = keyof typeof en;
@@ -1593,6 +1608,20 @@ const cs: Translations = {
   orgStudentClassRooms: 'Třídy',
   orgStudentGroups: 'Skupiny',
   orgStudentSubjects: 'Předměty',
+  orgColLabel: 'Označení',
+  orgColStartDate: 'Datum zahájení',
+  orgColEndDate: 'Datum ukončení',
+  orgColLevel: 'Č. ročníku',
+  orgColDisplayName: 'Zobrazovaný název',
+  orgColCode: 'Kód',
+  orgColName: 'Název',
+  orgColGradeLevelRef: 'Ročník',
+  orgColClassRoomRef: 'Třída',
+  orgColDailyOps: 'Provozní skupina',
+  orgColTeacher: 'Učitel',
+  orgColScope: 'Rozsah',
+  orgColGroup: 'Skupina',
+  orgColSubject: 'Předmět',
 };
 
 const sk: Translations = {
@@ -2224,6 +2253,20 @@ const sk: Translations = {
   orgStudentClassRooms: 'Triedy',
   orgStudentGroups: 'Skupiny',
   orgStudentSubjects: 'Predmety',
+  orgColLabel: 'Označenie',
+  orgColStartDate: 'Dátum začiatku',
+  orgColEndDate: 'Dátum konca',
+  orgColLevel: 'Č. ročníka',
+  orgColDisplayName: 'Zobrazovaný názov',
+  orgColCode: 'Kód',
+  orgColName: 'Názov',
+  orgColGradeLevelRef: 'Ročník',
+  orgColClassRoomRef: 'Trieda',
+  orgColDailyOps: 'Prevádzková skupina',
+  orgColTeacher: 'Učiteľ',
+  orgColScope: 'Rozsah',
+  orgColGroup: 'Skupina',
+  orgColSubject: 'Predmet',
 };
 
 const de: Translations = {
@@ -2854,6 +2897,20 @@ const de: Translations = {
   orgStudentClassRooms: 'Klassen',
   orgStudentGroups: 'Gruppen',
   orgStudentSubjects: 'Fächer',
+  orgColLabel: 'Bezeichnung',
+  orgColStartDate: 'Startdatum',
+  orgColEndDate: 'Enddatum',
+  orgColLevel: 'Stufe',
+  orgColDisplayName: 'Anzeigename',
+  orgColCode: 'Kürzel',
+  orgColName: 'Name',
+  orgColGradeLevelRef: 'Jahrgangsstufe',
+  orgColClassRoomRef: 'Klasse',
+  orgColDailyOps: 'Betriebsgruppe',
+  orgColTeacher: 'Lehrer',
+  orgColScope: 'Umfang',
+  orgColGroup: 'Gruppe',
+  orgColSubject: 'Fach',
 };
 
 const pl: Translations = {
@@ -3483,6 +3540,20 @@ const pl: Translations = {
   orgStudentClassRooms: 'Sale lekcyjne',
   orgStudentGroups: 'Grupy',
   orgStudentSubjects: 'Przedmioty',
+  orgColLabel: 'Etykieta',
+  orgColStartDate: 'Data rozpoczęcia',
+  orgColEndDate: 'Data zakończenia',
+  orgColLevel: 'Nr poziomu',
+  orgColDisplayName: 'Wyświetlana nazwa',
+  orgColCode: 'Kod',
+  orgColName: 'Nazwa',
+  orgColGradeLevelRef: 'Poziom klasowy',
+  orgColClassRoomRef: 'Sala lekcyjna',
+  orgColDailyOps: 'Grupa operacyjna',
+  orgColTeacher: 'Nauczyciel',
+  orgColScope: 'Zakres',
+  orgColGroup: 'Grupa',
+  orgColSubject: 'Przedmiot',
 };
 
 const translations: Record<Locale, Translations> = {
