@@ -11,17 +11,16 @@ import type {
   TeacherAssignment,
   TeachingGroup,
   StudentContext,
-  SchoolPlaceOfEducation,
-  SchoolCapacity,
-  RoleDefinition,
-  ResolvedChildMatrices,
   createOrganizationApi
 } from './api';
 import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
 import { OrganizationSchoolIdentityCard } from './OrganizationSchoolIdentityCard';
-import { getPlatformStatusLabel, getSchoolKindLabel, getSchoolTypeLabel } from './schoolLabels';
+import { getPlatformStatusLabel, getSchoolTypeLabel } from './schoolLabels';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
+import { useClientGrid } from './hooks/useClientGrid';
+import { OrganizationGridSection, type OrganizationGridColumn } from './components/OrganizationGridSection';
+import { OrganizationEntityModal } from './components/OrganizationEntityModal';
 
 type OrganizationView =
   | 'overview'
@@ -32,13 +31,29 @@ type OrganizationView =
   | 'class-rooms'
   | 'teaching-groups'
   | 'subjects'
-  | 'teacher-assignments'
-  | 'places-of-education'
-  | 'capacities'
-  | 'role-definitions'
-  | 'child-matrices';
+  | 'teacher-assignments';
 
 type SchoolStatusFilter = 'all' | 'active' | 'inactive';
+type SchoolYearWindowFilter = 'all' | 'current' | 'upcoming' | 'past';
+type TeachingGroupFilter = 'all' | 'daily' | 'custom';
+type EntityModalState =
+  | { kind: 'school-year'; mode: 'create' | 'edit'; item?: SchoolYear }
+  | { kind: 'grade-level'; mode: 'create' | 'edit'; item?: GradeLevel }
+  | { kind: 'class-room'; mode: 'create' | 'edit'; item?: ClassRoom }
+  | { kind: 'teaching-group'; mode: 'create' | 'edit'; item?: TeachingGroup }
+  | { kind: 'subject'; mode: 'create' | 'edit'; item?: Subject }
+  | { kind: 'teacher-assignment'; mode: 'create' | 'edit'; item?: TeacherAssignment }
+  | null;
+type SchoolYearDraft = { label: string; startDate: string; endDate: string };
+type GradeLevelDraft = { level: number; displayName: string };
+type ClassRoomCreateDraft = { gradeLevelId: string; code: string; displayName: string };
+type ClassRoomEditDraft = { code: string; displayName: string; overrideReason: string };
+type TeachingGroupCreateDraft = { classRoomId: string; name: string; isDailyOperationsGroup: boolean };
+type TeachingGroupEditDraft = { classRoomId: string; name: string; isDailyOperationsGroup: boolean; overrideReason: string };
+type SubjectCreateDraft = { code: string; name: string };
+type SubjectEditDraft = { code: string; name: string; overrideReason: string };
+type TeacherAssignmentCreateDraft = { teacherUserId: string; scope: string; classRoomId: string; teachingGroupId: string; subjectId: string };
+type TeacherAssignmentEditDraft = { teacherUserId: string; scope: string; classRoomId: string; teachingGroupId: string; subjectId: string; overrideReason: string };
 
 const EMPTY_SCHOOL: SchoolMutation = {
   name: '',
@@ -74,12 +89,16 @@ const EMPTY_SCHOOL: SchoolMutation = {
     founderEmail: ''
   }
 };
-const EMPTY_SCHOOL_YEAR = { label: '', startDate: '', endDate: '' };
-const EMPTY_GRADE_LEVEL = { level: 1, displayName: '' };
-const EMPTY_CLASS_ROOM = { gradeLevelId: '', code: '', displayName: '' };
-const EMPTY_GROUP = { classRoomId: '', name: '', isDailyOperationsGroup: true };
-const EMPTY_SUBJECT = { code: '', name: '' };
-const EMPTY_ASSIGNMENT = { teacherUserId: '', scope: 'SubjectTeacher', classRoomId: '', teachingGroupId: '', subjectId: '' };
+const EMPTY_SCHOOL_YEAR: SchoolYearDraft = { label: '', startDate: '', endDate: '' };
+const EMPTY_GRADE_LEVEL: GradeLevelDraft = { level: 1, displayName: '' };
+const EMPTY_CLASS_ROOM_CREATE: ClassRoomCreateDraft = { gradeLevelId: '', code: '', displayName: '' };
+const EMPTY_CLASS_ROOM_EDIT: ClassRoomEditDraft = { code: '', displayName: '', overrideReason: '' };
+const EMPTY_TEACHING_GROUP_CREATE: TeachingGroupCreateDraft = { classRoomId: '', name: '', isDailyOperationsGroup: true };
+const EMPTY_TEACHING_GROUP_EDIT: TeachingGroupEditDraft = { classRoomId: '', name: '', isDailyOperationsGroup: true, overrideReason: '' };
+const EMPTY_SUBJECT_CREATE: SubjectCreateDraft = { code: '', name: '' };
+const EMPTY_SUBJECT_EDIT: SubjectEditDraft = { code: '', name: '', overrideReason: '' };
+const EMPTY_ASSIGNMENT_CREATE: TeacherAssignmentCreateDraft = { teacherUserId: '', scope: 'SubjectTeacher', classRoomId: '', teachingGroupId: '', subjectId: '' };
+const EMPTY_ASSIGNMENT_EDIT: TeacherAssignmentEditDraft = { teacherUserId: '', scope: 'SubjectTeacher', classRoomId: '', teachingGroupId: '', subjectId: '', overrideReason: '' };
 
 export function OrganizationParityPage({
   api,
@@ -95,6 +114,7 @@ export function OrganizationParityPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
@@ -103,21 +123,11 @@ export function OrganizationParityPage({
   const [teachingGroups, setTeachingGroups] = useState<TeachingGroup[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
-  const [schoolPlaces, setSchoolPlaces] = useState<SchoolPlaceOfEducation[]>([]);
-  const [schoolCapacities, setSchoolCapacities] = useState<SchoolCapacity[]>([]);
-  const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>([]);
-  const [resolvedMatrices, setResolvedMatrices] = useState<ResolvedChildMatrices | null>(null);
   const [studentContext, setStudentContext] = useState<StudentContext | null>(null);
 
   const [activeSchoolId, setActiveSchoolId] = useState(session.schoolIds[0] ?? '');
 
   const [newSchool, setNewSchool] = useState<SchoolMutation>({ ...EMPTY_SCHOOL, schoolType: session.schoolType });
-  const [newSchoolYear, setNewSchoolYear] = useState(EMPTY_SCHOOL_YEAR);
-  const [newGradeLevel, setNewGradeLevel] = useState(EMPTY_GRADE_LEVEL);
-  const [newClassRoom, setNewClassRoom] = useState(EMPTY_CLASS_ROOM);
-  const [newGroup, setNewGroup] = useState(EMPTY_GROUP);
-  const [newSubject, setNewSubject] = useState(EMPTY_SUBJECT);
-  const [newAssignment, setNewAssignment] = useState(EMPTY_ASSIGNMENT);
   const [schoolSearch, setSchoolSearch] = useState('');
   const [schoolTypeFilter, setSchoolTypeFilter] = useState('');
   const [schoolStatusFilter, setSchoolStatusFilter] = useState<SchoolStatusFilter>('all');
@@ -126,6 +136,25 @@ export function OrganizationParityPage({
   const [schoolDetailOpen, setSchoolDetailOpen] = useState(false);
   const [schoolActionMenuId, setSchoolActionMenuId] = useState('');
   const schoolActionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const [modalState, setModalState] = useState<EntityModalState>(null);
+  const [schoolYearDraft, setSchoolYearDraft] = useState<SchoolYearDraft>(EMPTY_SCHOOL_YEAR);
+  const [gradeLevelDraft, setGradeLevelDraft] = useState<GradeLevelDraft>(EMPTY_GRADE_LEVEL);
+  const [classRoomCreateDraft, setClassRoomCreateDraft] = useState<ClassRoomCreateDraft>(EMPTY_CLASS_ROOM_CREATE);
+  const [classRoomEditDraft, setClassRoomEditDraft] = useState<ClassRoomEditDraft>(EMPTY_CLASS_ROOM_EDIT);
+  const [teachingGroupCreateDraft, setTeachingGroupCreateDraft] = useState<TeachingGroupCreateDraft>(EMPTY_TEACHING_GROUP_CREATE);
+  const [teachingGroupEditDraft, setTeachingGroupEditDraft] = useState<TeachingGroupEditDraft>(EMPTY_TEACHING_GROUP_EDIT);
+  const [subjectCreateDraft, setSubjectCreateDraft] = useState<SubjectCreateDraft>(EMPTY_SUBJECT_CREATE);
+  const [subjectEditDraft, setSubjectEditDraft] = useState<SubjectEditDraft>(EMPTY_SUBJECT_EDIT);
+  const [teacherAssignmentCreateDraft, setTeacherAssignmentCreateDraft] = useState<TeacherAssignmentCreateDraft>(EMPTY_ASSIGNMENT_CREATE);
+  const [teacherAssignmentEditDraft, setTeacherAssignmentEditDraft] = useState<TeacherAssignmentEditDraft>(EMPTY_ASSIGNMENT_EDIT);
+  const [teacherAssignmentWizardStep, setTeacherAssignmentWizardStep] = useState(1);
+
+  const [schoolYearWindowFilter, setSchoolYearWindowFilter] = useState<SchoolYearWindowFilter>('all');
+  const [classRoomGradeFilter, setClassRoomGradeFilter] = useState('');
+  const [teachingGroupClassRoomFilter, setTeachingGroupClassRoomFilter] = useState('');
+  const [teachingGroupTypeFilter, setTeachingGroupTypeFilter] = useState<TeachingGroupFilter>('all');
+  const [teacherAssignmentScopeFilter, setTeacherAssignmentScopeFilter] = useState('');
 
   const isPlatformAdmin = session.roles.includes('PlatformAdministrator');
   const isSchoolAdmin = session.roles.includes('SchoolAdministrator');
@@ -180,21 +209,30 @@ export function OrganizationParityPage({
       setTeachingGroups([]);
       setSubjects([]);
       setTeacherAssignments([]);
-      setSchoolPlaces([]);
-      setSchoolCapacities([]);
       return;
     }
 
-    await Promise.all([
-      api.schoolYears(schoolId).then(setSchoolYears),
-      api.gradeLevels(schoolId).then(setGradeLevels),
-      api.classRooms(schoolId).then(setClassRooms),
-      api.teachingGroups(schoolId).then(setTeachingGroups),
-      api.subjects(schoolId).then(setSubjects),
-      api.teacherAssignments(schoolId).then(setTeacherAssignments),
-      api.schoolPlaces(schoolId).then(setSchoolPlaces),
-      api.schoolCapacities(schoolId).then(setSchoolCapacities)
+    const teacherAssignmentsPromise = canManageOrganization
+      ? api.teacherAssignments(schoolId)
+      : canTeacherScopedOrganization
+        ? api.myTeacherAssignments(schoolId)
+        : Promise.resolve([] as TeacherAssignment[]);
+
+    const [nextSchoolYears, nextGradeLevels, nextClassRooms, nextTeachingGroups, nextSubjects, nextAssignments] = await Promise.all([
+      api.schoolYears(schoolId),
+      api.gradeLevels(schoolId),
+      api.classRooms(schoolId),
+      api.teachingGroups(schoolId),
+      api.subjects(schoolId),
+      teacherAssignmentsPromise
     ]);
+
+    setSchoolYears(nextSchoolYears);
+    setGradeLevels(nextGradeLevels);
+    setClassRooms(nextClassRooms);
+    setTeachingGroups(nextTeachingGroups);
+    setSubjects(nextSubjects);
+    setTeacherAssignments(nextAssignments);
   };
 
   const load = () => {
@@ -214,24 +252,22 @@ export function OrganizationParityPage({
           setStudentContext(context);
           setActiveSchoolId(context.school.id);
         })
-        .catch((e: Error) => setError(e.message))
+        .catch((nextError: Error) => setError(nextError.message))
         .finally(() => setLoading(false));
       return;
     }
 
-    void Promise.all([
-      api.schools().then(async (result) => {
+    void api.schools()
+      .then(async (result) => {
         setSchools(result);
         const scopedSchoolId = session.schoolIds[0] ?? result[0]?.id ?? '';
-        setActiveSchoolId((current) => current || scopedSchoolId);
-        await loadSchoolBoundaries(scopedSchoolId);
-        if (result[0]?.schoolType) {
-          await api.childMatricesBySchoolType(result[0].schoolType).then(setResolvedMatrices).catch(() => {});
-        }
-      }),
-      api.roleDefinitions().then(setRoleDefinitions).catch(() => {})
-    ])
-      .catch((e: Error) => setError(e.message))
+        const nextSchoolId = activeSchoolId && result.some((school) => school.id === activeSchoolId)
+          ? activeSchoolId
+          : scopedSchoolId;
+        setActiveSchoolId(nextSchoolId);
+        await loadSchoolBoundaries(nextSchoolId);
+      })
+      .catch((nextError: Error) => setError(nextError.message))
       .finally(() => setLoading(false));
   };
 
@@ -242,12 +278,17 @@ export function OrganizationParityPage({
   }, [initialView]);
 
   useEffect(() => {
-    if (isStudent || !activeSchoolId) return;
-    void loadSchoolBoundaries(activeSchoolId).catch((e: Error) => setError(e.message));
-  }, [activeSchoolId, isStudent]);
+    if (isStudent || !activeSchoolId) {
+      return;
+    }
+
+    void loadSchoolBoundaries(activeSchoolId).catch((nextError: Error) => setError(nextError.message));
+  }, [activeSchoolId, canManageOrganization, canTeacherScopedOrganization, isStudent]);
 
   useEffect(() => {
-    if (!schoolActionMenuId) return;
+    if (!schoolActionMenuId) {
+      return undefined;
+    }
 
     const onMouseDown = (event: MouseEvent) => {
       if (schoolActionMenuRef.current && !schoolActionMenuRef.current.contains(event.target as Node)) {
@@ -259,20 +300,36 @@ export function OrganizationParityPage({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [schoolActionMenuId]);
 
-  const currentSchool = schools.find((x) => x.id === activeSchoolId) ?? schools[0] ?? null;
+  const currentSchool = schools.find((school) => school.id === activeSchoolId) ?? schools[0] ?? null;
+  const gradeLevelNameById = useMemo(
+    () => Object.fromEntries(gradeLevels.map((gradeLevel) => [gradeLevel.id, `${gradeLevel.level} - ${gradeLevel.displayName}`])),
+    [gradeLevels]
+  );
+  const classRoomNameById = useMemo(
+    () => Object.fromEntries(classRooms.map((classRoom) => [classRoom.id, `${classRoom.code} - ${classRoom.displayName}`])),
+    [classRooms]
+  );
+  const subjectNameById = useMemo(
+    () => Object.fromEntries(subjects.map((subject) => [subject.id, `${subject.code} - ${subject.name}`])),
+    [subjects]
+  );
 
-  const guarded = (action: () => Promise<unknown>, successMessage?: string) => {
+  const guardedRefresh = async (action: () => Promise<unknown>, successMessage: string) => {
+    setSaving(true);
     setError('');
     setNotice('');
-    void action()
-      .then(() => {
-        if (successMessage) {
-          setNotice(successMessage);
-        }
 
-        load();
-      })
-      .catch((e: Error) => setError(e.message));
+    try {
+      await action();
+      await loadSchoolBoundaries(activeSchoolId);
+      setNotice(successMessage);
+      return true;
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const goTo = (route: string) => {
@@ -280,72 +337,47 @@ export function OrganizationParityPage({
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const createSchool = () => guarded(async () => {
-    await api.createSchool(newSchool);
-    resetSchoolWizard();
-  }, t('orgCreateSchoolSuccess'));
-
-  const createSchoolYear = () => guarded(async () => {
-    await api.createSchoolYear({ id: '', schoolId: activeSchoolId, ...newSchoolYear });
-    setNewSchoolYear(EMPTY_SCHOOL_YEAR);
-  });
-
-  const createGradeLevel = () => guarded(async () => {
-    await api.createGradeLevel({ id: '', schoolId: activeSchoolId, ...newGradeLevel });
-    setNewGradeLevel(EMPTY_GRADE_LEVEL);
-  });
-
-  const createClassRoom = () => guarded(async () => {
-    await api.createClassRoom({ id: '', schoolId: activeSchoolId, ...newClassRoom });
-    setNewClassRoom(EMPTY_CLASS_ROOM);
-  });
-
-  const createGroup = () => guarded(async () => {
-    await api.createTeachingGroup({ id: '', schoolId: activeSchoolId, ...newGroup });
-    setNewGroup(EMPTY_GROUP);
-  });
-
-  const createSubject = () => guarded(async () => {
-    await api.createSubject({ id: '', schoolId: activeSchoolId, ...newSubject });
-    setNewSubject(EMPTY_SUBJECT);
-  });
-
-  const createAssignment = () => guarded(async () => {
-    await api.createTeacherAssignment({ id: '', schoolId: activeSchoolId, ...newAssignment });
-    setNewAssignment(EMPTY_ASSIGNMENT);
-  });
+  const createSchool = () => {
+    setSaving(true);
+    setError('');
+    setNotice('');
+    void api.createSchool(newSchool)
+      .then(() => {
+        resetSchoolWizard();
+        setNotice(t('orgCreateSchoolSuccess'));
+        load();
+      })
+      .catch((nextError: Error) => setError(nextError.message))
+      .finally(() => setSaving(false));
+  };
 
   const overviewEntryPoints = useMemo(() => {
-    if (isParent || isStudent) return [] as { label: string; description: string; count: number; route: string; emphasize?: boolean }[];
-
-    const entries = [
-      { label: 'Školy', description: 'Přehled škol a jejich aktivace.', count: schools.length, route: '/organization/schools' },
-      { label: 'Přehled školních roků', description: 'Aktivní a historické školní roky.', count: schoolYears.length, route: '/organization/school-years' },
-      { label: 'Ročníky', description: 'Organizační struktura ročníků.', count: gradeLevels.length, route: '/organization/grade-levels' },
-      { label: 'Třídy', description: 'Třídní struktura školy.', count: classRooms.length, route: '/organization/classes', emphasize: session.schoolType === 'ElementarySchool' },
-      { label: 'Skupiny', description: 'Skupinová struktura a provozní skupiny.', count: teachingGroups.length, route: '/organization/groups', emphasize: session.schoolType === 'Kindergarten' },
-      { label: 'Předměty', description: 'Předmětový kontext školy.', count: subjects.length, route: '/organization/subjects', emphasize: session.schoolType === 'ElementarySchool' },
-      { label: t('navTeacherAssignments'), description: 'Organizační přiřazení učitelů.', count: teacherAssignments.length, route: '/organization/teacher-assignments' }
-    ];
-
-    if (session.schoolType === 'SecondarySchool') {
-      return [entries[0], entries[1], entries[2], entries[3], entries[4], entries[5], entries[6].emphasize ? entries[6] : { ...entries[6], emphasize: true }];
+    if (isParent || isStudent) {
+      return [] as { label: string; description: string; count: number; route: string; emphasize?: boolean }[];
     }
 
-    return entries;
-  }, [isParent, isStudent, schools.length, schoolYears.length, gradeLevels.length, classRooms.length, teachingGroups.length, subjects.length, teacherAssignments.length, session.schoolType]);
+    return [
+      { label: t('orgSchoolsTitle'), description: t('orgSchoolsHeroDescription'), count: schools.length, route: '/organization/schools' },
+      { label: t('orgSchoolYearsTitle'), description: t('orgSchoolYearsDescription'), count: schoolYears.length, route: '/organization/school-years' },
+      { label: t('orgGradeLevelsTitle'), description: t('orgGradeLevelsDescription'), count: gradeLevels.length, route: '/organization/grade-levels' },
+      { label: t('orgClassRoomsTitle'), description: t('orgClassRoomsDescription'), count: classRooms.length, route: '/organization/class-rooms' },
+      { label: t('orgTeachingGroupsTitle'), description: t('orgTeachingGroupsDescription'), count: teachingGroups.length, route: '/organization/teaching-groups' },
+      { label: t('orgSubjectsTitle'), description: t('orgSubjectsDescription'), count: subjects.length, route: '/organization/subjects' },
+      { label: t('orgTeacherAssignmentsTitle'), description: t('orgTeacherAssignmentsDescription'), count: teacherAssignments.length, route: '/organization/teacher-assignments', emphasize: true }
+    ];
+  }, [classRooms.length, gradeLevels.length, isParent, isStudent, schoolYears.length, schools.length, subjects.length, t, teacherAssignments.length, teachingGroups.length]);
 
   const filteredSchools = useMemo(() => {
-    const search = schoolSearch.trim().toLowerCase();
+    const query = schoolSearch.trim().toLowerCase();
 
     return schools.filter((school) => {
-      const matchesSearch = !search || [
+      const matchesSearch = !query || [
         school.name,
         school.mainAddress.city,
         school.schoolIzo,
         school.schoolOperator?.legalEntityName,
         school.founder?.founderName
-      ].filter(Boolean).some((value) => value!.toLowerCase().includes(search));
+      ].filter(Boolean).some((value) => value!.toLowerCase().includes(query));
 
       const matchesType = !schoolTypeFilter || school.schoolType === schoolTypeFilter;
       const matchesStatus = schoolStatusFilter === 'all'
@@ -363,8 +395,99 @@ export function OrganizationParityPage({
     elementaryAndSecondary: schools.filter((school) => school.schoolType !== 'Kindergarten').length
   }), [filteredSchools.length, schools]);
 
+  const filteredSchoolYears = useMemo(
+    () => schoolYears.filter((schoolYear) => matchesSchoolYearWindowFilter(schoolYear, schoolYearWindowFilter)),
+    [schoolYearWindowFilter, schoolYears]
+  );
+  const filteredClassRooms = useMemo(
+    () => classRooms.filter((classRoom) => !classRoomGradeFilter || classRoom.gradeLevelId === classRoomGradeFilter),
+    [classRoomGradeFilter, classRooms]
+  );
+  const filteredTeachingGroups = useMemo(
+    () => teachingGroups.filter((teachingGroup) => {
+      const matchesClassRoom = !teachingGroupClassRoomFilter || teachingGroup.classRoomId === teachingGroupClassRoomFilter;
+      const matchesType = teachingGroupTypeFilter === 'all'
+        || (teachingGroupTypeFilter === 'daily' && teachingGroup.isDailyOperationsGroup)
+        || (teachingGroupTypeFilter === 'custom' && !teachingGroup.isDailyOperationsGroup);
+      return matchesClassRoom && matchesType;
+    }),
+    [teachingGroupClassRoomFilter, teachingGroupTypeFilter, teachingGroups]
+  );
+  const filteredTeacherAssignments = useMemo(
+    () => teacherAssignments.filter((assignment) => !teacherAssignmentScopeFilter || assignment.scope === teacherAssignmentScopeFilter),
+    [teacherAssignmentScopeFilter, teacherAssignments]
+  );
+
+  const schoolYearGrid = useClientGrid({
+    items: filteredSchoolYears,
+    getSearchText: (item) => `${item.label} ${item.startDate} ${item.endDate}`,
+    sorters: {
+      label: (left, right) => left.label.localeCompare(right.label),
+      startDate: (left, right) => left.startDate.localeCompare(right.startDate),
+      endDate: (left, right) => left.endDate.localeCompare(right.endDate)
+    },
+    initialSortKey: 'startDate',
+    resetKeys: [activeSchoolId, schoolYearWindowFilter]
+  });
+  const gradeLevelGrid = useClientGrid({
+    items: gradeLevels,
+    getSearchText: (item) => `${item.level} ${item.displayName}`,
+    sorters: {
+      level: (left, right) => left.level - right.level,
+      displayName: (left, right) => left.displayName.localeCompare(right.displayName)
+    },
+    initialSortKey: 'level',
+    resetKeys: [activeSchoolId]
+  });
+  const classRoomGrid = useClientGrid({
+    items: filteredClassRooms,
+    getSearchText: (item) => `${item.code} ${item.displayName} ${gradeLevelNameById[item.gradeLevelId] ?? ''}`,
+    sorters: {
+      code: (left, right) => left.code.localeCompare(right.code),
+      displayName: (left, right) => left.displayName.localeCompare(right.displayName),
+      gradeLevel: (left, right) => (gradeLevelNameById[left.gradeLevelId] ?? '').localeCompare(gradeLevelNameById[right.gradeLevelId] ?? '')
+    },
+    initialSortKey: 'code',
+    resetKeys: [activeSchoolId, classRoomGradeFilter, gradeLevels]
+  });
+  const teachingGroupGrid = useClientGrid({
+    items: filteredTeachingGroups,
+    getSearchText: (item) => `${item.name} ${classRoomNameById[item.classRoomId ?? ''] ?? ''} ${item.isDailyOperationsGroup ? 'daily' : 'custom'}`,
+    sorters: {
+      name: (left, right) => left.name.localeCompare(right.name),
+      classRoom: (left, right) => (classRoomNameById[left.classRoomId ?? ''] ?? '').localeCompare(classRoomNameById[right.classRoomId ?? ''] ?? ''),
+      dailyOps: (left, right) => Number(left.isDailyOperationsGroup) - Number(right.isDailyOperationsGroup)
+    },
+    initialSortKey: 'name',
+    resetKeys: [activeSchoolId, teachingGroupClassRoomFilter, teachingGroupTypeFilter, classRooms]
+  });
+  const subjectGrid = useClientGrid({
+    items: subjects,
+    getSearchText: (item) => `${item.code} ${item.name}`,
+    sorters: {
+      code: (left, right) => left.code.localeCompare(right.code),
+      name: (left, right) => left.name.localeCompare(right.name)
+    },
+    initialSortKey: 'code',
+    resetKeys: [activeSchoolId]
+  });
+  const teacherAssignmentGrid = useClientGrid({
+    items: filteredTeacherAssignments,
+    getSearchText: (item) => `${item.teacherUserId} ${item.scope} ${classRoomNameById[item.classRoomId ?? ''] ?? ''} ${classRoomNameById[item.teachingGroupId ?? ''] ?? ''} ${subjectNameById[item.subjectId ?? ''] ?? ''}`,
+    sorters: {
+      teacher: (left, right) => left.teacherUserId.localeCompare(right.teacherUserId),
+      scope: (left, right) => left.scope.localeCompare(right.scope),
+      classRoom: (left, right) => (classRoomNameById[left.classRoomId ?? ''] ?? '').localeCompare(classRoomNameById[right.classRoomId ?? ''] ?? ''),
+      subject: (left, right) => (subjectNameById[left.subjectId ?? ''] ?? '').localeCompare(subjectNameById[right.subjectId ?? ''] ?? '')
+    },
+    initialSortKey: 'teacher',
+    resetKeys: [activeSchoolId, teacherAssignmentScopeFilter, classRooms, subjects]
+  });
+
   const contextSwitcherBlock = (showHelperText: boolean) => {
-    if (!canSwitchSchoolContext && !showReadOnlySchoolContext) return null;
+    if (!canSwitchSchoolContext && !showReadOnlySchoolContext) {
+      return null;
+    }
 
     return (
       <Card>
@@ -379,14 +502,10 @@ export function OrganizationParityPage({
           </div>
           <div className="w-full max-w-md">
             {canSwitchSchoolContext ? (
-              <OrganizationContextSwitcher
-                schools={schools}
-                activeSchoolId={activeSchoolId}
-                onSelectSchool={setActiveSchoolId}
-              />
+              <OrganizationContextSwitcher schools={schools} activeSchoolId={activeSchoolId} onSelectSchool={setActiveSchoolId} />
             ) : (
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <p className="font-semibold text-slate-900">{currentSchool?.name ?? 'N/A'}</p>
+        <p className="font-semibold text-slate-900">{currentSchool?.name ?? t('orgNotAvailable')}</p>
                 <p className="text-xs text-slate-500">
                   {currentSchool?.schoolType ? getSchoolTypeLabel(t, currentSchool.schoolType) : '-'}
                 </p>
@@ -394,31 +513,274 @@ export function OrganizationParityPage({
             )}
           </div>
         </div>
-        {showHelperText ? (
-          <div className="mt-3 text-xs text-slate-500">
-            {t('orgActiveSchoolContextBoundaryHint')}
-          </div>
-        ) : null}
+        {showHelperText ? <div className="mt-3 text-xs text-slate-500">{t('orgActiveSchoolContextBoundaryHint')}</div> : null}
       </Card>
     );
   };
 
-  if (loading) return <LoadingState text="Loading organization capabilities..." />;
-  if (error) return <ErrorState text={error} />;
+  const resetModal = () => {
+    setModalState(null);
+    setSchoolYearDraft(EMPTY_SCHOOL_YEAR);
+    setGradeLevelDraft(EMPTY_GRADE_LEVEL);
+    setClassRoomCreateDraft(EMPTY_CLASS_ROOM_CREATE);
+    setClassRoomEditDraft(EMPTY_CLASS_ROOM_EDIT);
+    setTeachingGroupCreateDraft(EMPTY_TEACHING_GROUP_CREATE);
+    setTeachingGroupEditDraft(EMPTY_TEACHING_GROUP_EDIT);
+    setSubjectCreateDraft(EMPTY_SUBJECT_CREATE);
+    setSubjectEditDraft(EMPTY_SUBJECT_EDIT);
+    setTeacherAssignmentCreateDraft(EMPTY_ASSIGNMENT_CREATE);
+    setTeacherAssignmentEditDraft(EMPTY_ASSIGNMENT_EDIT);
+    setTeacherAssignmentWizardStep(1);
+  };
+
+  const openSchoolYearCreate = () => {
+    setSchoolYearDraft(EMPTY_SCHOOL_YEAR);
+    setModalState({ kind: 'school-year', mode: 'create' });
+  };
+
+  const openSchoolYearEdit = (item: SchoolYear) => {
+    setSchoolYearDraft({ label: item.label, startDate: item.startDate, endDate: item.endDate });
+    setModalState({ kind: 'school-year', mode: 'edit', item });
+  };
+
+  const openGradeLevelCreate = () => {
+    setGradeLevelDraft(EMPTY_GRADE_LEVEL);
+    setModalState({ kind: 'grade-level', mode: 'create' });
+  };
+
+  const openGradeLevelEdit = (item: GradeLevel) => {
+    setGradeLevelDraft({ level: item.level, displayName: item.displayName });
+    setModalState({ kind: 'grade-level', mode: 'edit', item });
+  };
+
+  const openClassRoomCreate = () => {
+    setClassRoomCreateDraft({ ...EMPTY_CLASS_ROOM_CREATE, gradeLevelId: gradeLevels[0]?.id ?? '' });
+    setModalState({ kind: 'class-room', mode: 'create' });
+  };
+
+  const openClassRoomEdit = (item: ClassRoom) => {
+    setClassRoomEditDraft({ code: item.code, displayName: item.displayName, overrideReason: '' });
+    setModalState({ kind: 'class-room', mode: 'edit', item });
+  };
+
+  const openTeachingGroupCreate = () => {
+    setTeachingGroupCreateDraft({ ...EMPTY_TEACHING_GROUP_CREATE, classRoomId: classRooms[0]?.id ?? '' });
+    setModalState({ kind: 'teaching-group', mode: 'create' });
+  };
+
+  const openTeachingGroupEdit = (item: TeachingGroup) => {
+    setTeachingGroupEditDraft({
+      classRoomId: item.classRoomId ?? '',
+      name: item.name,
+      isDailyOperationsGroup: item.isDailyOperationsGroup,
+      overrideReason: ''
+    });
+    setModalState({ kind: 'teaching-group', mode: 'edit', item });
+  };
+
+  const openSubjectCreate = () => {
+    setSubjectCreateDraft(EMPTY_SUBJECT_CREATE);
+    setModalState({ kind: 'subject', mode: 'create' });
+  };
+
+  const openSubjectEdit = (item: Subject) => {
+    setSubjectEditDraft({ code: item.code, name: item.name, overrideReason: '' });
+    setModalState({ kind: 'subject', mode: 'edit', item });
+  };
+
+  const openTeacherAssignmentCreate = () => {
+    setTeacherAssignmentCreateDraft({
+      ...EMPTY_ASSIGNMENT_CREATE,
+      classRoomId: classRooms[0]?.id ?? '',
+      teachingGroupId: teachingGroups[0]?.id ?? '',
+      subjectId: subjects[0]?.id ?? ''
+    });
+    setTeacherAssignmentWizardStep(1);
+    setModalState({ kind: 'teacher-assignment', mode: 'create' });
+  };
+
+  const openTeacherAssignmentEdit = (item: TeacherAssignment) => {
+    setTeacherAssignmentEditDraft({
+      teacherUserId: item.teacherUserId,
+      scope: item.scope,
+      classRoomId: item.classRoomId ?? '',
+      teachingGroupId: item.teachingGroupId ?? '',
+      subjectId: item.subjectId ?? '',
+      overrideReason: ''
+    });
+    setTeacherAssignmentWizardStep(1);
+    setModalState({ kind: 'teacher-assignment', mode: 'edit', item });
+  };
+
+  const handleSchoolYearSubmit = () => {
+    if (modalState?.kind !== 'school-year') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createSchoolYear({ id: '', schoolId: activeSchoolId, ...schoolYearDraft })
+      : () => api.updateSchoolYear(modalState.item!.id, { startDate: schoolYearDraft.startDate, endDate: schoolYearDraft.endDate });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgSchoolYearCreated' : 'orgSchoolYearUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const handleGradeLevelSubmit = () => {
+    if (modalState?.kind !== 'grade-level') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createGradeLevel({ id: '', schoolId: activeSchoolId, ...gradeLevelDraft })
+      : () => api.updateGradeLevel(modalState.item!.id, { level: gradeLevelDraft.level, displayName: gradeLevelDraft.displayName });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgGradeLevelCreated' : 'orgGradeLevelUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const handleClassRoomSubmit = () => {
+    if (modalState?.kind !== 'class-room') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createClassRoom({ id: '', schoolId: activeSchoolId, ...classRoomCreateDraft })
+      : () => api.overrideClassRoom(modalState.item!.id, {
+        code: classRoomEditDraft.code,
+        displayName: classRoomEditDraft.displayName,
+        overrideReason: classRoomEditDraft.overrideReason
+      });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgClassRoomCreated' : 'orgClassRoomUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const handleTeachingGroupSubmit = () => {
+    if (modalState?.kind !== 'teaching-group') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createTeachingGroup({ id: '', schoolId: activeSchoolId, ...teachingGroupCreateDraft, classRoomId: teachingGroupCreateDraft.classRoomId || undefined })
+      : () => api.overrideTeachingGroup(modalState.item!.id, {
+        classRoomId: teachingGroupEditDraft.classRoomId || undefined,
+        name: teachingGroupEditDraft.name,
+        isDailyOperationsGroup: teachingGroupEditDraft.isDailyOperationsGroup,
+        overrideReason: teachingGroupEditDraft.overrideReason
+      });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgTeachingGroupCreated' : 'orgTeachingGroupUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const handleSubjectSubmit = () => {
+    if (modalState?.kind !== 'subject') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createSubject({ id: '', schoolId: activeSchoolId, ...subjectCreateDraft })
+      : () => api.overrideSubject(modalState.item!.id, {
+        code: subjectEditDraft.code,
+        name: subjectEditDraft.name,
+        overrideReason: subjectEditDraft.overrideReason
+      });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgSubjectCreated' : 'orgSubjectUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const handleTeacherAssignmentSubmit = () => {
+    if (modalState?.kind !== 'teacher-assignment') {
+      return;
+    }
+
+    const action = modalState.mode === 'create'
+      ? () => api.createTeacherAssignment({ id: '', schoolId: activeSchoolId, ...teacherAssignmentCreateDraft })
+      : () => api.overrideTeacherAssignment({
+        existingAssignmentId: modalState.item!.id,
+        schoolId: activeSchoolId,
+        teacherUserId: teacherAssignmentEditDraft.teacherUserId,
+        scope: teacherAssignmentEditDraft.scope,
+        classRoomId: teacherAssignmentEditDraft.classRoomId || undefined,
+        teachingGroupId: teacherAssignmentEditDraft.teachingGroupId || undefined,
+        subjectId: teacherAssignmentEditDraft.subjectId || undefined,
+        overrideReason: teacherAssignmentEditDraft.overrideReason
+      });
+
+    void guardedRefresh(action, t(modalState.mode === 'create' ? 'orgAssignmentCreated' : 'orgAssignmentUpdated')).then((success) => {
+      if (success) {
+        resetModal();
+      }
+    });
+  };
+
+  const schoolYearColumns: OrganizationGridColumn<SchoolYear>[] = [
+    { key: 'label', label: t('orgSchoolYearLabel'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.label}</span> },
+    { key: 'startDate', label: t('orgSchoolYearStartDate'), sortable: true, render: (item) => item.startDate || '-' },
+    { key: 'endDate', label: t('orgSchoolYearEndDate'), sortable: true, render: (item) => item.endDate || '-' }
+  ];
+  const gradeLevelColumns: OrganizationGridColumn<GradeLevel>[] = [
+    { key: 'level', label: t('orgGradeLevelLevel'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.level}</span> },
+    { key: 'displayName', label: t('orgGradeLevelDisplayName'), sortable: true, render: (item) => item.displayName }
+  ];
+  const classRoomColumns: OrganizationGridColumn<ClassRoom>[] = [
+    { key: 'code', label: t('orgClassRoomCode'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.code}</span> },
+    { key: 'displayName', label: t('orgClassRoomDisplayName'), sortable: true, render: (item) => item.displayName },
+    { key: 'gradeLevel', label: t('orgClassRoomGradeLevel'), sortable: true, render: (item) => gradeLevelNameById[item.gradeLevelId] ?? '-' }
+  ];
+  const teachingGroupColumns: OrganizationGridColumn<TeachingGroup>[] = [
+    { key: 'name', label: t('orgTeachingGroupName'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.name}</span> },
+    { key: 'classRoom', label: t('orgTeachingGroupClassRoom'), sortable: true, render: (item) => classRoomNameById[item.classRoomId ?? ''] ?? t('orgNone') },
+    { key: 'dailyOps', label: t('orgTeachingGroupDailyOps'), sortable: true, render: (item) => item.isDailyOperationsGroup ? t('orgYes') : t('orgNo') }
+  ];
+  const subjectColumns: OrganizationGridColumn<Subject>[] = [
+    { key: 'code', label: t('orgSubjectCode'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.code}</span> },
+    { key: 'name', label: t('orgSubjectName'), sortable: true, render: (item) => item.name }
+  ];
+  const teacherAssignmentColumns: OrganizationGridColumn<TeacherAssignment>[] = [
+    { key: 'teacher', label: t('orgAssignmentTeacher'), sortable: true, render: (item) => <span className="font-medium text-slate-900">{item.teacherUserId}</span> },
+    { key: 'scope', label: t('orgAssignmentScope'), sortable: true, render: (item) => item.scope },
+    { key: 'classRoom', label: t('orgAssignmentClassRoom'), sortable: true, render: (item) => classRoomNameById[item.classRoomId ?? ''] ?? t('orgNone') },
+    { key: 'subject', label: t('orgAssignmentSubject'), sortable: true, render: (item) => subjectNameById[item.subjectId ?? ''] ?? t('orgNone') }
+  ];
+
+  if (loading) {
+    return <LoadingState text={t('loadingOrganization')} />;
+  }
+
+  if (error && !schools.length && !studentContext) {
+    return <ErrorState text={error} />;
+  }
 
   if (isStudent && studentContext) {
     return (
       <section className="space-y-3">
-        <SectionHeader title={t('routeOrganization')} description="?tec? ?koln? kontext studenta." />
+        <SectionHeader title={t('routeOrganization')} description={t('orgStudentContextDescription')} />
         <Card>
           <p className="font-semibold text-sm">{studentContext.school.name} ({studentContext.school.schoolType})</p>
-          <p className="mt-1 text-sm text-slate-600">Tento přístup je pouze čtecí.</p>
+          <p className="mt-1 text-sm text-slate-600">{t('orgStudentReadOnly')}</p>
         </Card>
         <div className="grid gap-3 md:grid-cols-2">
-          <Card><p className="font-semibold text-sm">Školní roky</p><ul className="sk-list">{studentContext.schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Třídy</p><ul className="sk-list">{studentContext.classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.displayName}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Skupiny</p><ul className="sk-list">{studentContext.teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Předměty</p><ul className="sk-list">{studentContext.subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgSchoolYearsTitle')}</p><ul className="sk-list">{studentContext.schoolYears.map((item) => <li className="sk-list-item" key={item.id}>{item.label}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgClassRoomsTitle')}</p><ul className="sk-list">{studentContext.classRooms.map((item) => <li className="sk-list-item" key={item.id}>{item.displayName}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgTeachingGroupsTitle')}</p><ul className="sk-list">{studentContext.teachingGroups.map((item) => <li className="sk-list-item" key={item.id}>{item.name}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgSubjectsTitle')}</p><ul className="sk-list">{studentContext.subjects.map((item) => <li className="sk-list-item" key={item.id}>{item.name}</li>)}</ul></Card>
         </div>
       </section>
     );
@@ -427,23 +789,23 @@ export function OrganizationParityPage({
   if (activeView === 'overview') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Organization" description="Přehled organizační oblasti a vstupní body na jednotlivé organizační stránky. Sidebar zůstává hlavní navigace." />
+        <SectionHeader title={t('routeOrganization')} description={t('orgOverviewDescription')} />
         {contextSwitcherBlock(true)}
-
         <Card>
           <div className="grid gap-3 md:grid-cols-3">
-            <Metric label="Školy" value={schools.length} />
-            <Metric label="Školní roky" value={schoolYears.length} />
-            <Metric label="Ročníky" value={gradeLevels.length} />
-            <Metric label="Třídy" value={classRooms.length} />
-            <Metric label="Skupiny" value={teachingGroups.length} />
-            <Metric label="Předměty" value={subjects.length} />
+            <Metric label={t('orgSchoolsTitle')} value={schools.length} />
+            <Metric label={t('orgSchoolYearsTitle')} value={schoolYears.length} />
+            <Metric label={t('orgGradeLevelsTitle')} value={gradeLevels.length} />
+            <Metric label={t('orgClassRoomsTitle')} value={classRooms.length} />
+            <Metric label={t('orgTeachingGroupsTitle')} value={teachingGroups.length} />
+            <Metric label={t('orgSubjectsTitle')} value={subjects.length} />
           </div>
           <div className="mt-3 text-sm text-slate-600">
-            {currentSchool ? `Aktivní školní kontext: ${currentSchool.name} (${currentSchool.schoolType})` : 'Není vybraný školní kontext.'}
+            {currentSchool
+              ? t('orgOverviewActiveContext', { name: currentSchool.name, type: getSchoolTypeLabel(t, currentSchool.schoolType) })
+              : t('orgOverviewNoContext')}
           </div>
         </Card>
-
         {(canManageOrganization || canTeacherScopedOrganization) ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {overviewEntryPoints.map((entry) => (
@@ -456,14 +818,14 @@ export function OrganizationParityPage({
                   <StatusBadge label={String(entry.count)} tone="info" />
                 </div>
                 <div className="mt-3">
-                  <button className="sk-btn sk-btn-secondary" type="button" onClick={() => goTo(entry.route)}>Spravovat</button>
+                  <button className="sk-btn sk-btn-secondary" type="button" onClick={() => goTo(entry.route)}>{t('orgSchoolsSelect')}</button>
                 </div>
               </Card>
             ))}
           </div>
         ) : (
           <Card>
-            <p className="text-sm text-slate-700">Pro tuto roli není organizační management dostupný. Používejte pouze přidělené read-only kontexty.</p>
+            <p className="text-sm text-slate-700">{t('orgOverviewManageUnavailable')}</p>
           </Card>
         )}
       </section>
@@ -477,20 +839,13 @@ export function OrganizationParityPage({
           title={t('orgSchoolsTitle')}
           description={t('orgSchoolsHeroDescription')}
           action={canCreateSchool ? (
-            <button
-              type="button"
-              className={`sk-btn ${schoolWizardOpen ? 'sk-btn-secondary' : 'sk-btn-primary'}`}
-              onClick={() => setSchoolWizardOpen((current) => !current)}
-            >
+            <button type="button" className={`sk-btn ${schoolWizardOpen ? 'sk-btn-secondary' : 'sk-btn-primary'}`} onClick={() => setSchoolWizardOpen((current) => !current)}>
               {schoolWizardOpen ? t('orgCreateSchoolCloseWizard') : t('orgCreateSchoolOpenWizard')}
             </button>
           ) : undefined}
         />
-        {notice ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {notice}
-          </div>
-        ) : null}
+        {notice ? <FeedbackBanner tone="success" text={notice} /> : null}
+        {error ? <FeedbackBanner tone="error" text={error} /> : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric label={t('orgSchoolsSummaryFiltered')} value={schoolSummary.filtered} />
           <Metric label={t('orgSchoolsSummaryActive')} value={schoolSummary.active} />
@@ -498,121 +853,90 @@ export function OrganizationParityPage({
           <Metric label={t('orgSchoolsSummaryElementarySecondary')} value={schoolSummary.elementaryAndSecondary} />
         </div>
         {schoolWizardOpen ? (
-          <SchoolCreateWizard
-            t={t}
-            wizardStep={schoolWizardStep}
-            setWizardStep={setSchoolWizardStep}
-            form={newSchool}
-            setForm={setNewSchool}
-            onCancel={resetSchoolWizard}
-            onSubmit={createSchool}
-            stepValid={schoolStepValid}
-          />
+          <SchoolCreateWizard t={t} wizardStep={schoolWizardStep} setWizardStep={setSchoolWizardStep} form={newSchool} setForm={setNewSchool} onCancel={resetSchoolWizard} onSubmit={createSchool} stepValid={schoolStepValid} busy={saving} />
         ) : null}
-        <div className="space-y-4">
-          <Card>
+        <Card className="sk-user-management overflow-hidden">
+          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-              <InputField
-                label={t('orgSchoolsSearchLabel')}
-                value={schoolSearch}
-                placeholder={t('orgSearchSchools')}
-                onChange={setSchoolSearch}
-              />
-              <SelectField
-                label={t('orgSchoolsFilterTypeLabel')}
-                value={schoolTypeFilter}
-                onChange={setSchoolTypeFilter}
-                options={[
-                  { value: '', label: t('orgFilterAll') },
-                  { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
-                  { value: 'ElementarySchool', label: t('orgSchoolTypeElementarySchool') },
-                  { value: 'SecondarySchool', label: t('orgSchoolTypeSecondarySchool') }
-                ]}
-              />
-              <SelectField
-                label={t('orgSchoolsFilterStatusLabel')}
-                value={schoolStatusFilter}
-                onChange={(value) => setSchoolStatusFilter(value as SchoolStatusFilter)}
-                options={[
-                  { value: 'all', label: t('orgFilterAll') },
-                  { value: 'active', label: t('orgSchoolActive') },
-                  { value: 'inactive', label: t('orgSchoolInactive') }
-                ]}
-              />
+              <InputField label={t('orgSchoolsSearchLabel')} value={schoolSearch} onChange={setSchoolSearch} placeholder={t('orgSearchSchools')} />
+              <SelectField label={t('orgSchoolsFilterTypeLabel')} value={schoolTypeFilter} onChange={setSchoolTypeFilter} options={[
+                { value: '', label: t('orgFilterAll') },
+                { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
+                { value: 'ElementarySchool', label: t('orgSchoolTypeElementarySchool') },
+                { value: 'SecondarySchool', label: t('orgSchoolTypeSecondarySchool') }
+              ]} />
+              <SelectField label={t('orgSchoolsFilterStatusLabel')} value={schoolStatusFilter} onChange={(value) => setSchoolStatusFilter(value as SchoolStatusFilter)} options={[
+                { value: 'all', label: t('orgFilterAll') },
+                { value: 'active', label: t('orgSchoolActive') },
+                { value: 'inactive', label: t('orgSchoolInactive') }
+              ]} />
               <div className="flex items-end">
-                <button
-                  type="button"
-                  className="sk-btn sk-btn-secondary w-full"
-                  onClick={() => {
-                    setSchoolSearch('');
-                    setSchoolTypeFilter('');
-                    setSchoolStatusFilter('all');
-                  }}
-                >
+                <button type="button" className="sk-btn sk-btn-secondary w-full" onClick={() => {
+                  setSchoolSearch('');
+                  setSchoolTypeFilter('');
+                  setSchoolStatusFilter('all');
+                }}>
                   {t('orgSchoolsResetFilters')}
                 </button>
               </div>
             </div>
-          </Card>
-          <Card className="sk-user-management overflow-hidden">
-            <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{t('orgSchoolsList')}</p>
-                  <p className="mt-1 text-xs text-slate-500">{t('orgSchoolsSummaryFiltered')}: {filteredSchools.length}</p>
-                </div>
-              </div>
+          </div>
+          {filteredSchools.length === 0 ? (
+            <div className="p-4">
+              <EmptyState text={t('orgNoSchools')} />
             </div>
-            {filteredSchools.length === 0 ? (
-              <div className="p-4">
-                <EmptyState text={t('orgNoSchools')} />
-              </div>
-            ) : (
-              <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
-                <table className="sk-table sk-user-management-table sk-sticky">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th>{t('orgSchoolName')}</th>
-                      <th>{t('orgSchoolTypeLabel')}</th>
-                      <th>{t('orgAddressCity')}</th>
-                      <th>{t('orgSchoolCardOperator')}</th>
-                      <th>{t('orgSchoolPlatformStatusLabel')}</th>
-                      <th>{t('stateActive')}</th>
-                      <th>{t('orgSchoolCardCapacity')}</th>
-                      <th>{t('userManagementColActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSchools.map((school) => (
-                      <SchoolTableRow
-                        key={school.id}
-                        school={school}
-                        selected={school.id === activeSchoolId}
-                        t={t}
-                        actionMenuOpen={schoolActionMenuId === school.id}
-                        actionMenuRef={schoolActionMenuId === school.id ? schoolActionMenuRef : undefined}
-                        onSelect={() => {
-                          setActiveSchoolId(school.id);
-                          setSchoolDetailOpen(true);
-                        }}
-                        onToggleMenu={() => setSchoolActionMenuId((current) => current === school.id ? '' : school.id)}
-                        onOpenDetail={() => {
-                          setSchoolActionMenuId('');
-                          setActiveSchoolId(school.id);
-                          setSchoolDetailOpen(true);
-                        }}
-                        onToggleStatus={isPlatformAdmin ? () => {
-                          setSchoolActionMenuId('');
-                          guarded(() => api.setSchoolStatus(school.id, !school.isActive));
-                        } : undefined}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        </div>
+          ) : (
+            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
+              <table className="sk-table sk-user-management-table sk-sticky">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>{t('orgSchoolName')}</th>
+                    <th>{t('orgSchoolTypeLabel')}</th>
+                    <th>{t('orgAddressCity')}</th>
+                    <th>{t('orgSchoolCardOperator')}</th>
+                    <th>{t('orgSchoolPlatformStatusLabel')}</th>
+                    <th>{t('stateActive')}</th>
+                    <th>{t('orgSchoolCardCapacity')}</th>
+                    <th>{t('userManagementColActions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSchools.map((school) => (
+                    <SchoolTableRow
+                      key={school.id}
+                      school={school}
+                      selected={school.id === activeSchoolId}
+                      t={t}
+                      actionMenuOpen={schoolActionMenuId === school.id}
+                      actionMenuRef={schoolActionMenuId === school.id ? schoolActionMenuRef : undefined}
+                      onSelect={() => {
+                        setActiveSchoolId(school.id);
+                        setSchoolDetailOpen(true);
+                      }}
+                      onToggleMenu={() => setSchoolActionMenuId((current) => current === school.id ? '' : school.id)}
+                      onOpenDetail={() => {
+                        setSchoolActionMenuId('');
+                        setActiveSchoolId(school.id);
+                        setSchoolDetailOpen(true);
+                      }}
+                      onToggleStatus={isPlatformAdmin ? () => {
+                        setSchoolActionMenuId('');
+                        setSaving(true);
+                        void api.setSchoolStatus(school.id, !school.isActive)
+                          .then(() => {
+                            setNotice(t('orgSchoolDetailSavedSuccess'));
+                            load();
+                          })
+                          .catch((nextError: Error) => setError(nextError.message))
+                          .finally(() => setSaving(false));
+                      } : undefined}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
         {schoolDetailOpen && currentSchool ? (
           <>
             <div className="sk-drawer-overlay" onClick={() => setSchoolDetailOpen(false)} role="presentation" />
@@ -638,576 +962,173 @@ export function OrganizationParityPage({
     );
   }
 
-  if (activeView === 'school-years') {
-    return (
-      <section className="space-y-3">
-        <SectionHeader title="Přehled školních roků" description="Entry point pro school years list/detail flow." />
-        {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">Školní roky</p>
-          {schoolYears.length === 0 ? <EmptyState text="No school years." /> : (
-            <ul className="sk-list">{schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label} ({x.startDate} - {x.endDate})</li>)}</ul>
-          )}
-        </Card>
-        {canWriteSchoolContext ? (
-          <Card>
-            <p className="font-semibold text-sm">Vytvořit školní rok</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="Label" value={newSchoolYear.label} onChange={(e) => setNewSchoolYear((v) => ({ ...v, label: e.target.value }))} />
-              <input className="sk-input" type="date" value={newSchoolYear.startDate} onChange={(e) => setNewSchoolYear((v) => ({ ...v, startDate: e.target.value }))} />
-              <input className="sk-input" type="date" value={newSchoolYear.endDate} onChange={(e) => setNewSchoolYear((v) => ({ ...v, endDate: e.target.value }))} />
-            </div>
-            <div className="mt-3">
-              <button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSchoolYear.label.trim()} onClick={createSchoolYear} type="button">Create school year</button>
-            </div>
-          </Card>
-        ) : null}
-      </section>
-    );
-  }
-
-  if (activeView === 'grade-levels') {
-    return (
-      <section className="space-y-3">
-        <SectionHeader title="Ročníky" description="Organizační struktura ročníků (nikoli grading)." />
-        {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">Ročníky</p>
-          {gradeLevels.length === 0 ? <EmptyState text="No grade levels." /> : (
-            <ul className="sk-list">{gradeLevels.map((x) => <li className="sk-list-item" key={x.id}>{x.level} - {x.displayName}</li>)}</ul>
-          )}
-        </Card>
-        {canWriteSchoolContext ? (
-          <Card>
-            <p className="font-semibold text-sm">Vytvořit ročník</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" type="number" value={newGradeLevel.level} onChange={(e) => setNewGradeLevel((v) => ({ ...v, level: Number(e.target.value) || 1 }))} />
-              <input className="sk-input" placeholder="Display name" value={newGradeLevel.displayName} onChange={(e) => setNewGradeLevel((v) => ({ ...v, displayName: e.target.value }))} />
-            </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGradeLevel.displayName.trim()} onClick={createGradeLevel} type="button">Create grade level</button></div>
-          </Card>
-        ) : null}
-      </section>
-    );
-  }
-
-  if (activeView === 'class-rooms') {
-    return (
-      <section className="space-y-3">
-        <SectionHeader title="Třídy" description="Entry point pro classes list/detail flow." />
-        {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">Třídy</p>
-          {classRooms.length === 0 ? <EmptyState text="No class rooms." /> : (
-            <ul className="sk-list">{classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.displayName}</li>)}</ul>
-          )}
-        </Card>
-        {canWriteSchoolContext ? (
-          <Card>
-            <p className="font-semibold text-sm">Vytvořit třídu</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="Grade level id" value={newClassRoom.gradeLevelId} onChange={(e) => setNewClassRoom((v) => ({ ...v, gradeLevelId: e.target.value }))} />
-              <input className="sk-input" placeholder="Code" value={newClassRoom.code} onChange={(e) => setNewClassRoom((v) => ({ ...v, code: e.target.value }))} />
-              <input className="sk-input" placeholder="Display name" value={newClassRoom.displayName} onChange={(e) => setNewClassRoom((v) => ({ ...v, displayName: e.target.value }))} />
-            </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newClassRoom.code.trim()} onClick={createClassRoom} type="button">Create class room</button></div>
-          </Card>
-        ) : null}
-      </section>
-    );
-  }
-
-  if (activeView === 'teaching-groups') {
-    return (
-      <section className="space-y-3">
-        <SectionHeader title="Skupiny" description="Entry point pro groups list/detail flow." />
-        {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">Skupiny</p>
-          {teachingGroups.length === 0 ? <EmptyState text="No teaching groups." /> : (
-            <ul className="sk-list">{teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul>
-          )}
-        </Card>
-        {canWriteSchoolContext ? (
-          <Card>
-            <p className="font-semibold text-sm">Vytvořit skupinu</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" placeholder="Class room id (optional)" value={newGroup.classRoomId} onChange={(e) => setNewGroup((v) => ({ ...v, classRoomId: e.target.value }))} />
-              <input className="sk-input" placeholder="Name" value={newGroup.name} onChange={(e) => setNewGroup((v) => ({ ...v, name: e.target.value }))} />
-            </div>
-            <label className="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={newGroup.isDailyOperationsGroup} onChange={(e) => setNewGroup((v) => ({ ...v, isDailyOperationsGroup: e.target.checked }))} />Daily operations group</label>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGroup.name.trim()} onClick={createGroup} type="button">Create group</button></div>
-          </Card>
-        ) : null}
-      </section>
-    );
-  }
-
-  if (activeView === 'subjects') {
-    return (
-      <section className="space-y-3">
-        <SectionHeader title="Předměty" description="Entry point pro subjects list/detail flow." />
-        {contextSwitcherBlock(false)}
-        <Card>
-          <p className="font-semibold text-sm">Předměty</p>
-          {subjects.length === 0 ? <EmptyState text="No subjects." /> : (
-            <ul className="sk-list">{subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.name}</li>)}</ul>
-          )}
-        </Card>
-        {canWriteSchoolContext ? (
-          <Card>
-            <p className="font-semibold text-sm">Vytvořit předmět</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" placeholder="Code" value={newSubject.code} onChange={(e) => setNewSubject((v) => ({ ...v, code: e.target.value }))} />
-              <input className="sk-input" placeholder="Name" value={newSubject.name} onChange={(e) => setNewSubject((v) => ({ ...v, name: e.target.value }))} />
-            </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSubject.code.trim()} onClick={createSubject} type="button">Create subject</button></div>
-          </Card>
-        ) : null}
-      </section>
-    );
-  }
+  const sharedGridProps = {
+    actionsLabel: t('orgGridActions'),
+    pageLabel: (page: number, pageCount: number) => t('orgGridPageOf', { page: String(page), pages: String(pageCount) }),
+    previousLabel: t('orgGridPreviousPage'),
+    nextLabel: t('orgGridNextPage'),
+    pageSizeLabel: (pageSize: number) => t('orgGridPageSizeOption', { size: String(pageSize) }),
+    searchLabel: t('orgGridSearchLabel')
+  };
 
   return (
     <section className="space-y-3">
-      <SectionHeader title="Teacher Assignments" description="Entry point pro teacher assignments list/detail flow." />
       {contextSwitcherBlock(false)}
-      <Card>
-        <p className="font-semibold text-sm">Teacher assignments</p>
-        {teacherAssignments.length === 0 ? <EmptyState text="No teacher assignments." /> : (
-          <ul className="sk-list">{teacherAssignments.map((x) => <li className="sk-list-item" key={x.id}>{x.teacherUserId} | {x.scope}</li>)}</ul>
-        )}
-      </Card>
-      {canWriteSchoolContext ? (
-        <Card>
-          <p className="font-semibold text-sm">Vytvořit teacher assignment</p>
-          <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input className="sk-input" placeholder="Teacher user id" value={newAssignment.teacherUserId} onChange={(e) => setNewAssignment((v) => ({ ...v, teacherUserId: e.target.value }))} />
-            <input className="sk-input" placeholder="Scope" value={newAssignment.scope} onChange={(e) => setNewAssignment((v) => ({ ...v, scope: e.target.value }))} />
-            <input className="sk-input" placeholder="Class room id" value={newAssignment.classRoomId} onChange={(e) => setNewAssignment((v) => ({ ...v, classRoomId: e.target.value }))} />
-            <input className="sk-input" placeholder="Teaching group id" value={newAssignment.teachingGroupId} onChange={(e) => setNewAssignment((v) => ({ ...v, teachingGroupId: e.target.value }))} />
-            <input className="sk-input" placeholder="Subject id" value={newAssignment.subjectId} onChange={(e) => setNewAssignment((v) => ({ ...v, subjectId: e.target.value }))} />
-          </div>
-          <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newAssignment.teacherUserId.trim()} onClick={createAssignment} type="button">Create assignment</button></div>
-        </Card>
-      ) : null}
+      {notice ? <FeedbackBanner tone="success" text={notice} /> : null}
+      {error ? <FeedbackBanner tone="error" text={error} /> : null}
+
+      {activeView === 'school-years' ? <OrganizationSectionView
+        canWrite={canWriteSchoolContext}
+        gridProps={sharedGridProps}
+        title={t('orgSchoolYearsTitle')}
+        description={t('orgSchoolYearsDescription')}
+        createLabel={t('orgSchoolYearCreateTitle')}
+        searchPlaceholder={t('orgGridSearchPlaceholder')}
+        searchValue={schoolYearGrid.search}
+        onSearchChange={schoolYearGrid.setSearch}
+        filters={<SelectField label={t('orgGridFilterLabel')} value={schoolYearWindowFilter} onChange={(value) => setSchoolYearWindowFilter(value as SchoolYearWindowFilter)} options={[{ value: 'all', label: t('orgFilterAll') }, { value: 'current', label: t('orgGridSchoolYearCurrent') }, { value: 'upcoming', label: t('orgGridSchoolYearUpcoming') }, { value: 'past', label: t('orgGridSchoolYearPast') }]} />}
+        onCreate={openSchoolYearCreate}
+        columns={schoolYearColumns}
+        items={schoolYearGrid.pageItems}
+        getRowKey={(item) => item.id}
+        emptyText={t('orgGridNoResults')}
+        sortKey={schoolYearGrid.sortKey}
+        sortDirection={schoolYearGrid.sortDirection}
+        onSort={schoolYearGrid.requestSort}
+        page={schoolYearGrid.page}
+        pageCount={schoolYearGrid.pageCount}
+        pageSize={schoolYearGrid.pageSize}
+        onPageChange={schoolYearGrid.setPage}
+        onPageSizeChange={schoolYearGrid.setPageSize}
+        rangeStart={schoolYearGrid.rangeStart}
+        rangeEnd={schoolYearGrid.rangeEnd}
+        totalCount={schoolYearGrid.totalCount}
+        onEdit={openSchoolYearEdit}
+        editLabel={t('orgGridEdit')}
+      /> : null}
+
+      {activeView === 'grade-levels' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgGradeLevelsTitle')} description={t('orgGradeLevelsDescription')} createLabel={t('orgGradeLevelCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={gradeLevelGrid.search} onSearchChange={gradeLevelGrid.setSearch} onCreate={openGradeLevelCreate} columns={gradeLevelColumns} items={gradeLevelGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={gradeLevelGrid.sortKey} sortDirection={gradeLevelGrid.sortDirection} onSort={gradeLevelGrid.requestSort} page={gradeLevelGrid.page} pageCount={gradeLevelGrid.pageCount} pageSize={gradeLevelGrid.pageSize} onPageChange={gradeLevelGrid.setPage} onPageSizeChange={gradeLevelGrid.setPageSize} rangeStart={gradeLevelGrid.rangeStart} rangeEnd={gradeLevelGrid.rangeEnd} totalCount={gradeLevelGrid.totalCount} onEdit={openGradeLevelEdit} editLabel={t('orgGridEdit')} /> : null}
+
+      {activeView === 'class-rooms' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgClassRoomsTitle')} description={t('orgClassRoomsDescription')} createLabel={t('orgClassRoomCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={classRoomGrid.search} onSearchChange={classRoomGrid.setSearch} filters={<SelectField label={t('orgClassRoomGradeLevel')} value={classRoomGradeFilter} onChange={setClassRoomGradeFilter} options={[{ value: '', label: t('orgFilterAll') }, ...gradeLevels.map((gradeLevel) => ({ value: gradeLevel.id, label: `${gradeLevel.level} - ${gradeLevel.displayName}` }))]} />} onCreate={openClassRoomCreate} columns={classRoomColumns} items={classRoomGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={classRoomGrid.sortKey} sortDirection={classRoomGrid.sortDirection} onSort={classRoomGrid.requestSort} page={classRoomGrid.page} pageCount={classRoomGrid.pageCount} pageSize={classRoomGrid.pageSize} onPageChange={classRoomGrid.setPage} onPageSizeChange={classRoomGrid.setPageSize} rangeStart={classRoomGrid.rangeStart} rangeEnd={classRoomGrid.rangeEnd} totalCount={classRoomGrid.totalCount} onEdit={openClassRoomEdit} editLabel={t('orgGridEdit')} /> : null}
+
+      {activeView === 'teaching-groups' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgTeachingGroupsTitle')} description={t('orgTeachingGroupsDescription')} createLabel={t('orgTeachingGroupCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={teachingGroupGrid.search} onSearchChange={teachingGroupGrid.setSearch} filters={<div className="grid gap-3 md:grid-cols-2"><SelectField label={t('orgTeachingGroupClassRoom')} value={teachingGroupClassRoomFilter} onChange={setTeachingGroupClassRoomFilter} options={[{ value: '', label: t('orgFilterAll') }, ...classRooms.map((classRoom) => ({ value: classRoom.id, label: `${classRoom.code} - ${classRoom.displayName}` }))]} /><SelectField label={t('orgGridFilterLabel')} value={teachingGroupTypeFilter} onChange={(value) => setTeachingGroupTypeFilter(value as TeachingGroupFilter)} options={[{ value: 'all', label: t('orgFilterAll') }, { value: 'daily', label: t('orgTeachingGroupDailyOps') }, { value: 'custom', label: t('orgGridTeachingGroupCustom') }]} /></div>} onCreate={openTeachingGroupCreate} columns={teachingGroupColumns} items={teachingGroupGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={teachingGroupGrid.sortKey} sortDirection={teachingGroupGrid.sortDirection} onSort={teachingGroupGrid.requestSort} page={teachingGroupGrid.page} pageCount={teachingGroupGrid.pageCount} pageSize={teachingGroupGrid.pageSize} onPageChange={teachingGroupGrid.setPage} onPageSizeChange={teachingGroupGrid.setPageSize} rangeStart={teachingGroupGrid.rangeStart} rangeEnd={teachingGroupGrid.rangeEnd} totalCount={teachingGroupGrid.totalCount} onEdit={openTeachingGroupEdit} editLabel={t('orgGridEdit')} /> : null}
+
+      {activeView === 'subjects' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgSubjectsTitle')} description={t('orgSubjectsDescription')} createLabel={t('orgSubjectCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={subjectGrid.search} onSearchChange={subjectGrid.setSearch} onCreate={openSubjectCreate} columns={subjectColumns} items={subjectGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={subjectGrid.sortKey} sortDirection={subjectGrid.sortDirection} onSort={subjectGrid.requestSort} page={subjectGrid.page} pageCount={subjectGrid.pageCount} pageSize={subjectGrid.pageSize} onPageChange={subjectGrid.setPage} onPageSizeChange={subjectGrid.setPageSize} rangeStart={subjectGrid.rangeStart} rangeEnd={subjectGrid.rangeEnd} totalCount={subjectGrid.totalCount} onEdit={openSubjectEdit} editLabel={t('orgGridEdit')} /> : null}
+
+      {activeView === 'teacher-assignments' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgTeacherAssignmentsTitle')} description={t('orgTeacherAssignmentsDescription')} createLabel={t('orgAssignmentCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={teacherAssignmentGrid.search} onSearchChange={teacherAssignmentGrid.setSearch} filters={<SelectField label={t('orgAssignmentScope')} value={teacherAssignmentScopeFilter} onChange={setTeacherAssignmentScopeFilter} options={[{ value: '', label: t('orgFilterAll') }, ...Array.from(new Set(teacherAssignments.map((assignment) => assignment.scope))).map((scope) => ({ value: scope, label: scope }))]} />} onCreate={openTeacherAssignmentCreate} columns={teacherAssignmentColumns} items={teacherAssignmentGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={teacherAssignmentGrid.sortKey} sortDirection={teacherAssignmentGrid.sortDirection} onSort={teacherAssignmentGrid.requestSort} page={teacherAssignmentGrid.page} pageCount={teacherAssignmentGrid.pageCount} pageSize={teacherAssignmentGrid.pageSize} onPageChange={teacherAssignmentGrid.setPage} onPageSizeChange={teacherAssignmentGrid.setPageSize} rangeStart={teacherAssignmentGrid.rangeStart} rangeEnd={teacherAssignmentGrid.rangeEnd} totalCount={teacherAssignmentGrid.totalCount} onEdit={openTeacherAssignmentEdit} editLabel={t('orgGridEdit')} /> : null}
+
+      <OrganizationEntityModal open={Boolean(modalState)} title={resolveModalTitle(t, modalState)} description={resolveModalDescription(t, modalState)} onClose={resetModal} closeLabel={t('orgGridClose')} className={modalState?.kind === 'teacher-assignment' ? 'max-w-4xl' : 'max-w-2xl'}>
+        {modalState?.kind === 'school-year' ? <SingleStepWizardShell stepTitle={t('orgGridSingleStepWizard')} submitLabel={modalState.mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={resetModal} onSubmit={handleSchoolYearSubmit} submitDisabled={!activeSchoolId || !schoolYearDraft.label.trim() || !schoolYearDraft.startDate || !schoolYearDraft.endDate || saving} busy={saving}><div className="grid gap-3 md:grid-cols-3"><InputField label={t('orgSchoolYearLabel')} value={schoolYearDraft.label} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, label: value }))} /><InputField label={t('orgSchoolYearStartDate')} type="date" value={schoolYearDraft.startDate} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, startDate: value }))} /><InputField label={t('orgSchoolYearEndDate')} type="date" value={schoolYearDraft.endDate} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, endDate: value }))} /></div></SingleStepWizardShell> : null}
+        {modalState?.kind === 'grade-level' ? <SingleStepWizardShell stepTitle={t('orgGridSingleStepWizard')} submitLabel={modalState.mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={resetModal} onSubmit={handleGradeLevelSubmit} submitDisabled={!activeSchoolId || !gradeLevelDraft.displayName.trim() || saving} busy={saving}><div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgGradeLevelLevel')} type="number" value={String(gradeLevelDraft.level)} onChange={(value) => setGradeLevelDraft((current) => ({ ...current, level: Number(value) || 1 }))} /><InputField label={t('orgGradeLevelDisplayName')} value={gradeLevelDraft.displayName} onChange={(value) => setGradeLevelDraft((current) => ({ ...current, displayName: value }))} /></div></SingleStepWizardShell> : null}
+        {modalState?.kind === 'class-room' ? <ClassRoomModal mode={modalState.mode} t={t} createDraft={classRoomCreateDraft} setCreateDraft={setClassRoomCreateDraft} editDraft={classRoomEditDraft} setEditDraft={setClassRoomEditDraft} gradeLevels={gradeLevels} saving={saving} activeSchoolId={activeSchoolId} onCancel={resetModal} onSubmit={handleClassRoomSubmit} /> : null}
+        {modalState?.kind === 'teaching-group' ? <TeachingGroupModal mode={modalState.mode} t={t} createDraft={teachingGroupCreateDraft} setCreateDraft={setTeachingGroupCreateDraft} editDraft={teachingGroupEditDraft} setEditDraft={setTeachingGroupEditDraft} classRooms={classRooms} saving={saving} activeSchoolId={activeSchoolId} onCancel={resetModal} onSubmit={handleTeachingGroupSubmit} /> : null}
+        {modalState?.kind === 'subject' ? <SubjectModal mode={modalState.mode} t={t} createDraft={subjectCreateDraft} setCreateDraft={setSubjectCreateDraft} editDraft={subjectEditDraft} setEditDraft={setSubjectEditDraft} saving={saving} activeSchoolId={activeSchoolId} onCancel={resetModal} onSubmit={handleSubjectSubmit} /> : null}
+        {modalState?.kind === 'teacher-assignment' ? <TeacherAssignmentWizard mode={modalState.mode} t={t} step={teacherAssignmentWizardStep} setStep={setTeacherAssignmentWizardStep} createDraft={teacherAssignmentCreateDraft} setCreateDraft={setTeacherAssignmentCreateDraft} editDraft={teacherAssignmentEditDraft} setEditDraft={setTeacherAssignmentEditDraft} classRoomOptions={classRooms.map((classRoom) => ({ value: classRoom.id, label: `${classRoom.code} - ${classRoom.displayName}` }))} teachingGroupOptions={teachingGroups.map((group) => ({ value: group.id, label: group.name }))} subjectOptions={subjects.map((subject) => ({ value: subject.id, label: `${subject.code} - ${subject.name}` }))} onCancel={resetModal} onSubmit={handleTeacherAssignmentSubmit} busy={saving} /> : null}
+      </OrganizationEntityModal>
     </section>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function OrganizationSectionView<T>({ canWrite, gridProps, onEdit, editLabel, ...props }: any) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-    </div>
+    <OrganizationGridSection
+      {...gridProps}
+      {...props}
+      pageSizeOptions={[10, 20, 50, 100]}
+      createLabel={canWrite ? props.createLabel : undefined}
+      onCreate={canWrite ? props.onCreate : undefined}
+      renderRowActions={canWrite ? (item: T, closeMenu: () => void) => (
+        <button type="button" className="sk-action-menu-item" onClick={() => { closeMenu(); onEdit(item); }}>
+          {editLabel}
+        </button>
+      ) : undefined}
+    />
   );
 }
 
-function SchoolTableRow({
-  school,
-  selected,
-  t,
-  actionMenuOpen,
-  actionMenuRef,
-  onSelect,
-  onToggleMenu,
-  onOpenDetail,
-  onToggleStatus
-}: {
-  school: School;
-  selected: boolean;
-  t: (key: string, params?: Record<string, string>) => string;
-  actionMenuOpen: boolean;
-  actionMenuRef?: React.RefObject<HTMLDivElement | null>;
-  onSelect: () => void;
-  onToggleMenu: () => void;
-  onOpenDetail: () => void;
-  onToggleStatus?: () => void;
-}) {
-  return (
-    <tr
-      className={`sk-user-management-row sk-user-management-row-clickable border-b ${selected ? 'bg-sky-50/80' : ''}`}
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('button') || target.closest('.sk-action-menu')) return;
-        onSelect();
-      }}
-    >
-      <td>
-        <div className="min-w-0">
-          <div className="font-medium text-slate-900">{school.name}</div>
-          <div className="mt-1 text-xs text-slate-500">{school.schoolIzo || '-'}</div>
-        </div>
-      </td>
-      <td>{getSchoolTypeLabel(t, school.schoolType)}</td>
-      <td className="text-xs text-slate-600">{school.mainAddress.city || '-'}</td>
-      <td className="text-xs text-slate-600">{school.schoolOperator?.legalEntityName || '-'}</td>
-      <td className="text-xs text-slate-600">{getPlatformStatusLabel(t, school.platformStatus)}</td>
-      <td>
-        <span className="inline-flex items-center text-xs">
-          <span className={`sk-status-dot ${school.isActive ? 'sk-status-dot-active' : 'sk-status-dot-deactivated'}`} />
-          {school.isActive ? t('orgSchoolActive') : t('orgSchoolInactive')}
-        </span>
-      </td>
-      <td className="text-xs text-slate-600">{school.maxStudentCapacity?.toString() || '-'}</td>
-      <td onClick={(e) => e.stopPropagation()}>
-        <div className="sk-action-menu" ref={actionMenuOpen ? actionMenuRef : undefined}>
-          <button
-            type="button"
-            className="sk-action-menu-trigger"
-            onClick={onToggleMenu}
-            aria-label={t('userManagementColActions')}
-          >
-            <ThreeDotsIcon className="h-4 w-4" />
-          </button>
-          {actionMenuOpen ? (
-            <div className="sk-action-menu-dropdown">
-              <button type="button" className="sk-action-menu-item" onClick={onOpenDetail}>
-                <EditPencilIcon className="h-3.5 w-3.5" />{t('orgSchoolsSelect')}
-              </button>
-              {onToggleStatus ? (
-                <button type="button" className="sk-action-menu-item danger" onClick={onToggleStatus}>
-                  <LifecycleDeactivateIcon className="h-3.5 w-3.5" />{school.isActive ? t('deactivate') : t('activate')}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </td>
-    </tr>
-  );
+function resolveModalTitle(t: (key: string, params?: Record<string, string>) => string, modalState: EntityModalState) {
+  if (!modalState) return '';
+  if (modalState.kind === 'school-year') return t(modalState.mode === 'create' ? 'orgSchoolYearCreateTitle' : 'orgSchoolYearEditTitle');
+  if (modalState.kind === 'grade-level') return t(modalState.mode === 'create' ? 'orgGradeLevelCreateTitle' : 'orgGradeLevelEditTitle');
+  if (modalState.kind === 'class-room') return t(modalState.mode === 'create' ? 'orgClassRoomCreateTitle' : 'orgClassRoomEditTitle');
+  if (modalState.kind === 'teaching-group') return t(modalState.mode === 'create' ? 'orgTeachingGroupCreateTitle' : 'orgTeachingGroupEditTitle');
+  if (modalState.kind === 'subject') return t(modalState.mode === 'create' ? 'orgSubjectCreateTitle' : 'orgSubjectEditTitle');
+  return t(modalState.mode === 'create' ? 'orgAssignmentCreateTitle' : 'orgAssignmentEditTitle');
+}
+
+function resolveModalDescription(t: (key: string, params?: Record<string, string>) => string, modalState: EntityModalState) {
+  if (!modalState) return '';
+  return modalState.mode === 'create' ? t('orgGridCreateWizardDescription') : t('orgGridEditModalDescription');
+}
+
+function matchesSchoolYearWindowFilter(item: SchoolYear, filter: SchoolYearWindowFilter) {
+  if (filter === 'all') return true;
+  const today = new Date().toISOString().slice(0, 10);
+  if (filter === 'current') return item.startDate <= today && item.endDate >= today;
+  if (filter === 'upcoming') return item.startDate > today;
+  return item.endDate < today;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p></div>;
+}
+
+function FeedbackBanner({ tone, text }: { tone: 'success' | 'error'; text: string }) {
+  return <div className={`rounded-lg px-4 py-3 text-sm ${tone === 'success' ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-rose-200 bg-rose-50 text-rose-800'}`}>{text}</div>;
+}
+
+function SchoolTableRow({ school, selected, t, actionMenuOpen, actionMenuRef, onSelect, onToggleMenu, onOpenDetail, onToggleStatus }: { school: School; selected: boolean; t: (key: string, params?: Record<string, string>) => string; actionMenuOpen: boolean; actionMenuRef?: React.RefObject<HTMLDivElement | null>; onSelect: () => void; onToggleMenu: () => void; onOpenDetail: () => void; onToggleStatus?: () => void; }) {
+  return <tr className={`sk-user-management-row sk-user-management-row-clickable border-b ${selected ? 'bg-sky-50/80' : ''}`} onClick={(event) => { const target = event.target as HTMLElement; if (target.closest('button') || target.closest('.sk-action-menu')) return; onSelect(); }}><td><div className="min-w-0"><div className="font-medium text-slate-900">{school.name}</div><div className="mt-1 text-xs text-slate-500">{school.schoolIzo || '-'}</div></div></td><td>{getSchoolTypeLabel(t, school.schoolType)}</td><td className="text-xs text-slate-600">{school.mainAddress.city || '-'}</td><td className="text-xs text-slate-600">{school.schoolOperator?.legalEntityName || '-'}</td><td className="text-xs text-slate-600">{getPlatformStatusLabel(t, school.platformStatus)}</td><td><span className="inline-flex items-center text-xs"><span className={`sk-status-dot ${school.isActive ? 'sk-status-dot-active' : 'sk-status-dot-deactivated'}`} />{school.isActive ? t('orgSchoolActive') : t('orgSchoolInactive')}</span></td><td className="text-xs text-slate-600">{school.maxStudentCapacity?.toString() || '-'}</td><td onClick={(event) => event.stopPropagation()}><div className="sk-action-menu" ref={actionMenuOpen ? actionMenuRef : undefined}><button type="button" className="sk-action-menu-trigger" onClick={onToggleMenu} aria-label={t('userManagementColActions')}><ThreeDotsIcon className="h-4 w-4" /></button>{actionMenuOpen ? <div className="sk-action-menu-dropdown"><button type="button" className="sk-action-menu-item" onClick={onOpenDetail}>{t('orgSchoolsSelect')}</button>{onToggleStatus ? <button type="button" className="sk-action-menu-item danger" onClick={onToggleStatus}>{school.isActive ? t('deactivate') : t('activate')}</button> : null}</div> : null}</div></td></tr>;
+}
+
+function SingleStepWizardShell({ stepTitle, submitLabel, cancelLabel, onCancel, onSubmit, submitDisabled, busy, children }: { stepTitle: string; submitLabel: string; cancelLabel: string; onCancel: () => void; onSubmit: () => void; submitDisabled: boolean; busy: boolean; children: React.ReactNode; }) {
+  return <div className="sk-wizard space-y-4"><div className="sk-wizard-steps flex items-center gap-2"><div className="rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">1</div><p className="text-sm font-medium text-slate-700">{stepTitle}</p></div><div className="sk-wizard-body">{children}</div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"><button type="button" className="sk-btn sk-btn-secondary" onClick={onCancel}>{cancelLabel}</button><button type="button" className="sk-btn sk-btn-primary" disabled={submitDisabled} onClick={onSubmit}>{busy ? '...' : submitLabel}</button></div></div>;
+}
+
+function ClassRoomModal({ mode, t, createDraft, setCreateDraft, editDraft, setEditDraft, gradeLevels, saving, activeSchoolId, onCancel, onSubmit }: { mode: 'create' | 'edit'; t: (key: string, params?: Record<string, string>) => string; createDraft: ClassRoomCreateDraft; setCreateDraft: React.Dispatch<React.SetStateAction<ClassRoomCreateDraft>>; editDraft: ClassRoomEditDraft; setEditDraft: React.Dispatch<React.SetStateAction<ClassRoomEditDraft>>; gradeLevels: GradeLevel[]; saving: boolean; activeSchoolId: string; onCancel: () => void; onSubmit: () => void; }) {
+  const disabled = mode === 'create' ? !activeSchoolId || !createDraft.gradeLevelId || !createDraft.code.trim() || !createDraft.displayName.trim() || saving : !editDraft.code.trim() || !editDraft.displayName.trim() || !editDraft.overrideReason.trim() || saving;
+  return <SingleStepWizardShell stepTitle={t(mode === 'create' ? 'orgGridSingleStepWizard' : 'orgGridEditStep')} submitLabel={mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={onCancel} onSubmit={onSubmit} submitDisabled={disabled} busy={saving}>{mode === 'create' ? <div className="grid gap-3 md:grid-cols-3"><SelectField label={t('orgClassRoomGradeLevel')} value={createDraft.gradeLevelId} onChange={(value) => setCreateDraft((current) => ({ ...current, gradeLevelId: value }))} options={gradeLevels.map((gradeLevel) => ({ value: gradeLevel.id, label: `${gradeLevel.level} - ${gradeLevel.displayName}` }))} /><InputField label={t('orgClassRoomCode')} value={createDraft.code} onChange={(value) => setCreateDraft((current) => ({ ...current, code: value }))} /><InputField label={t('orgClassRoomDisplayName')} value={createDraft.displayName} onChange={(value) => setCreateDraft((current) => ({ ...current, displayName: value }))} /></div> : <div className="space-y-3"><div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgClassRoomCode')} value={editDraft.code} onChange={(value) => setEditDraft((current) => ({ ...current, code: value }))} /><InputField label={t('orgClassRoomDisplayName')} value={editDraft.displayName} onChange={(value) => setEditDraft((current) => ({ ...current, displayName: value }))} /></div><TextAreaField label={t('orgGridOverrideReason')} value={editDraft.overrideReason} onChange={(value) => setEditDraft((current) => ({ ...current, overrideReason: value }))} /></div>}</SingleStepWizardShell>;
+}
+
+function TeachingGroupModal({ mode, t, createDraft, setCreateDraft, editDraft, setEditDraft, classRooms, saving, activeSchoolId, onCancel, onSubmit }: { mode: 'create' | 'edit'; t: (key: string, params?: Record<string, string>) => string; createDraft: TeachingGroupCreateDraft; setCreateDraft: React.Dispatch<React.SetStateAction<TeachingGroupCreateDraft>>; editDraft: TeachingGroupEditDraft; setEditDraft: React.Dispatch<React.SetStateAction<TeachingGroupEditDraft>>; classRooms: ClassRoom[]; saving: boolean; activeSchoolId: string; onCancel: () => void; onSubmit: () => void; }) {
+  const options = [{ value: '', label: t('orgNone') }, ...classRooms.map((classRoom) => ({ value: classRoom.id, label: `${classRoom.code} - ${classRoom.displayName}` }))];
+  const disabled = mode === 'create' ? !activeSchoolId || !createDraft.name.trim() || saving : !editDraft.name.trim() || !editDraft.overrideReason.trim() || saving;
+  return <SingleStepWizardShell stepTitle={t(mode === 'create' ? 'orgGridSingleStepWizard' : 'orgGridEditStep')} submitLabel={mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={onCancel} onSubmit={onSubmit} submitDisabled={disabled} busy={saving}>{mode === 'create' ? <div className="space-y-3"><div className="grid gap-3 md:grid-cols-2"><SelectField label={t('orgTeachingGroupClassRoom')} value={createDraft.classRoomId} onChange={(value) => setCreateDraft((current) => ({ ...current, classRoomId: value }))} options={options} /><InputField label={t('orgTeachingGroupName')} value={createDraft.name} onChange={(value) => setCreateDraft((current) => ({ ...current, name: value }))} /></div><CheckboxField label={t('orgTeachingGroupDailyOps')} checked={createDraft.isDailyOperationsGroup} onChange={(value) => setCreateDraft((current) => ({ ...current, isDailyOperationsGroup: value }))} /></div> : <div className="space-y-3"><div className="grid gap-3 md:grid-cols-2"><SelectField label={t('orgTeachingGroupClassRoom')} value={editDraft.classRoomId} onChange={(value) => setEditDraft((current) => ({ ...current, classRoomId: value }))} options={options} /><InputField label={t('orgTeachingGroupName')} value={editDraft.name} onChange={(value) => setEditDraft((current) => ({ ...current, name: value }))} /></div><CheckboxField label={t('orgTeachingGroupDailyOps')} checked={editDraft.isDailyOperationsGroup} onChange={(value) => setEditDraft((current) => ({ ...current, isDailyOperationsGroup: value }))} /><TextAreaField label={t('orgGridOverrideReason')} value={editDraft.overrideReason} onChange={(value) => setEditDraft((current) => ({ ...current, overrideReason: value }))} /></div>}</SingleStepWizardShell>;
+}
+
+function SubjectModal({ mode, t, createDraft, setCreateDraft, editDraft, setEditDraft, saving, activeSchoolId, onCancel, onSubmit }: { mode: 'create' | 'edit'; t: (key: string, params?: Record<string, string>) => string; createDraft: SubjectCreateDraft; setCreateDraft: React.Dispatch<React.SetStateAction<SubjectCreateDraft>>; editDraft: SubjectEditDraft; setEditDraft: React.Dispatch<React.SetStateAction<SubjectEditDraft>>; saving: boolean; activeSchoolId: string; onCancel: () => void; onSubmit: () => void; }) {
+  const disabled = mode === 'create' ? !activeSchoolId || !createDraft.code.trim() || !createDraft.name.trim() || saving : !editDraft.code.trim() || !editDraft.name.trim() || !editDraft.overrideReason.trim() || saving;
+  return <SingleStepWizardShell stepTitle={t(mode === 'create' ? 'orgGridSingleStepWizard' : 'orgGridEditStep')} submitLabel={mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={onCancel} onSubmit={onSubmit} submitDisabled={disabled} busy={saving}>{mode === 'create' ? <div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgSubjectCode')} value={createDraft.code} onChange={(value) => setCreateDraft((current) => ({ ...current, code: value }))} /><InputField label={t('orgSubjectName')} value={createDraft.name} onChange={(value) => setCreateDraft((current) => ({ ...current, name: value }))} /></div> : <div className="space-y-3"><div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgSubjectCode')} value={editDraft.code} onChange={(value) => setEditDraft((current) => ({ ...current, code: value }))} /><InputField label={t('orgSubjectName')} value={editDraft.name} onChange={(value) => setEditDraft((current) => ({ ...current, name: value }))} /></div><TextAreaField label={t('orgGridOverrideReason')} value={editDraft.overrideReason} onChange={(value) => setEditDraft((current) => ({ ...current, overrideReason: value }))} /></div>}</SingleStepWizardShell>;
+}
+
+function TeacherAssignmentWizard({ mode, t, step, setStep, createDraft, setCreateDraft, editDraft, setEditDraft, classRoomOptions, teachingGroupOptions, subjectOptions, onCancel, onSubmit, busy }: { mode: 'create' | 'edit'; t: (key: string, params?: Record<string, string>) => string; step: number; setStep: React.Dispatch<React.SetStateAction<number>>; createDraft: TeacherAssignmentCreateDraft; setCreateDraft: React.Dispatch<React.SetStateAction<TeacherAssignmentCreateDraft>>; editDraft: TeacherAssignmentEditDraft; setEditDraft: React.Dispatch<React.SetStateAction<TeacherAssignmentEditDraft>>; classRoomOptions: { value: string; label: string }[]; teachingGroupOptions: { value: string; label: string }[]; subjectOptions: { value: string; label: string }[]; onCancel: () => void; onSubmit: () => void; busy: boolean; }) {
+  const draft = mode === 'create' ? createDraft : editDraft;
+  const setDraft = mode === 'create' ? setCreateDraft : setEditDraft;
+  const stepOneValid = Boolean(draft.teacherUserId.trim() && draft.scope.trim());
+  const canSubmit = mode === 'create' ? stepOneValid : stepOneValid && Boolean(editDraft.overrideReason.trim());
+  return <div className="sk-wizard space-y-4"><div className="sk-wizard-steps flex items-center gap-1 overflow-x-auto">{[1, 2].map((wizardStep) => <React.Fragment key={wizardStep}><div className={`rounded-full px-3 py-1 text-xs font-medium ${wizardStep === step ? 'bg-blue-600 text-white' : wizardStep < step ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{wizardStep === 1 ? t('orgAssignmentWizardStep1') : t('orgAssignmentWizardStep2')}</div>{wizardStep === 1 ? <span className="text-slate-300">→</span> : null}</React.Fragment>)}</div>{step === 1 ? <div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgAssignmentTeacher')} value={draft.teacherUserId} onChange={(value) => setDraft((current: any) => ({ ...current, teacherUserId: value }))} /><SelectField label={t('orgAssignmentScope')} value={draft.scope} onChange={(value) => setDraft((current: any) => ({ ...current, scope: value }))} options={[{ value: 'ClassTeacher', label: t('orgAssignmentScopeClassTeacher') }, { value: 'SubjectTeacher', label: t('orgAssignmentScopeSubjectTeacher') }, { value: 'GroupLeader', label: t('orgAssignmentScopeGroupLeader') }]} /></div> : <div className="space-y-3"><div className="grid gap-3 md:grid-cols-3"><SelectField label={t('orgAssignmentClassRoom')} value={draft.classRoomId} onChange={(value) => setDraft((current: any) => ({ ...current, classRoomId: value }))} options={[{ value: '', label: t('orgNone') }, ...classRoomOptions]} /><SelectField label={t('orgAssignmentGroup')} value={draft.teachingGroupId} onChange={(value) => setDraft((current: any) => ({ ...current, teachingGroupId: value }))} options={[{ value: '', label: t('orgNone') }, ...teachingGroupOptions]} /><SelectField label={t('orgAssignmentSubject')} value={draft.subjectId} onChange={(value) => setDraft((current: any) => ({ ...current, subjectId: value }))} options={[{ value: '', label: t('orgNone') }, ...subjectOptions]} /></div>{mode === 'edit' ? <TextAreaField label={t('orgGridOverrideReason')} value={editDraft.overrideReason} onChange={(value) => setEditDraft((current) => ({ ...current, overrideReason: value }))} /> : null}</div>}<div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"><button type="button" className="sk-btn sk-btn-secondary" onClick={step === 1 ? onCancel : () => setStep(1)}>{step === 1 ? t('cancel') : t('orgGridPreviousPage')}</button><button type="button" className="sk-btn sk-btn-primary" disabled={step === 1 ? !stepOneValid : !canSubmit || busy} onClick={step === 1 ? () => setStep(2) : onSubmit}>{step === 1 ? t('orgGridNextPage') : busy ? '...' : mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')}</button></div></div>;
+}
+
+function SchoolCreateWizard({ t, wizardStep, setWizardStep, form, setForm, onCancel, onSubmit, stepValid, busy }: { t: (key: string, params?: Record<string, string>) => string; wizardStep: number; setWizardStep: React.Dispatch<React.SetStateAction<number>>; form: SchoolMutation; setForm: React.Dispatch<React.SetStateAction<SchoolMutation>>; onCancel: () => void; onSubmit: () => void; stepValid: (step: number) => boolean; busy: boolean; }) {
+  return <Card className="border-sky-200 bg-sky-50/40"><div className="space-y-4"><div className="sk-wizard-steps flex items-center gap-1 overflow-x-auto">{[1, 2, 3, 4].map((step) => <React.Fragment key={step}><div className={`rounded-full px-3 py-1 text-xs font-medium ${wizardStep === step ? 'bg-blue-600 text-white' : wizardStep > step ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{step}</div>{step < 4 ? <span className="text-slate-300">→</span> : null}</React.Fragment>)}</div>{wizardStep === 1 ? <div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgSchoolName')} value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} /><SelectField label={t('orgSchoolTypeLabel')} value={form.schoolType} onChange={(value) => setForm((current) => ({ ...current, schoolType: value }))} options={[{ value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') }, { value: 'ElementarySchool', label: t('orgSchoolTypeElementarySchool') }, { value: 'SecondarySchool', label: t('orgSchoolTypeSecondarySchool') }]} /><InputField label={t('orgAddressStreet')} value={form.mainAddress.street} onChange={(value) => setForm((current) => ({ ...current, mainAddress: { ...current.mainAddress, street: value } }))} /><InputField label={t('orgAddressCity')} value={form.mainAddress.city} onChange={(value) => setForm((current) => ({ ...current, mainAddress: { ...current.mainAddress, city: value } }))} /><InputField label={t('orgAddressPostalCode')} value={form.mainAddress.postalCode} onChange={(value) => setForm((current) => ({ ...current, mainAddress: { ...current.mainAddress, postalCode: value } }))} /></div> : null}{wizardStep === 2 ? <div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgSchoolOperatorTitle')} value={form.schoolOperator.legalEntityName} onChange={(value) => setForm((current) => ({ ...current, schoolOperator: { ...current.schoolOperator, legalEntityName: value } }))} /><InputField label={t('orgSchoolOperatorIco')} value={form.schoolOperator.companyNumberIco ?? ''} onChange={(value) => setForm((current) => ({ ...current, schoolOperator: { ...current.schoolOperator, companyNumberIco: value } }))} /></div> : null}{wizardStep === 3 ? <div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgFounderTitle')} value={form.founder.founderName} onChange={(value) => setForm((current) => ({ ...current, founder: { ...current.founder, founderName: value } }))} /><InputField label={t('orgAddressStreet')} value={form.founder.founderAddress.street} onChange={(value) => setForm((current) => ({ ...current, founder: { ...current.founder, founderAddress: { ...current.founder.founderAddress, street: value } } }))} /><InputField label={t('orgAddressCity')} value={form.founder.founderAddress.city} onChange={(value) => setForm((current) => ({ ...current, founder: { ...current.founder, founderAddress: { ...current.founder.founderAddress, city: value } } }))} /><InputField label={t('orgAddressPostalCode')} value={form.founder.founderAddress.postalCode} onChange={(value) => setForm((current) => ({ ...current, founder: { ...current.founder, founderAddress: { ...current.founder.founderAddress, postalCode: value } } }))} /></div> : null}{wizardStep === 4 ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm"><p className="font-semibold text-slate-900">{t('orgCreateSchoolWizardReviewTitle')}</p><p className="mt-1 text-slate-600">{form.name}</p></div> : null}<div className="flex flex-wrap items-center justify-between gap-3"><button type="button" className="sk-btn sk-btn-secondary" onClick={onCancel}>{t('orgCreateSchoolWizardReset')}</button><div className="flex flex-wrap gap-2"><button type="button" className="sk-btn sk-btn-secondary" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => Math.max(1, step - 1))}>{t('orgCreateSchoolWizardBack')}</button>{wizardStep < 4 ? <button type="button" className="sk-btn sk-btn-primary" disabled={!stepValid(wizardStep)} onClick={() => setWizardStep((step) => Math.min(4, step + 1))}>{t('orgCreateSchoolWizardNext')}</button> : <button type="button" className="sk-btn sk-btn-primary" disabled={!stepValid(1) || !stepValid(2) || !stepValid(3) || busy} onClick={onSubmit}>{t('orgCreateSchoolWizardCreate')}</button>}</div></div></div></Card>;
+}
+
+function InputField({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; }) {
+  return <div className="flex flex-col gap-1"><label className="sk-label">{label}</label><input className="sk-input" value={value} type={type} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></div>;
+}
+
+function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[]; }) {
+  return <div className="flex flex-col gap-1"><label className="sk-label">{label}</label><select className="sk-input" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>;
+}
+
+function TextAreaField({ label, value, onChange, rows = 4 }: { label: string; value: string; onChange: (value: string) => void; rows?: number; }) {
+  return <div className="flex flex-col gap-1"><label className="sk-label">{label}</label><textarea className="sk-input min-h-24" rows={rows} value={value} onChange={(event) => onChange(event.target.value)} /></div>;
+}
+
+function CheckboxField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void; }) {
+  return <label className="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />{label}</label>;
 }
 
 function ThreeDotsIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <circle cx="12" cy="5" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="12" cy="19" r="1.5" />
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>;
 }
-
-function EditPencilIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <path d="m6 18 1-4 8-8 3 3-8 8-4 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="m13.5 7.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LifecycleDeactivateIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8 12h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CompactInfo({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-medium text-slate-900">{value || '-'}</span>
-    </div>
-  );
-}
-
-function SchoolCreateWizard({
-  t,
-  wizardStep,
-  setWizardStep,
-  form,
-  setForm,
-  onCancel,
-  onSubmit,
-  stepValid
-}: {
-  t: (key: string, params?: Record<string, string>) => string;
-  wizardStep: number;
-  setWizardStep: React.Dispatch<React.SetStateAction<number>>;
-  form: SchoolMutation;
-  setForm: React.Dispatch<React.SetStateAction<SchoolMutation>>;
-  onCancel: () => void;
-  onSubmit: () => void;
-  stepValid: (step: number) => boolean;
-}) {
-  return (
-    <Card className="border-sky-200 bg-sky-50/40">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{t('orgCreateSchool')}</p>
-            <p className="mt-1 text-sm text-slate-600">{t('orgCreateSchoolWizardDescription')}</p>
-          </div>
-          <button type="button" className="sk-btn sk-btn-secondary" onClick={onCancel}>
-            {t('cancel')}
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {[
-            t('orgCreateSchoolWizardStep1'),
-            t('orgCreateSchoolWizardStep2'),
-            t('orgCreateSchoolWizardStep3'),
-            t('orgCreateSchoolWizardStep4')
-          ].map((label, index) => (
-            <button
-              key={label}
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs font-medium ${wizardStep === index + 1 ? 'bg-sky-600 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
-              onClick={() => {
-                if (index + 1 <= wizardStep || stepValid(wizardStep)) {
-                  setWizardStep(index + 1);
-                }
-              }}
-            >
-              {index + 1}. {label}
-            </button>
-          ))}
-        </div>
-
-        {wizardStep === 1 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <InputField label={t('orgSchoolName')} value={form.name} onChange={(value) => setForm((v) => ({ ...v, name: value }))} />
-            <SelectField label={t('orgSchoolTypeLabel')} value={form.schoolType} onChange={(value) => setForm((v) => ({ ...v, schoolType: value }))} options={[
-              { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
-              { value: 'ElementarySchool', label: t('orgSchoolTypeElementarySchool') },
-              { value: 'SecondarySchool', label: t('orgSchoolTypeSecondarySchool') }
-            ]} />
-            <SelectField label={t('orgSchoolKindLabel')} value={form.schoolKind} onChange={(value) => setForm((v) => ({ ...v, schoolKind: value }))} options={[
-              { value: 'General', label: t('orgSchoolKindGeneral') },
-              { value: 'Specialized', label: t('orgSchoolKindSpecialized') }
-            ]} />
-            <InputField label={t('orgSchoolIzo')} value={form.schoolIzo ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolIzo: value }))} />
-            <InputField label={t('orgSchoolEmail')} value={form.schoolEmail ?? ''} type="email" onChange={(value) => setForm((v) => ({ ...v, schoolEmail: value }))} />
-            <InputField label={t('orgSchoolPhone')} value={form.schoolPhone ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolPhone: value }))} />
-            <InputField label={t('orgSchoolWebsite')} value={form.schoolWebsite ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolWebsite: value }))} />
-            <InputField label={t('orgAddressStreet')} value={form.mainAddress.street} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, street: value } }))} />
-            <InputField label={t('orgAddressCity')} value={form.mainAddress.city} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, city: value } }))} />
-            <InputField label={t('orgAddressPostalCode')} value={form.mainAddress.postalCode} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, postalCode: value } }))} />
-            <InputField label={t('orgAddressCountry')} value={form.mainAddress.country} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, country: value } }))} />
-            <InputField label={t('orgTeachingLanguage')} value={form.teachingLanguage ?? ''} onChange={(value) => setForm((v) => ({ ...v, teachingLanguage: value }))} />
-            <InputField label={t('orgRegistryEntryDate')} value={form.registryEntryDate ?? ''} type="date" onChange={(value) => setForm((v) => ({ ...v, registryEntryDate: value || undefined }))} />
-            <InputField label={t('orgEducationStartDate')} value={form.educationStartDate ?? ''} type="date" onChange={(value) => setForm((v) => ({ ...v, educationStartDate: value || undefined }))} />
-            <InputField label={t('orgSchoolMaxStudentCapacity')} value={form.maxStudentCapacity?.toString() ?? ''} type="number" onChange={(value) => setForm((v) => ({ ...v, maxStudentCapacity: value ? Number(value) : undefined }))} />
-            <SelectField label={t('orgSchoolPlatformStatusLabel')} value={form.platformStatus} onChange={(value) => setForm((v) => ({ ...v, platformStatus: value }))} options={PLATFORM_STATUS_OPTIONS(t)} />
-            <div className="md:col-span-2 xl:col-span-3">
-              <TextAreaField label={t('orgSchoolEducationLocationsSummary')} value={form.educationLocationsSummary ?? ''} onChange={(value) => setForm((v) => ({ ...v, educationLocationsSummary: value }))} rows={3} />
-            </div>
-          </div>
-        ) : null}
-
-        {wizardStep === 2 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <InputField label={t('orgLegalEntityName')} value={form.schoolOperator.legalEntityName} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalEntityName: value } }))} />
-            <SelectField label={t('orgLegalForm')} value={form.schoolOperator.legalForm} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalForm: value } }))} options={LEGAL_FORM_OPTIONS(t)} />
-            <InputField label={t('orgCompanyNumberIco')} value={form.schoolOperator.companyNumberIco ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, companyNumberIco: value } }))} />
-            <InputField label={t('orgSchoolOperatorRedIzo')} value={form.schoolOperator.redIzo ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, redIzo: value } }))} />
-            <InputField label={t('orgSchoolOperatorEmail')} value={form.schoolOperator.operatorEmail ?? ''} type="email" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, operatorEmail: value } }))} />
-            <InputField label={t('orgSchoolOperatorDataBox')} value={form.schoolOperator.dataBox ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, dataBox: value } }))} />
-            <InputField label={t('orgSchoolOperatorResortIdentifier')} value={form.schoolOperator.resortIdentifier ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, resortIdentifier: value } }))} />
-            <InputField label={t('orgAddressStreet')} value={form.schoolOperator.registeredOfficeAddress.street} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, street: value } } }))} />
-            <InputField label={t('orgAddressCity')} value={form.schoolOperator.registeredOfficeAddress.city} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, city: value } } }))} />
-            <InputField label={t('orgAddressPostalCode')} value={form.schoolOperator.registeredOfficeAddress.postalCode} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, postalCode: value } } }))} />
-            <InputField label={t('orgAddressCountry')} value={form.schoolOperator.registeredOfficeAddress.country} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, country: value } } }))} />
-            <div className="md:col-span-2 xl:col-span-3 grid gap-3 xl:grid-cols-2">
-              <TextAreaField label={t('orgSchoolDirectorSummary')} value={form.schoolOperator.directorSummary ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, directorSummary: value } }))} rows={4} />
-              <TextAreaField label={t('orgSchoolStatutoryBodySummary')} value={form.schoolOperator.statutoryBodySummary ?? ''} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, statutoryBodySummary: value } }))} rows={4} />
-            </div>
-          </div>
-        ) : null}
-
-        {wizardStep === 3 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <SelectField label={t('orgFounderTypeLabel')} value={form.founder.founderType} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderType: value } }))} options={FOUNDER_TYPE_OPTIONS(t)} />
-            <SelectField label={t('orgFounderCategoryLabel')} value={form.founder.founderCategory} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderCategory: value } }))} options={FOUNDER_CATEGORY_OPTIONS(t)} />
-            <InputField label={t('orgFounderName')} value={form.founder.founderName} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderName: value } }))} />
-            <SelectField label={t('orgFounderLegalFormLabel')} value={form.founder.founderLegalForm} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderLegalForm: value } }))} options={LEGAL_FORM_OPTIONS(t)} />
-            <InputField label={t('orgFounderIco')} value={form.founder.founderIco ?? ''} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderIco: value } }))} />
-            <InputField label={t('orgFounderEmail')} value={form.founder.founderEmail ?? ''} type="email" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderEmail: value } }))} />
-            <InputField label={t('orgFounderDataBox')} value={form.founder.founderDataBox ?? ''} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderDataBox: value } }))} />
-            <InputField label={t('orgAddressStreet')} value={form.founder.founderAddress.street} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, street: value } } }))} />
-            <InputField label={t('orgAddressCity')} value={form.founder.founderAddress.city} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, city: value } } }))} />
-            <InputField label={t('orgAddressPostalCode')} value={form.founder.founderAddress.postalCode} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, postalCode: value } } }))} />
-            <InputField label={t('orgAddressCountry')} value={form.founder.founderAddress.country} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, country: value } } }))} />
-          </div>
-        ) : null}
-
-        {wizardStep === 4 ? (
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Card>
-              <p className="font-semibold text-sm">{t('orgCreateSchoolWizardReviewTitle')}</p>
-              <p className="mt-1 text-sm text-slate-600">{t('orgCreateSchoolWizardReviewDescription')}</p>
-              <div className="mt-4 space-y-2 text-sm text-slate-700">
-                <CompactInfo label={t('orgSchoolName')} value={form.name} />
-                <CompactInfo label={t('orgSchoolTypeLabel')} value={getSchoolTypeLabel(t, form.schoolType)} />
-                <CompactInfo label={t('orgSchoolKindLabel')} value={getSchoolKindLabel(t, form.schoolKind)} />
-                <CompactInfo label={t('orgAddressCity')} value={form.mainAddress.city} />
-                <CompactInfo label={t('orgSchoolOperatorTitle')} value={form.schoolOperator.legalEntityName} />
-                <CompactInfo label={t('orgFounderTitle')} value={form.founder.founderName} />
-              </div>
-            </Card>
-            <Card>
-              <p className="font-semibold text-sm">{t('orgCreateSchoolWizardValidationTitle')}</p>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                <WizardCheck label={t('orgCreateSchoolWizardValidationSchool')} valid={Boolean(form.name.trim() && form.mainAddress.street.trim() && form.mainAddress.city.trim())} />
-                <WizardCheck label={t('orgCreateSchoolWizardValidationOperator')} valid={Boolean(form.schoolOperator.legalEntityName.trim())} />
-                <WizardCheck label={t('orgCreateSchoolWizardValidationFounder')} valid={Boolean(form.founder.founderName.trim())} />
-              </ul>
-            </Card>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" className="sk-btn sk-btn-secondary" onClick={onCancel}>
-            {t('orgCreateSchoolWizardReset')}
-          </button>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="sk-btn sk-btn-secondary" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => Math.max(1, step - 1))}>
-              {t('orgCreateSchoolWizardBack')}
-            </button>
-            {wizardStep < 4 ? (
-              <button type="button" className="sk-btn sk-btn-primary" disabled={!stepValid(wizardStep)} onClick={() => setWizardStep((step) => Math.min(4, step + 1))}>
-                {t('orgCreateSchoolWizardNext')}
-              </button>
-            ) : (
-              <button type="button" className="sk-btn sk-btn-primary" disabled={!stepValid(1) || !stepValid(2) || !stepValid(3)} onClick={onSubmit}>
-                {t('orgCreateSchoolWizardCreate')}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text'
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="sk-label">{label}</label>
-      <input className="sk-input" value={value} type={type} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="sk-label">{label}</label>
-      <select className="sk-input" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function TextAreaField({
-  label,
-  value,
-  onChange,
-  rows = 4
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="sk-label">{label}</label>
-      <textarea className="sk-input min-h-24" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function WizardCheck({ label, valid }: { label: string; valid: boolean }) {
-  return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-      <span>{label}</span>
-      <StatusBadge label={valid ? 'OK' : '...'} tone={valid ? 'good' : 'warn'} />
-    </li>
-  );
-}
-
-function LEGAL_FORM_OPTIONS(t: (key: string, params?: Record<string, string>) => string) {
-  return [
-    { value: 'PublicInstitution', label: t('orgLegalFormPublicInstitution') },
-    { value: 'Municipality', label: t('orgLegalFormMunicipality') },
-    { value: 'Region', label: t('orgLegalFormRegion') },
-    { value: 'Association', label: t('orgLegalFormAssociation') },
-    { value: 'ChurchLegalEntity', label: t('orgLegalFormChurchLegalEntity') },
-    { value: 'LimitedLiabilityCompany', label: t('orgLegalFormLimitedLiabilityCompany') },
-    { value: 'JointStockCompany', label: t('orgLegalFormJointStockCompany') },
-    { value: 'NonProfitOrganization', label: t('orgLegalFormNonProfitOrganization') },
-    { value: 'NaturalPersonEntrepreneur', label: t('orgLegalFormNaturalPersonEntrepreneur') }
-  ];
-}
-
-function PLATFORM_STATUS_OPTIONS(t: (key: string, params?: Record<string, string>) => string) {
-  return [
-    { value: 'Draft', label: t('orgPlatformStatusDraft') },
-    { value: 'Active', label: t('orgPlatformStatusActive') },
-    { value: 'Suspended', label: t('orgPlatformStatusSuspended') },
-    { value: 'Archived', label: t('orgPlatformStatusArchived') }
-  ];
-}
-
-function FOUNDER_TYPE_OPTIONS(t: (key: string, params?: Record<string, string>) => string) {
-  return [
-    { value: 'State', label: t('orgFounderTypeState') },
-    { value: 'Region', label: t('orgFounderTypeRegion') },
-    { value: 'Municipality', label: t('orgFounderTypeMunicipality') },
-    { value: 'AssociationOfMunicipalities', label: t('orgFounderTypeAssociationOfMunicipalities') },
-    { value: 'Church', label: t('orgFounderTypeChurch') },
-    { value: 'PrivateLegalEntity', label: t('orgFounderTypePrivateLegalEntity') },
-    { value: 'NaturalPerson', label: t('orgFounderTypeNaturalPerson') }
-  ];
-}
-
-function FOUNDER_CATEGORY_OPTIONS(t: (key: string, params?: Record<string, string>) => string) {
-  return [
-    { value: 'Public', label: t('orgFounderCategoryPublic') },
-    { value: 'Church', label: t('orgFounderCategoryChurch') },
-    { value: 'Private', label: t('orgFounderCategoryPrivate') }
-  ];
-}
-
-
-
-
-
-
-
-
-

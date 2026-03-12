@@ -14,7 +14,9 @@
       "Bash(dotnet add:*)",
       "Bash(find \"C:\\\\Users\\\\tomas\\\\source\\\\repos\\\\Skolio\\\\src\\\\Frontend\\\\Skolio.Frontend\" -type f -iname \"*school*\" 2>/dev/null | head -50)",
       "Bash(find /c/Users/tomas/source/repos/Skolio/src/Frontend/Skolio.Frontend -type f -name \"*.css\" -o -name \"*.scss\" -o -name \"*tailwind*\" -o -name \"*postcss*\" 2>/dev/null | head -50)",
-      "Bash(grep -n \"ApplyIdentityMigrationsAsync\\\\|ApplyOrganizationMigrationsAsync\\\\|ApplyAcademicsMigrationsAsync\\\\|ApplyCommunicationMigrationsAsync\\\\|ApplyAdministrationMigrationsAsync\" /c/Users/tomas/source/repos/Skolio/src/Services/*/Skolio.*.Api/Program.cs)"
+      "Bash(grep -n \"ApplyIdentityMigrationsAsync\\\\|ApplyOrganizationMigrationsAsync\\\\|ApplyAcademicsMigrationsAsync\\\\|ApplyCommunicationMigrationsAsync\\\\|ApplyAdministrationMigrationsAsync\" /c/Users/tomas/source/repos/Skolio/src/Services/*/Skolio.*.Api/Program.cs)",
+      "Bash(find /c/Users/tomas/source/repos/Skolio/src/Services/Organization/Skolio.Organization.Api/Controllers -type f -name \"*.cs\" | xargs wc -l | sort -n | tail -20)",
+      "Bash(grep -r \"CreateSchoolRequest\\\\|UpdateSchoolRequest\\\\|CreateGradeLevelRequest\" /c/Users/tomas/source/repos/Skolio/src/Services/Organization/Skolio.Organization.Api/Controllers/*.cs | head -10)"
     ]
   }
 }

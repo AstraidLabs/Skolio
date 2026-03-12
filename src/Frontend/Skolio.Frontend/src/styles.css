@@ -613,7 +613,8 @@
   .sk-table-wrap {
     border: 1px solid var(--sk-border);
     border-radius: var(--sk-radius-md);
-    @apply overflow-hidden;
+    overflow-x: auto;
+    overflow-y: visible;
   }
 
   .sk-table {
@@ -1112,6 +1113,13 @@
     z-index: 50;
     @apply p-1;
     animation: skFadeIn 120ms ease-out;
+  }
+
+  .sk-action-menu-dropdown-up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 4px;
   }
 
   .sk-action-menu-item {
