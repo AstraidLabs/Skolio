@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { SessionState } from '../shared/auth/session';
 import type {
@@ -17,7 +17,7 @@ import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
 import { OrganizationSchoolIdentityCard } from './OrganizationSchoolIdentityCard';
 import { getPlatformStatusLabel, getSchoolTypeLabel } from './schoolLabels';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
-import { EmptyState, ErrorState, LoadingState } from '../shared/ui/states';
+import { ErrorState, LoadingState } from '../shared/ui/states';
 import { useClientGrid } from './hooks/useClientGrid';
 import { OrganizationGridSection, type OrganizationGridColumn } from './components/OrganizationGridSection';
 import { OrganizationEntityModal } from './components/OrganizationEntityModal';
@@ -128,15 +128,11 @@ export function OrganizationParityPage({
   const [activeSchoolId, setActiveSchoolId] = useState(session.schoolIds[0] ?? '');
 
   const [newSchool, setNewSchool] = useState<SchoolMutation>({ ...EMPTY_SCHOOL, schoolType: session.schoolType });
-  const [schoolSearch, setSchoolSearch] = useState('');
   const [schoolTypeFilter, setSchoolTypeFilter] = useState('');
   const [schoolStatusFilter, setSchoolStatusFilter] = useState<SchoolStatusFilter>('all');
   const [schoolWizardOpen, setSchoolWizardOpen] = useState(false);
   const [schoolWizardStep, setSchoolWizardStep] = useState(1);
   const [schoolDetailOpen, setSchoolDetailOpen] = useState(false);
-  const [schoolActionMenuId, setSchoolActionMenuId] = useState('');
-  const schoolActionMenuRef = useRef<HTMLDivElement | null>(null);
-
   const [modalState, setModalState] = useState<EntityModalState>(null);
   const [schoolYearDraft, setSchoolYearDraft] = useState<SchoolYearDraft>(EMPTY_SCHOOL_YEAR);
   const [gradeLevelDraft, setGradeLevelDraft] = useState<GradeLevelDraft>(EMPTY_GRADE_LEVEL);
@@ -285,21 +281,6 @@ export function OrganizationParityPage({
     void loadSchoolBoundaries(activeSchoolId).catch((nextError: Error) => setError(nextError.message));
   }, [activeSchoolId, canManageOrganization, canTeacherScopedOrganization, isStudent]);
 
-  useEffect(() => {
-    if (!schoolActionMenuId) {
-      return undefined;
-    }
-
-    const onMouseDown = (event: MouseEvent) => {
-      if (schoolActionMenuRef.current && !schoolActionMenuRef.current.contains(event.target as Node)) {
-        setSchoolActionMenuId('');
-      }
-    };
-
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [schoolActionMenuId]);
-
   const currentSchool = schools.find((school) => school.id === activeSchoolId) ?? schools[0] ?? null;
   const gradeLevelNameById = useMemo(
     () => Object.fromEntries(gradeLevels.map((gradeLevel) => [gradeLevel.id, `${gradeLevel.level} - ${gradeLevel.displayName}`])),
@@ -368,25 +349,15 @@ export function OrganizationParityPage({
   }, [classRooms.length, gradeLevels.length, isParent, isStudent, schoolYears.length, schools.length, subjects.length, t, teacherAssignments.length, teachingGroups.length]);
 
   const filteredSchools = useMemo(() => {
-    const query = schoolSearch.trim().toLowerCase();
-
     return schools.filter((school) => {
-      const matchesSearch = !query || [
-        school.name,
-        school.mainAddress.city,
-        school.schoolIzo,
-        school.schoolOperator?.legalEntityName,
-        school.founder?.founderName
-      ].filter(Boolean).some((value) => value!.toLowerCase().includes(query));
-
       const matchesType = !schoolTypeFilter || school.schoolType === schoolTypeFilter;
       const matchesStatus = schoolStatusFilter === 'all'
         || (schoolStatusFilter === 'active' && school.isActive)
         || (schoolStatusFilter === 'inactive' && !school.isActive);
 
-      return matchesSearch && matchesType && matchesStatus;
+      return matchesType && matchesStatus;
     });
-  }, [schoolSearch, schoolStatusFilter, schoolTypeFilter, schools]);
+  }, [schoolStatusFilter, schoolTypeFilter, schools]);
 
   const schoolSummary = useMemo(() => ({
     filtered: filteredSchools.length,
@@ -482,6 +453,27 @@ export function OrganizationParityPage({
     },
     initialSortKey: 'teacher',
     resetKeys: [activeSchoolId, teacherAssignmentScopeFilter, classRooms, subjects]
+  });
+  const schoolGrid = useClientGrid({
+    items: filteredSchools,
+    getSearchText: (item) => [
+      item.name,
+      item.mainAddress.city,
+      item.schoolIzo,
+      item.schoolOperator?.legalEntityName,
+      item.founder?.founderName
+    ].filter(Boolean).join(' '),
+    sorters: {
+      name: (left, right) => left.name.localeCompare(right.name),
+      schoolType: (left, right) => getSchoolTypeLabel(t, left.schoolType).localeCompare(getSchoolTypeLabel(t, right.schoolType)),
+      city: (left, right) => (left.mainAddress.city ?? '').localeCompare(right.mainAddress.city ?? ''),
+      operator: (left, right) => (left.schoolOperator?.legalEntityName ?? '').localeCompare(right.schoolOperator?.legalEntityName ?? ''),
+      platformStatus: (left, right) => getPlatformStatusLabel(t, left.platformStatus).localeCompare(getPlatformStatusLabel(t, right.platformStatus)),
+      active: (left, right) => Number(left.isActive) - Number(right.isActive),
+      capacity: (left, right) => (left.maxStudentCapacity ?? -1) - (right.maxStudentCapacity ?? -1)
+    },
+    initialSortKey: 'name',
+    resetKeys: [schoolTypeFilter, schoolStatusFilter, schools]
   });
 
   const contextSwitcherBlock = (showHelperText: boolean) => {
@@ -759,6 +751,35 @@ export function OrganizationParityPage({
     { key: 'classRoom', label: t('orgAssignmentClassRoom'), sortable: true, render: (item) => classRoomNameById[item.classRoomId ?? ''] ?? t('orgNone') },
     { key: 'subject', label: t('orgAssignmentSubject'), sortable: true, render: (item) => subjectNameById[item.subjectId ?? ''] ?? t('orgNone') }
   ];
+  const schoolColumns: OrganizationGridColumn<School>[] = [
+    {
+      key: 'name',
+      label: t('orgSchoolName'),
+      sortable: true,
+      render: (item) => (
+        <div className="min-w-0">
+          <div className="font-medium text-slate-900">{item.name}</div>
+          <div className="mt-1 text-xs text-slate-500">{item.schoolIzo || '-'}</div>
+        </div>
+      )
+    },
+    { key: 'schoolType', label: t('orgSchoolTypeLabel'), sortable: true, render: (item) => getSchoolTypeLabel(t, item.schoolType) },
+    { key: 'city', label: t('orgAddressCity'), sortable: true, render: (item) => <span className="text-xs text-slate-600">{item.mainAddress.city || '-'}</span> },
+    { key: 'operator', label: t('orgSchoolCardOperator'), sortable: true, render: (item) => <span className="text-xs text-slate-600">{item.schoolOperator?.legalEntityName || '-'}</span> },
+    { key: 'platformStatus', label: t('orgSchoolPlatformStatusLabel'), sortable: true, render: (item) => <span className="text-xs text-slate-600">{getPlatformStatusLabel(t, item.platformStatus)}</span> },
+    {
+      key: 'active',
+      label: t('stateActive'),
+      sortable: true,
+      render: (item) => (
+        <span className="inline-flex items-center text-xs">
+          <span className={`sk-status-dot ${item.isActive ? 'sk-status-dot-active' : 'sk-status-dot-deactivated'}`} />
+          {item.isActive ? t('orgSchoolActive') : t('orgSchoolInactive')}
+        </span>
+      )
+    },
+    { key: 'capacity', label: t('orgSchoolCardCapacity'), sortable: true, render: (item) => <span className="text-xs text-slate-600">{item.maxStudentCapacity?.toString() || '-'}</span> }
+  ];
 
   if (loading) {
     return <LoadingState text={t('loadingOrganization')} />;
@@ -855,10 +876,15 @@ export function OrganizationParityPage({
         {schoolWizardOpen ? (
           <SchoolCreateWizard t={t} wizardStep={schoolWizardStep} setWizardStep={setSchoolWizardStep} form={newSchool} setForm={setNewSchool} onCancel={resetSchoolWizard} onSubmit={createSchool} stepValid={schoolStepValid} busy={saving} />
         ) : null}
-        <Card className="sk-user-management overflow-hidden">
-          <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-              <InputField label={t('orgSchoolsSearchLabel')} value={schoolSearch} onChange={setSchoolSearch} placeholder={t('orgSearchSchools')} />
+        <OrganizationGridSection
+          title={t('orgSchoolsList')}
+          description={t('orgSchoolsDescription')}
+          searchLabel={t('orgSchoolsSearchLabel')}
+          searchPlaceholder={t('orgSearchSchools')}
+          searchValue={schoolGrid.search}
+          onSearchChange={schoolGrid.setSearch}
+          filters={(
+            <div className="grid gap-3 md:grid-cols-3">
               <SelectField label={t('orgSchoolsFilterTypeLabel')} value={schoolTypeFilter} onChange={setSchoolTypeFilter} options={[
                 { value: '', label: t('orgFilterAll') },
                 { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
@@ -872,91 +898,79 @@ export function OrganizationParityPage({
               ]} />
               <div className="flex items-end">
                 <button type="button" className="sk-btn sk-btn-secondary w-full" onClick={() => {
-                  setSchoolSearch('');
                   setSchoolTypeFilter('');
                   setSchoolStatusFilter('all');
+                  schoolGrid.setSearch('');
                 }}>
                   {t('orgSchoolsResetFilters')}
                 </button>
               </div>
             </div>
-          </div>
-          {filteredSchools.length === 0 ? (
-            <div className="p-4">
-              <EmptyState text={t('orgNoSchools')} />
-            </div>
-          ) : (
-            <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
-              <table className="sk-table sk-user-management-table sk-sticky">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th>{t('orgSchoolName')}</th>
-                    <th>{t('orgSchoolTypeLabel')}</th>
-                    <th>{t('orgAddressCity')}</th>
-                    <th>{t('orgSchoolCardOperator')}</th>
-                    <th>{t('orgSchoolPlatformStatusLabel')}</th>
-                    <th>{t('stateActive')}</th>
-                    <th>{t('orgSchoolCardCapacity')}</th>
-                    <th>{t('userManagementColActions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSchools.map((school) => (
-                    <SchoolTableRow
-                      key={school.id}
-                      school={school}
-                      selected={school.id === activeSchoolId}
-                      t={t}
-                      actionMenuOpen={schoolActionMenuId === school.id}
-                      actionMenuRef={schoolActionMenuId === school.id ? schoolActionMenuRef : undefined}
-                      onSelect={() => {
-                        setActiveSchoolId(school.id);
-                        setSchoolDetailOpen(true);
-                      }}
-                      onToggleMenu={() => setSchoolActionMenuId((current) => current === school.id ? '' : school.id)}
-                      onOpenDetail={() => {
-                        setSchoolActionMenuId('');
-                        setActiveSchoolId(school.id);
-                        setSchoolDetailOpen(true);
-                      }}
-                      onToggleStatus={isPlatformAdmin ? () => {
-                        setSchoolActionMenuId('');
-                        setSaving(true);
-                        void api.setSchoolStatus(school.id, !school.isActive)
-                          .then(() => {
-                            setNotice(t('orgSchoolDetailSavedSuccess'));
-                            load();
-                          })
-                          .catch((nextError: Error) => setError(nextError.message))
-                          .finally(() => setSaving(false));
-                      } : undefined}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
           )}
-        </Card>
-        {schoolDetailOpen && currentSchool ? (
-          <>
-            <div className="sk-drawer-overlay" onClick={() => setSchoolDetailOpen(false)} role="presentation" />
-            <div className="sk-drawer" role="dialog" aria-modal="true" aria-label={t('orgSchoolDetail')}>
-              <div className="sk-drawer-header">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">{currentSchool.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">{getSchoolTypeLabel(t, currentSchool.schoolType)}</p>
-                </div>
-                <button type="button" className="sk-btn sk-btn-secondary" onClick={() => setSchoolDetailOpen(false)}>
-                  {t('cancel')}
+          actionsLabel={t('userManagementColActions')}
+          pageLabel={(page, pageCount) => t('orgGridPageOf', { page: String(page), pages: String(pageCount) })}
+          previousLabel={t('orgGridPreviousPage')}
+          nextLabel={t('orgGridNextPage')}
+          pageSizeLabel={(pageSize) => t('orgGridPageSizeOption', { size: String(pageSize) })}
+          columns={schoolColumns}
+          items={schoolGrid.pageItems}
+          getRowKey={(item) => item.id}
+          emptyText={t('orgNoSchools')}
+          sortKey={schoolGrid.sortKey}
+          sortDirection={schoolGrid.sortDirection}
+          onSort={schoolGrid.requestSort}
+          page={schoolGrid.page}
+          pageCount={schoolGrid.pageCount}
+          pageSize={schoolGrid.pageSize}
+          onPageChange={schoolGrid.setPage}
+          onPageSizeChange={schoolGrid.setPageSize}
+          pageSizeOptions={[10, 20, 50]}
+          rangeStart={schoolGrid.rangeStart}
+          rangeEnd={schoolGrid.rangeEnd}
+          totalCount={schoolGrid.totalCount}
+          renderRowActions={(school, closeMenu) => (
+            <>
+              <button type="button" className="sk-action-menu-item" onClick={() => {
+                closeMenu();
+                setActiveSchoolId(school.id);
+                setSchoolDetailOpen(true);
+              }}>
+                <EditPencilIcon className="h-3.5 w-3.5" />
+                {t('orgGridEdit')}
+              </button>
+              {isPlatformAdmin ? (
+                <button type="button" className="sk-action-menu-item danger" onClick={() => {
+                  closeMenu();
+                  setSaving(true);
+                  void api.setSchoolStatus(school.id, !school.isActive)
+                    .then(() => {
+                      setNotice(t('orgSchoolDetailSavedSuccess'));
+                      load();
+                    })
+                    .catch((nextError: Error) => setError(nextError.message))
+                    .finally(() => setSaving(false));
+                }}>
+                  {school.isActive ? t('deactivate') : t('activate')}
                 </button>
-              </div>
-              <OrganizationSchoolIdentityCard
-                school={currentSchool}
-                editable={canWriteSchoolContext}
-                onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => setNotice(t('orgSchoolDetailSavedSuccess'))).then(() => load())}
-              />
-            </div>
-          </>
+              ) : null}
+            </>
+          )}
+        />
+        {schoolDetailOpen && currentSchool ? (
+          <OrganizationEntityModal
+            open={schoolDetailOpen}
+            title={currentSchool.name}
+            description={getSchoolTypeLabel(t, currentSchool.schoolType)}
+            onClose={() => setSchoolDetailOpen(false)}
+            closeLabel={t('cancel')}
+            className="sk-modal-wide"
+          >
+            <OrganizationSchoolIdentityCard
+              school={currentSchool}
+              editable={canWriteSchoolContext}
+              onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => setNotice(t('orgSchoolDetailSavedSuccess'))).then(() => load())}
+            />
+          </OrganizationEntityModal>
         ) : null}
       </section>
     );
@@ -1017,7 +1031,7 @@ export function OrganizationParityPage({
 
       {activeView === 'teacher-assignments' ? <OrganizationSectionView canWrite={canWriteSchoolContext} gridProps={sharedGridProps} title={t('orgTeacherAssignmentsTitle')} description={t('orgTeacherAssignmentsDescription')} createLabel={t('orgAssignmentCreateTitle')} searchPlaceholder={t('orgGridSearchPlaceholder')} searchValue={teacherAssignmentGrid.search} onSearchChange={teacherAssignmentGrid.setSearch} filters={<SelectField label={t('orgAssignmentScope')} value={teacherAssignmentScopeFilter} onChange={setTeacherAssignmentScopeFilter} options={[{ value: '', label: t('orgFilterAll') }, ...Array.from(new Set(teacherAssignments.map((assignment) => assignment.scope))).map((scope) => ({ value: scope, label: scope }))]} />} onCreate={openTeacherAssignmentCreate} columns={teacherAssignmentColumns} items={teacherAssignmentGrid.pageItems} getRowKey={(item) => item.id} emptyText={t('orgGridNoResults')} sortKey={teacherAssignmentGrid.sortKey} sortDirection={teacherAssignmentGrid.sortDirection} onSort={teacherAssignmentGrid.requestSort} page={teacherAssignmentGrid.page} pageCount={teacherAssignmentGrid.pageCount} pageSize={teacherAssignmentGrid.pageSize} onPageChange={teacherAssignmentGrid.setPage} onPageSizeChange={teacherAssignmentGrid.setPageSize} rangeStart={teacherAssignmentGrid.rangeStart} rangeEnd={teacherAssignmentGrid.rangeEnd} totalCount={teacherAssignmentGrid.totalCount} onEdit={openTeacherAssignmentEdit} editLabel={t('orgGridEdit')} /> : null}
 
-      <OrganizationEntityModal open={Boolean(modalState)} title={resolveModalTitle(t, modalState)} description={resolveModalDescription(t, modalState)} onClose={resetModal} closeLabel={t('orgGridClose')} className={modalState?.kind === 'teacher-assignment' ? 'max-w-4xl' : 'max-w-2xl'}>
+      <OrganizationEntityModal open={Boolean(modalState)} title={resolveModalTitle(t, modalState)} description={resolveModalDescription(t, modalState)} onClose={resetModal} closeLabel={t('orgGridClose')} className={modalState?.kind === 'teacher-assignment' ? 'sk-modal-wide' : 'sk-modal-large'}>
         {modalState?.kind === 'school-year' ? <SingleStepWizardShell stepTitle={t('orgGridSingleStepWizard')} submitLabel={modalState.mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={resetModal} onSubmit={handleSchoolYearSubmit} submitDisabled={!activeSchoolId || !schoolYearDraft.label.trim() || !schoolYearDraft.startDate || !schoolYearDraft.endDate || saving} busy={saving}><div className="grid gap-3 md:grid-cols-3"><InputField label={t('orgSchoolYearLabel')} value={schoolYearDraft.label} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, label: value }))} /><InputField label={t('orgSchoolYearStartDate')} type="date" value={schoolYearDraft.startDate} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, startDate: value }))} /><InputField label={t('orgSchoolYearEndDate')} type="date" value={schoolYearDraft.endDate} onChange={(value) => setSchoolYearDraft((current) => ({ ...current, endDate: value }))} /></div></SingleStepWizardShell> : null}
         {modalState?.kind === 'grade-level' ? <SingleStepWizardShell stepTitle={t('orgGridSingleStepWizard')} submitLabel={modalState.mode === 'create' ? t('orgGridCreateNew') : t('orgGridSaveChanges')} cancelLabel={t('cancel')} onCancel={resetModal} onSubmit={handleGradeLevelSubmit} submitDisabled={!activeSchoolId || !gradeLevelDraft.displayName.trim() || saving} busy={saving}><div className="grid gap-3 md:grid-cols-2"><InputField label={t('orgGradeLevelLevel')} type="number" value={String(gradeLevelDraft.level)} onChange={(value) => setGradeLevelDraft((current) => ({ ...current, level: Number(value) || 1 }))} /><InputField label={t('orgGradeLevelDisplayName')} value={gradeLevelDraft.displayName} onChange={(value) => setGradeLevelDraft((current) => ({ ...current, displayName: value }))} /></div></SingleStepWizardShell> : null}
         {modalState?.kind === 'class-room' ? <ClassRoomModal mode={modalState.mode} t={t} createDraft={classRoomCreateDraft} setCreateDraft={setClassRoomCreateDraft} editDraft={classRoomEditDraft} setEditDraft={setClassRoomEditDraft} gradeLevels={gradeLevels} saving={saving} activeSchoolId={activeSchoolId} onCancel={resetModal} onSubmit={handleClassRoomSubmit} /> : null}
@@ -1039,6 +1053,7 @@ function OrganizationSectionView<T>({ canWrite, gridProps, onEdit, editLabel, ..
       onCreate={canWrite ? props.onCreate : undefined}
       renderRowActions={canWrite ? (item: T, closeMenu: () => void) => (
         <button type="button" className="sk-action-menu-item" onClick={() => { closeMenu(); onEdit(item); }}>
+          <EditPencilIcon className="h-3.5 w-3.5" />
           {editLabel}
         </button>
       ) : undefined}
@@ -1075,10 +1090,6 @@ function Metric({ label, value }: { label: string; value: number }) {
 
 function FeedbackBanner({ tone, text }: { tone: 'success' | 'error'; text: string }) {
   return <div className={`rounded-lg px-4 py-3 text-sm ${tone === 'success' ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-rose-200 bg-rose-50 text-rose-800'}`}>{text}</div>;
-}
-
-function SchoolTableRow({ school, selected, t, actionMenuOpen, actionMenuRef, onSelect, onToggleMenu, onOpenDetail, onToggleStatus }: { school: School; selected: boolean; t: (key: string, params?: Record<string, string>) => string; actionMenuOpen: boolean; actionMenuRef?: React.RefObject<HTMLDivElement | null>; onSelect: () => void; onToggleMenu: () => void; onOpenDetail: () => void; onToggleStatus?: () => void; }) {
-  return <tr className={`sk-user-management-row sk-user-management-row-clickable border-b ${selected ? 'bg-sky-50/80' : ''}`} onClick={(event) => { const target = event.target as HTMLElement; if (target.closest('button') || target.closest('.sk-action-menu')) return; onSelect(); }}><td><div className="min-w-0"><div className="font-medium text-slate-900">{school.name}</div><div className="mt-1 text-xs text-slate-500">{school.schoolIzo || '-'}</div></div></td><td>{getSchoolTypeLabel(t, school.schoolType)}</td><td className="text-xs text-slate-600">{school.mainAddress.city || '-'}</td><td className="text-xs text-slate-600">{school.schoolOperator?.legalEntityName || '-'}</td><td className="text-xs text-slate-600">{getPlatformStatusLabel(t, school.platformStatus)}</td><td><span className="inline-flex items-center text-xs"><span className={`sk-status-dot ${school.isActive ? 'sk-status-dot-active' : 'sk-status-dot-deactivated'}`} />{school.isActive ? t('orgSchoolActive') : t('orgSchoolInactive')}</span></td><td className="text-xs text-slate-600">{school.maxStudentCapacity?.toString() || '-'}</td><td onClick={(event) => event.stopPropagation()}><div className="sk-action-menu" ref={actionMenuOpen ? actionMenuRef : undefined}><button type="button" className="sk-action-menu-trigger" onClick={onToggleMenu} aria-label={t('userManagementColActions')}><ThreeDotsIcon className="h-4 w-4" /></button>{actionMenuOpen ? <div className="sk-action-menu-dropdown"><button type="button" className="sk-action-menu-item" onClick={onOpenDetail}>{t('orgSchoolsSelect')}</button>{onToggleStatus ? <button type="button" className="sk-action-menu-item danger" onClick={onToggleStatus}>{school.isActive ? t('deactivate') : t('activate')}</button> : null}</div> : null}</div></td></tr>;
 }
 
 function SingleStepWizardShell({ stepTitle, submitLabel, cancelLabel, onCancel, onSubmit, submitDisabled, busy, children }: { stepTitle: string; submitLabel: string; cancelLabel: string; onCancel: () => void; onSubmit: () => void; submitDisabled: boolean; busy: boolean; children: React.ReactNode; }) {
@@ -1129,6 +1140,11 @@ function CheckboxField({ label, checked, onChange }: { label: string; checked: b
   return <label className="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />{label}</label>;
 }
 
-function ThreeDotsIcon({ className = 'h-4 w-4' }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>;
+function EditPencilIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="m6 18 1-4 8-8 3 3-8 8-4 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m13.5 7.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
 }
