@@ -12,7 +12,7 @@ using Skolio.Administration.Infrastructure.Persistence;
 namespace Skolio.Administration.Infrastructure.Migrations
 {
     [DbContext(typeof(AdministrationDbContext))]
-    [Migration("20260308114603_InitialCreate")]
+    [Migration("20260312191844_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

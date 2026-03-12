@@ -135,6 +135,359 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
                     b.ToTable("grade_levels", (string)null);
                 });
 
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationAcademicStructureMatrixEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("FieldOfStudyIsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("field_of_study_is_required");
+
+                    b.Property<Guid>("ParentScopeMatrixId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_scope_matrix_id");
+
+                    b.Property<bool>("SubjectIsClassBound")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("subject_is_class_bound");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.Property<bool>("UsesFieldOfStudy")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("uses_field_of_study");
+
+                    b.Property<bool>("UsesSubjects")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("uses_subjects");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentScopeMatrixId")
+                        .IsUnique();
+
+                    b.ToTable("organization_academic_structure_matrix_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationAssignmentMatrixEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowsClassRoomAssignment")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("allows_class_room_assignment");
+
+                    b.Property<bool>("AllowsGroupAssignment")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("allows_group_assignment");
+
+                    b.Property<bool>("AllowsSubjectAssignment")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("allows_subject_assignment");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ParentScopeMatrixId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_scope_matrix_id");
+
+                    b.Property<bool>("StudentRequiresClassPlacement")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("student_requires_class_placement");
+
+                    b.Property<bool>("StudentRequiresGroupPlacement")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("student_requires_group_placement");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentScopeMatrixId")
+                        .IsUnique();
+
+                    b.ToTable("organization_assignment_matrix_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationCapacityMatrixEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CapacityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("capacity_type");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_required");
+
+                    b.Property<Guid>("ParentScopeMatrixId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_scope_matrix_id");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentScopeMatrixId", "CapacityType")
+                        .IsUnique();
+
+                    b.ToTable("organization_capacity_matrix_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationRegistryMatrixEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ParentScopeMatrixId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_scope_matrix_id");
+
+                    b.Property<bool>("RequiresDataBox")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_data_box");
+
+                    b.Property<bool>("RequiresFounder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("requires_founder");
+
+                    b.Property<bool>("RequiresIco")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_ico");
+
+                    b.Property<bool>("RequiresIzo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_izo");
+
+                    b.Property<bool>("RequiresRedIzo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_red_izo");
+
+                    b.Property<bool>("RequiresTeachingLanguage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_teaching_language");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentScopeMatrixId")
+                        .IsUnique();
+
+                    b.ToTable("organization_registry_matrix_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationSchoolStructureMatrixEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("GroupIsPrimaryStructure")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("group_is_primary_structure");
+
+                    b.Property<Guid>("ParentScopeMatrixId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_scope_matrix_id");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.Property<bool>("UsesClasses")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("uses_classes");
+
+                    b.Property<bool>("UsesGradeLevels")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("uses_grade_levels");
+
+                    b.Property<bool>("UsesGroups")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("uses_groups");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentScopeMatrixId")
+                        .IsUnique();
+
+                    b.ToTable("organization_school_structure_matrix_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.RoleDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsBootstrapAllowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_bootstrap_allowed");
+
+                    b.Property<bool>("IsCreateUserFlowAllowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_create_user_flow_allowed");
+
+                    b.Property<bool>("IsUserManagementAllowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_user_management_allowed");
+
+                    b.Property<string>("RoleCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("role_code");
+
+                    b.Property<string>("ScopeType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("scope_type");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("TranslationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("translation_key");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleCode")
+                        .IsUnique();
+
+                    b.ToTable("role_definitions", (string)null);
+                });
+
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.School", b =>
                 {
                     b.Property<Guid>("Id")
@@ -245,6 +598,42 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
                     b.HasIndex("SchoolType");
 
                     b.ToTable("schools", (string)null);
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolCapacity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CapacityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("capacity_type");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("MaxCapacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_capacity");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SchoolId", "CapacityType")
+                        .IsUnique();
+
+                    b.ToTable("school_capacities", (string)null);
                 });
 
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolContextScopeAllowedAcademicsSection", b =>
@@ -574,6 +963,45 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
                     b.ToTable("school_operators", (string)null);
                 });
 
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolPlaceOfEducation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsPrimary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_primary");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("school_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SchoolId", "IsPrimary")
+                        .IsUnique()
+                        .HasFilter("is_primary = true");
+
+                    b.ToTable("school_places_of_education", (string)null);
+                });
+
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolScopeOverride", b =>
                 {
                     b.Property<Guid>("Id")
@@ -822,6 +1250,61 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationAcademicStructureMatrixEntry", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.SchoolContextScopeMatrix", "ParentScopeMatrix")
+                        .WithMany()
+                        .HasForeignKey("ParentScopeMatrixId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentScopeMatrix");
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationAssignmentMatrixEntry", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.SchoolContextScopeMatrix", "ParentScopeMatrix")
+                        .WithMany()
+                        .HasForeignKey("ParentScopeMatrixId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentScopeMatrix");
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationCapacityMatrixEntry", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.SchoolContextScopeMatrix", "ParentScopeMatrix")
+                        .WithMany()
+                        .HasForeignKey("ParentScopeMatrixId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentScopeMatrix");
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationRegistryMatrixEntry", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.SchoolContextScopeMatrix", "ParentScopeMatrix")
+                        .WithMany()
+                        .HasForeignKey("ParentScopeMatrixId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentScopeMatrix");
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.OrganizationSchoolStructureMatrixEntry", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.SchoolContextScopeMatrix", "ParentScopeMatrix")
+                        .WithMany()
+                        .HasForeignKey("ParentScopeMatrixId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentScopeMatrix");
+                });
+
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.School", b =>
                 {
                     b.HasOne("Skolio.Organization.Domain.Entities.Founder", "Founder")
@@ -877,6 +1360,17 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("SchoolOperator");
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolCapacity", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolContextScopeAllowedAcademicsSection", b =>
@@ -997,6 +1491,57 @@ namespace Skolio.Organization.Infrastructure.Persistence.Migrations
 
                     b.Navigation("RegisteredOfficeAddress")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolPlaceOfEducation", b =>
+                {
+                    b.HasOne("Skolio.Organization.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("Skolio.Organization.Domain.ValueObjects.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("SchoolPlaceOfEducationId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("address_city");
+
+                            b1.Property<string>("Country")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("address_country");
+
+                            b1.Property<string>("PostalCode")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("address_postal_code");
+
+                            b1.Property<string>("Street")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("address_street");
+
+                            b1.HasKey("SchoolPlaceOfEducationId");
+
+                            b1.ToTable("school_places_of_education");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SchoolPlaceOfEducationId");
+                        });
+
+                    b.Navigation("Address")
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("Skolio.Organization.Domain.Entities.SchoolScopeOverride", b =>
