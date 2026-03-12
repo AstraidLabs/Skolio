@@ -109,6 +109,10 @@ export function OrganizationParityPage({
   const [schoolSearch, setSchoolSearch] = useState('');
   const [schoolTypeFilter, setSchoolTypeFilter] = useState('');
   const [schoolStatusFilter, setSchoolStatusFilter] = useState<SchoolStatusFilter>('all');
+  const [schoolSortField, setSchoolSortField] = useState('name');
+  const [schoolSortDir, setSchoolSortDir] = useState<'asc' | 'desc'>('asc');
+  const [schoolPage, setSchoolPage] = useState(1);
+  const [schoolPageSize, setSchoolPageSize] = useState(20);
   const [schoolWizardOpen, setSchoolWizardOpen] = useState(false);
   const [schoolWizardStep, setSchoolWizardStep] = useState(1);
   const [schoolDetailOpen, setSchoolDetailOpen] = useState(false);
@@ -317,7 +321,7 @@ export function OrganizationParityPage({
   const filteredSchools = useMemo(() => {
     const search = schoolSearch.trim().toLowerCase();
 
-    return schools.filter((school) => {
+    const filtered = schools.filter((school) => {
       const matchesSearch = !search || [
         school.name,
         school.mainAddress.city,
@@ -333,7 +337,26 @@ export function OrganizationParityPage({
 
       return matchesSearch && matchesType && matchesStatus;
     });
-  }, [schoolSearch, schoolStatusFilter, schoolTypeFilter, schools]);
+
+    const dir = schoolSortDir === 'asc' ? 1 : -1;
+    filtered.sort((a, b) => {
+      let av = '';
+      let bv = '';
+      if (schoolSortField === 'name') { av = a.name; bv = b.name; }
+      else if (schoolSortField === 'type') { av = a.schoolType; bv = b.schoolType; }
+      else if (schoolSortField === 'city') { av = a.mainAddress.city ?? ''; bv = b.mainAddress.city ?? ''; }
+      else if (schoolSortField === 'operator') { av = a.schoolOperator?.legalEntityName ?? ''; bv = b.schoolOperator?.legalEntityName ?? ''; }
+      else if (schoolSortField === 'status') { av = String(a.isActive); bv = String(b.isActive); }
+      return av.localeCompare(bv) * dir;
+    });
+
+    return filtered;
+  }, [schoolSearch, schoolStatusFilter, schoolTypeFilter, schoolSortField, schoolSortDir, schools]);
+
+  const schoolTotalPages = Math.max(1, Math.ceil(filteredSchools.length / schoolPageSize));
+  const schoolPageFrom = (schoolPage - 1) * schoolPageSize + 1;
+  const schoolPageTo = Math.min(schoolPage * schoolPageSize, filteredSchools.length);
+  const pagedSchools = filteredSchools.slice((schoolPage - 1) * schoolPageSize, schoolPage * schoolPageSize);
 
   const schoolSummary = useMemo(() => ({
     filtered: filteredSchools.length,
@@ -449,6 +472,21 @@ export function OrganizationParityPage({
     );
   }
 
+  const toggleSchoolSort = (field: string) => {
+    if (schoolSortField === field) {
+      setSchoolSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSchoolSortField(field);
+      setSchoolSortDir('asc');
+    }
+    setSchoolPage(1);
+  };
+
+  const schoolSortIndicator = (field: string) => {
+    const active = schoolSortField === field;
+    return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (schoolSortDir === 'asc' ? '▲' : '▼') : '▴'}</span>;
+  };
+
   if (activeView === 'schools') {
     return (
       <section className="space-y-4">
@@ -495,12 +533,12 @@ export function OrganizationParityPage({
                 label={t('orgSchoolsSearchLabel')}
                 value={schoolSearch}
                 placeholder={t('orgSearchSchools')}
-                onChange={setSchoolSearch}
+                onChange={(v) => { setSchoolSearch(v); setSchoolPage(1); }}
               />
               <SelectField
                 label={t('orgSchoolsFilterTypeLabel')}
                 value={schoolTypeFilter}
-                onChange={setSchoolTypeFilter}
+                onChange={(v) => { setSchoolTypeFilter(v); setSchoolPage(1); }}
                 options={[
                   { value: '', label: t('orgFilterAll') },
                   { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
@@ -511,7 +549,7 @@ export function OrganizationParityPage({
               <SelectField
                 label={t('orgSchoolsFilterStatusLabel')}
                 value={schoolStatusFilter}
-                onChange={(value) => setSchoolStatusFilter(value as SchoolStatusFilter)}
+                onChange={(v) => { setSchoolStatusFilter(v as SchoolStatusFilter); setSchoolPage(1); }}
                 options={[
                   { value: 'all', label: t('orgFilterAll') },
                   { value: 'active', label: t('orgSchoolActive') },
@@ -526,6 +564,7 @@ export function OrganizationParityPage({
                     setSchoolSearch('');
                     setSchoolTypeFilter('');
                     setSchoolStatusFilter('all');
+                    setSchoolPage(1);
                   }}
                 >
                   {t('orgSchoolsResetFilters')}
@@ -535,10 +574,22 @@ export function OrganizationParityPage({
           </Card>
           <Card className="sk-user-management overflow-hidden">
             <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{t('orgSchoolsList')}</p>
                   <p className="mt-1 text-xs text-slate-500">{t('orgSchoolsSummaryFiltered')}: {filteredSchools.length}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="sk-input !w-auto text-xs"
+                    value={schoolPageSize}
+                    onChange={(e) => { setSchoolPageSize(Number(e.target.value)); setSchoolPage(1); }}
+                  >
+                    {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{t('userManagementPageSizeLabel')} {size}</option>)}
+                  </select>
+                  {filteredSchools.length > 0 ? (
+                    <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(schoolPageFrom), to: String(schoolPageTo), total: String(filteredSchools.length) })}</span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -551,18 +602,18 @@ export function OrganizationParityPage({
                 <table className="sk-table sk-user-management-table sk-sticky">
                   <thead>
                     <tr className="border-b text-left">
-                      <th>{t('orgSchoolName')}</th>
-                      <th>{t('orgSchoolTypeLabel')}</th>
-                      <th>{t('orgAddressCity')}</th>
-                      <th>{t('orgSchoolCardOperator')}</th>
+                      <th className="sk-sortable-th" onClick={() => toggleSchoolSort('name')}>{t('orgSchoolName')}{schoolSortIndicator('name')}</th>
+                      <th className="sk-sortable-th" onClick={() => toggleSchoolSort('type')}>{t('orgSchoolTypeLabel')}{schoolSortIndicator('type')}</th>
+                      <th className="sk-sortable-th" onClick={() => toggleSchoolSort('city')}>{t('orgAddressCity')}{schoolSortIndicator('city')}</th>
+                      <th className="sk-sortable-th" onClick={() => toggleSchoolSort('operator')}>{t('orgSchoolCardOperator')}{schoolSortIndicator('operator')}</th>
                       <th>{t('orgSchoolPlatformStatusLabel')}</th>
-                      <th>{t('stateActive')}</th>
+                      <th className="sk-sortable-th" onClick={() => toggleSchoolSort('status')}>{t('stateActive')}{schoolSortIndicator('status')}</th>
                       <th>{t('orgSchoolCardCapacity')}</th>
                       <th>{t('userManagementColActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSchools.map((school) => (
+                    {pagedSchools.map((school) => (
                       <SchoolTableRow
                         key={school.id}
                         school={school}
@@ -590,6 +641,16 @@ export function OrganizationParityPage({
                 </table>
               </div>
             )}
+            {filteredSchools.length > 0 ? (
+              <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+                <p className="text-xs text-slate-600">{t('orgSchoolsSummaryFiltered')}: {filteredSchools.length}</p>
+                <div className="flex items-center gap-2">
+                  <button className="sk-btn sk-btn-secondary" type="button" disabled={schoolPage <= 1} onClick={() => setSchoolPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                  <span className="text-xs text-slate-600">{schoolPage} / {schoolTotalPages}</span>
+                  <button className="sk-btn sk-btn-secondary" type="button" disabled={schoolPage >= schoolTotalPages} onClick={() => setSchoolPage((p) => Math.min(schoolTotalPages, p + 1))}>{t('userManagementNext')}</button>
+                </div>
+              </div>
+            ) : null}
           </Card>
         </div>
         {schoolDetailOpen && currentSchool ? (
