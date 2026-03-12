@@ -860,7 +860,8 @@ export function OrganizationParityPage({
           title={t('orgSchoolsTitle')}
           description={t('orgSchoolsHeroDescription')}
           action={canCreateSchool ? (
-            <button type="button" className={`sk-btn ${schoolWizardOpen ? 'sk-btn-secondary' : 'sk-btn-primary'}`} onClick={() => setSchoolWizardOpen((current) => !current)}>
+            <button type="button" className={`sk-btn ${schoolWizardOpen ? 'sk-btn-secondary' : 'sk-btn-primary'} inline-flex items-center gap-2`} onClick={() => setSchoolWizardOpen((current) => !current)}>
+              <CreatePlusIcon className="h-3.5 w-3.5" />
               {schoolWizardOpen ? t('orgCreateSchoolCloseWizard') : t('orgCreateSchoolOpenWizard')}
             </button>
           ) : undefined}
@@ -1145,6 +1146,14 @@ function EditPencilIcon({ className = 'h-4 w-4' }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
       <path d="m6 18 1-4 8-8 3 3-8 8-4 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="m13.5 7.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CreatePlusIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
