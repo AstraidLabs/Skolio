@@ -843,6 +843,11 @@ const en = {
   orgColScope: 'Scope',
   orgColGroup: 'Group',
   orgColSubject: 'Subject',
+  orgSearchLabel: 'Search',
+  orgSearchPlaceholder: 'Search…',
+  orgFilterDailyOpsYes: 'Daily ops',
+  orgFilterDailyOpsNo: 'Teaching',
+  orgPageSize: 'Per page',
 } as const;
 
 type TranslationKey = keyof typeof en;
@@ -1622,6 +1627,11 @@ const cs: Translations = {
   orgColScope: 'Rozsah',
   orgColGroup: 'Skupina',
   orgColSubject: 'Předmět',
+  orgSearchLabel: 'Hledat',
+  orgSearchPlaceholder: 'Hledat…',
+  orgFilterDailyOpsYes: 'Provozní',
+  orgFilterDailyOpsNo: 'Výukové',
+  orgPageSize: 'Na stránku',
 };
 
 const sk: Translations = {
@@ -2267,6 +2277,11 @@ const sk: Translations = {
   orgColScope: 'Rozsah',
   orgColGroup: 'Skupina',
   orgColSubject: 'Predmet',
+  orgSearchLabel: 'Hľadať',
+  orgSearchPlaceholder: 'Hľadať…',
+  orgFilterDailyOpsYes: 'Prevádzkové',
+  orgFilterDailyOpsNo: 'Výukové',
+  orgPageSize: 'Na stránku',
 };
 
 const de: Translations = {
@@ -2911,6 +2926,11 @@ const de: Translations = {
   orgColScope: 'Umfang',
   orgColGroup: 'Gruppe',
   orgColSubject: 'Fach',
+  orgSearchLabel: 'Suchen',
+  orgSearchPlaceholder: 'Suchen…',
+  orgFilterDailyOpsYes: 'Betrieb',
+  orgFilterDailyOpsNo: 'Unterricht',
+  orgPageSize: 'Pro Seite',
 };
 
 const pl: Translations = {
@@ -3554,6 +3574,11 @@ const pl: Translations = {
   orgColScope: 'Zakres',
   orgColGroup: 'Grupa',
   orgColSubject: 'Przedmiot',
+  orgSearchLabel: 'Szukaj',
+  orgSearchPlaceholder: 'Szukaj…',
+  orgFilterDailyOpsYes: 'Operacyjne',
+  orgFilterDailyOpsNo: 'Dydaktyczne',
+  orgPageSize: 'Na stronę',
 };
 
 const translations: Record<Locale, Translations> = {

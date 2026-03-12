@@ -120,6 +120,45 @@ export function OrganizationParityPage({
   const [schoolActionMenuId, setSchoolActionMenuId] = useState('');
   const schoolActionMenuRef = useRef<HTMLDivElement | null>(null);
 
+  const [sySearch, setSySearch] = useState('');
+  const [sySortField, setSySortField] = useState('label');
+  const [sySortDir, setSySortDir] = useState<'asc' | 'desc'>('asc');
+  const [syPage, setSyPage] = useState(1);
+  const [syPageSize, setSyPageSize] = useState(20);
+
+  const [glSearch, setGlSearch] = useState('');
+  const [glSortField, setGlSortField] = useState('level');
+  const [glSortDir, setGlSortDir] = useState<'asc' | 'desc'>('asc');
+  const [glPage, setGlPage] = useState(1);
+  const [glPageSize, setGlPageSize] = useState(20);
+
+  const [crSearch, setCrSearch] = useState('');
+  const [crGradeLevelFilter, setCrGradeLevelFilter] = useState('');
+  const [crSortField, setCrSortField] = useState('code');
+  const [crSortDir, setCrSortDir] = useState<'asc' | 'desc'>('asc');
+  const [crPage, setCrPage] = useState(1);
+  const [crPageSize, setCrPageSize] = useState(20);
+
+  const [tgSearch, setTgSearch] = useState('');
+  const [tgDailyOpsFilter, setTgDailyOpsFilter] = useState('');
+  const [tgSortField, setTgSortField] = useState('name');
+  const [tgSortDir, setTgSortDir] = useState<'asc' | 'desc'>('asc');
+  const [tgPage, setTgPage] = useState(1);
+  const [tgPageSize, setTgPageSize] = useState(20);
+
+  const [subSearch, setSubSearch] = useState('');
+  const [subSortField, setSubSortField] = useState('code');
+  const [subSortDir, setSubSortDir] = useState<'asc' | 'desc'>('asc');
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(20);
+
+  const [taSearch, setTaSearch] = useState('');
+  const [taScopeFilter, setTaScopeFilter] = useState('');
+  const [taSortField, setTaSortField] = useState('scope');
+  const [taSortDir, setTaSortDir] = useState<'asc' | 'desc'>('asc');
+  const [taPage, setTaPage] = useState(1);
+  const [taPageSize, setTaPageSize] = useState(20);
+
   const isPlatformAdmin = session.roles.includes('PlatformAdministrator');
   const isSchoolAdmin = session.roles.includes('SchoolAdministrator');
   const isTeacher = session.roles.includes('Teacher') && !isSchoolAdmin && !isPlatformAdmin;
@@ -393,6 +432,133 @@ export function OrganizationParityPage({
     [teachingGroups]
   );
 
+  const filteredSchoolYears = useMemo(() => {
+    const search = sySearch.trim().toLowerCase();
+    const result = schoolYears.filter((x) =>
+      !search || x.label.toLowerCase().includes(search) || x.startDate.includes(search) || x.endDate.includes(search)
+    );
+    const dir = sySortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (sySortField === 'startDate') return a.startDate.localeCompare(b.startDate) * dir;
+      if (sySortField === 'endDate') return a.endDate.localeCompare(b.endDate) * dir;
+      return a.label.localeCompare(b.label) * dir;
+    });
+    return result;
+  }, [sySearch, sySortField, sySortDir, schoolYears]);
+  const syTotalPages = Math.max(1, Math.ceil(filteredSchoolYears.length / syPageSize));
+  const syPageFrom = (syPage - 1) * syPageSize + 1;
+  const syPageTo = Math.min(syPage * syPageSize, filteredSchoolYears.length);
+  const pagedSchoolYears = filteredSchoolYears.slice((syPage - 1) * syPageSize, syPage * syPageSize);
+
+  const filteredGradeLevels = useMemo(() => {
+    const search = glSearch.trim().toLowerCase();
+    const result = gradeLevels.filter((x) =>
+      !search || x.displayName.toLowerCase().includes(search) || String(x.level).includes(search)
+    );
+    const dir = glSortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (glSortField === 'displayName') return a.displayName.localeCompare(b.displayName) * dir;
+      return (a.level - b.level) * dir;
+    });
+    return result;
+  }, [glSearch, glSortField, glSortDir, gradeLevels]);
+  const glTotalPages = Math.max(1, Math.ceil(filteredGradeLevels.length / glPageSize));
+  const glPageFrom = (glPage - 1) * glPageSize + 1;
+  const glPageTo = Math.min(glPage * glPageSize, filteredGradeLevels.length);
+  const pagedGradeLevels = filteredGradeLevels.slice((glPage - 1) * glPageSize, glPage * glPageSize);
+
+  const filteredClassRooms = useMemo(() => {
+    const search = crSearch.trim().toLowerCase();
+    const result = classRooms.filter((x) => {
+      const matchesSearch = !search || x.code.toLowerCase().includes(search) || x.displayName.toLowerCase().includes(search);
+      const matchesGl = !crGradeLevelFilter || x.gradeLevelId === crGradeLevelFilter;
+      return matchesSearch && matchesGl;
+    });
+    const dir = crSortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (crSortField === 'displayName') return a.displayName.localeCompare(b.displayName) * dir;
+      if (crSortField === 'gradeLevel') {
+        const aLvl = gradeLevelById[a.gradeLevelId]?.level ?? 0;
+        const bLvl = gradeLevelById[b.gradeLevelId]?.level ?? 0;
+        return (aLvl - bLvl) * dir;
+      }
+      return a.code.localeCompare(b.code) * dir;
+    });
+    return result;
+  }, [crSearch, crGradeLevelFilter, crSortField, crSortDir, classRooms, gradeLevelById]);
+  const crTotalPages = Math.max(1, Math.ceil(filteredClassRooms.length / crPageSize));
+  const crPageFrom = (crPage - 1) * crPageSize + 1;
+  const crPageTo = Math.min(crPage * crPageSize, filteredClassRooms.length);
+  const pagedClassRooms = filteredClassRooms.slice((crPage - 1) * crPageSize, crPage * crPageSize);
+
+  const filteredTeachingGroups = useMemo(() => {
+    const search = tgSearch.trim().toLowerCase();
+    const result = teachingGroups.filter((x) => {
+      const matchesSearch = !search || x.name.toLowerCase().includes(search);
+      const matchesDailyOps = !tgDailyOpsFilter || (tgDailyOpsFilter === 'yes' ? x.isDailyOperationsGroup : !x.isDailyOperationsGroup);
+      return matchesSearch && matchesDailyOps;
+    });
+    const dir = tgSortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (tgSortField === 'classRoom') {
+        const ac = classRoomById[a.classRoomId ?? '']?.code ?? '';
+        const bc = classRoomById[b.classRoomId ?? '']?.code ?? '';
+        return ac.localeCompare(bc) * dir;
+      }
+      if (tgSortField === 'dailyOps') return (Number(a.isDailyOperationsGroup) - Number(b.isDailyOperationsGroup)) * dir;
+      return a.name.localeCompare(b.name) * dir;
+    });
+    return result;
+  }, [tgSearch, tgDailyOpsFilter, tgSortField, tgSortDir, teachingGroups, classRoomById]);
+  const tgTotalPages = Math.max(1, Math.ceil(filteredTeachingGroups.length / tgPageSize));
+  const tgPageFrom = (tgPage - 1) * tgPageSize + 1;
+  const tgPageTo = Math.min(tgPage * tgPageSize, filteredTeachingGroups.length);
+  const pagedTeachingGroups = filteredTeachingGroups.slice((tgPage - 1) * tgPageSize, tgPage * tgPageSize);
+
+  const filteredSubjects = useMemo(() => {
+    const search = subSearch.trim().toLowerCase();
+    const result = subjects.filter((x) =>
+      !search || x.code.toLowerCase().includes(search) || x.name.toLowerCase().includes(search)
+    );
+    const dir = subSortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (subSortField === 'name') return a.name.localeCompare(b.name) * dir;
+      return a.code.localeCompare(b.code) * dir;
+    });
+    return result;
+  }, [subSearch, subSortField, subSortDir, subjects]);
+  const subTotalPages = Math.max(1, Math.ceil(filteredSubjects.length / subPageSize));
+  const subPageFrom = (subPage - 1) * subPageSize + 1;
+  const subPageTo = Math.min(subPage * subPageSize, filteredSubjects.length);
+  const pagedSubjects = filteredSubjects.slice((subPage - 1) * subPageSize, subPage * subPageSize);
+
+  const taScopes = useMemo(() => [...new Set(teacherAssignments.map((x) => x.scope))].sort(), [teacherAssignments]);
+  const filteredTeacherAssignments = useMemo(() => {
+    const search = taSearch.trim().toLowerCase();
+    const result = teacherAssignments.filter((x) => {
+      const crCode = x.classRoomId ? (classRoomById[x.classRoomId]?.code ?? '') : '';
+      const grpName = x.teachingGroupId ? (teachingGroupById[x.teachingGroupId]?.name ?? '') : '';
+      const subStr = x.subjectId ? `${subjectById[x.subjectId]?.code ?? ''} ${subjectById[x.subjectId]?.name ?? ''}` : '';
+      const matchesSearch = !search || x.scope.toLowerCase().includes(search) || crCode.toLowerCase().includes(search) || grpName.toLowerCase().includes(search) || subStr.toLowerCase().includes(search);
+      const matchesScope = !taScopeFilter || x.scope === taScopeFilter;
+      return matchesSearch && matchesScope;
+    });
+    const dir = taSortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      if (taSortField === 'classRoom') {
+        const ac = a.classRoomId ? (classRoomById[a.classRoomId]?.code ?? '') : '';
+        const bc = b.classRoomId ? (classRoomById[b.classRoomId]?.code ?? '') : '';
+        return ac.localeCompare(bc) * dir;
+      }
+      return a.scope.localeCompare(b.scope) * dir;
+    });
+    return result;
+  }, [taSearch, taScopeFilter, taSortField, taSortDir, teacherAssignments, classRoomById, teachingGroupById, subjectById]);
+  const taTotalPages = Math.max(1, Math.ceil(filteredTeacherAssignments.length / taPageSize));
+  const taPageFrom = (taPage - 1) * taPageSize + 1;
+  const taPageTo = Math.min(taPage * taPageSize, filteredTeacherAssignments.length);
+  const pagedTeacherAssignments = filteredTeacherAssignments.slice((taPage - 1) * taPageSize, taPage * taPageSize);
+
   const contextSwitcherBlock = (showHelperText: boolean) => {
     if (!canSwitchSchoolContext && !showReadOnlySchoolContext) return null;
 
@@ -515,6 +681,28 @@ export function OrganizationParityPage({
   const schoolSortIndicator = (field: string) => {
     const active = schoolSortField === field;
     return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (schoolSortDir === 'asc' ? '▲' : '▼') : '▴'}</span>;
+  };
+
+  const mkSortIndicator = (field: string, activeField: string, activeDir: 'asc' | 'desc') => {
+    const active = activeField === field;
+    return <span className={`sk-sort-indicator ${active ? 'is-active' : ''}`}>{active ? (activeDir === 'asc' ? '▲' : '▼') : '▴'}</span>;
+  };
+
+  const mkToggleSort = (
+    field: string,
+    activeField: string,
+    activeDir: 'asc' | 'desc',
+    setField: (f: string) => void,
+    setDir: (d: 'asc' | 'desc') => void,
+    setPage: (p: number) => void
+  ) => {
+    if (activeField === field) {
+      setDir(activeDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setField(field);
+      setDir('asc');
+    }
+    setPage(1);
   };
 
   if (activeView === 'schools') {
@@ -712,25 +900,45 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgSchoolYearsTitle')} description={t('orgSchoolYearsDescription')} />
         {contextSwitcherBlock(false)}
+        <Card>
+          <InputField
+            label={t('orgSearchLabel')}
+            value={sySearch}
+            placeholder={t('orgSearchPlaceholder')}
+            onChange={(v) => { setSySearch(v); setSyPage(1); }}
+          />
+        </Card>
         <Card className="sk-user-management overflow-hidden">
           <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t('orgSchoolYearsList')}</p>
-            <p className="mt-1 text-xs text-slate-500">{schoolYears.length}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{t('orgSchoolYearsList')}</p>
+                <p className="mt-1 text-xs text-slate-500">{filteredSchoolYears.length}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="sk-input !w-auto text-xs" value={syPageSize} onChange={(e) => { setSyPageSize(Number(e.target.value)); setSyPage(1); }}>
+                  {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+                </select>
+                {filteredSchoolYears.length > 0 ? (
+                  <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(syPageFrom), to: String(syPageTo), total: String(filteredSchoolYears.length) })}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {schoolYears.length === 0 ? (
+          {filteredSchoolYears.length === 0 ? (
             <div className="p-4"><EmptyState text={t('orgSchoolYearsEmpty')} /></div>
           ) : (
             <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
               <table className="sk-table sk-user-management-table sk-sticky">
                 <thead>
                   <tr className="border-b text-left">
-                    <th>{t('orgColLabel')}</th>
-                    <th>{t('orgColStartDate')}</th>
-                    <th>{t('orgColEndDate')}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('label', sySortField, sySortDir, setSySortField, setSySortDir, setSyPage)}>{t('orgColLabel')}{mkSortIndicator('label', sySortField, sySortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('startDate', sySortField, sySortDir, setSySortField, setSySortDir, setSyPage)}>{t('orgColStartDate')}{mkSortIndicator('startDate', sySortField, sySortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('endDate', sySortField, sySortDir, setSySortField, setSySortDir, setSyPage)}>{t('orgColEndDate')}{mkSortIndicator('endDate', sySortField, sySortDir)}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {schoolYears.map((x) => (
+                  {pagedSchoolYears.map((x) => (
                     <tr key={x.id} className="sk-user-management-row border-b">
                       <td><span className="font-medium text-slate-900">{x.label}</span></td>
                       <td className="text-sm text-slate-600">{x.startDate}</td>
@@ -741,6 +949,16 @@ export function OrganizationParityPage({
               </table>
             </div>
           )}
+          {filteredSchoolYears.length > 0 ? (
+            <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+              <p className="text-xs text-slate-600">{filteredSchoolYears.length}</p>
+              <div className="flex items-center gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={syPage <= 1} onClick={() => setSyPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{syPage} / {syTotalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={syPage >= syTotalPages} onClick={() => setSyPage((p) => Math.min(syTotalPages, p + 1))}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
@@ -764,24 +982,44 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgGradeLevelsTitle')} description={t('orgGradeLevelsDescription')} />
         {contextSwitcherBlock(false)}
+        <Card>
+          <InputField
+            label={t('orgSearchLabel')}
+            value={glSearch}
+            placeholder={t('orgSearchPlaceholder')}
+            onChange={(v) => { setGlSearch(v); setGlPage(1); }}
+          />
+        </Card>
         <Card className="sk-user-management overflow-hidden">
           <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t('orgGradeLevelsList')}</p>
-            <p className="mt-1 text-xs text-slate-500">{gradeLevels.length}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{t('orgGradeLevelsList')}</p>
+                <p className="mt-1 text-xs text-slate-500">{filteredGradeLevels.length}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="sk-input !w-auto text-xs" value={glPageSize} onChange={(e) => { setGlPageSize(Number(e.target.value)); setGlPage(1); }}>
+                  {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+                </select>
+                {filteredGradeLevels.length > 0 ? (
+                  <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(glPageFrom), to: String(glPageTo), total: String(filteredGradeLevels.length) })}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {gradeLevels.length === 0 ? (
+          {filteredGradeLevels.length === 0 ? (
             <div className="p-4"><EmptyState text={t('orgGradeLevelsEmpty')} /></div>
           ) : (
             <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
               <table className="sk-table sk-user-management-table sk-sticky">
                 <thead>
                   <tr className="border-b text-left">
-                    <th>{t('orgColLevel')}</th>
-                    <th>{t('orgColDisplayName')}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('level', glSortField, glSortDir, setGlSortField, setGlSortDir, setGlPage)}>{t('orgColLevel')}{mkSortIndicator('level', glSortField, glSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('displayName', glSortField, glSortDir, setGlSortField, setGlSortDir, setGlPage)}>{t('orgColDisplayName')}{mkSortIndicator('displayName', glSortField, glSortDir)}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...gradeLevels].sort((a, b) => a.level - b.level).map((x) => (
+                  {pagedGradeLevels.map((x) => (
                     <tr key={x.id} className="sk-user-management-row border-b">
                       <td><span className="font-medium text-slate-900">{x.level}</span></td>
                       <td className="text-sm text-slate-600">{x.displayName}</td>
@@ -791,6 +1029,16 @@ export function OrganizationParityPage({
               </table>
             </div>
           )}
+          {filteredGradeLevels.length > 0 ? (
+            <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+              <p className="text-xs text-slate-600">{filteredGradeLevels.length}</p>
+              <div className="flex items-center gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={glPage <= 1} onClick={() => setGlPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{glPage} / {glTotalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={glPage >= glTotalPages} onClick={() => setGlPage((p) => Math.min(glTotalPages, p + 1))}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
@@ -811,25 +1059,56 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgClassRoomsTitle')} description={t('orgClassRoomsDescription')} />
         {contextSwitcherBlock(false)}
+        <Card>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <InputField
+              label={t('orgSearchLabel')}
+              value={crSearch}
+              placeholder={t('orgSearchPlaceholder')}
+              onChange={(v) => { setCrSearch(v); setCrPage(1); }}
+            />
+            <SelectField
+              label={t('orgColGradeLevelRef')}
+              value={crGradeLevelFilter}
+              onChange={(v) => { setCrGradeLevelFilter(v); setCrPage(1); }}
+              options={[
+                { value: '', label: t('orgFilterAll') },
+                ...[...gradeLevels].sort((a, b) => a.level - b.level).map((g) => ({ value: g.id, label: `${g.level}. – ${g.displayName}` }))
+              ]}
+            />
+          </div>
+        </Card>
         <Card className="sk-user-management overflow-hidden">
           <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t('orgClassRoomsList')}</p>
-            <p className="mt-1 text-xs text-slate-500">{classRooms.length}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{t('orgClassRoomsList')}</p>
+                <p className="mt-1 text-xs text-slate-500">{filteredClassRooms.length}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="sk-input !w-auto text-xs" value={crPageSize} onChange={(e) => { setCrPageSize(Number(e.target.value)); setCrPage(1); }}>
+                  {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+                </select>
+                {filteredClassRooms.length > 0 ? (
+                  <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(crPageFrom), to: String(crPageTo), total: String(filteredClassRooms.length) })}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {classRooms.length === 0 ? (
+          {filteredClassRooms.length === 0 ? (
             <div className="p-4"><EmptyState text={t('orgClassRoomsEmpty')} /></div>
           ) : (
             <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
               <table className="sk-table sk-user-management-table sk-sticky">
                 <thead>
                   <tr className="border-b text-left">
-                    <th>{t('orgColCode')}</th>
-                    <th>{t('orgColDisplayName')}</th>
-                    <th>{t('orgColGradeLevelRef')}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('code', crSortField, crSortDir, setCrSortField, setCrSortDir, setCrPage)}>{t('orgColCode')}{mkSortIndicator('code', crSortField, crSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('displayName', crSortField, crSortDir, setCrSortField, setCrSortDir, setCrPage)}>{t('orgColDisplayName')}{mkSortIndicator('displayName', crSortField, crSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('gradeLevel', crSortField, crSortDir, setCrSortField, setCrSortDir, setCrPage)}>{t('orgColGradeLevelRef')}{mkSortIndicator('gradeLevel', crSortField, crSortDir)}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {classRooms.map((x) => (
+                  {pagedClassRooms.map((x) => (
                     <tr key={x.id} className="sk-user-management-row border-b">
                       <td><span className="font-medium text-slate-900">{x.code}</span></td>
                       <td className="text-sm text-slate-600">{x.displayName}</td>
@@ -844,6 +1123,16 @@ export function OrganizationParityPage({
               </table>
             </div>
           )}
+          {filteredClassRooms.length > 0 ? (
+            <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+              <p className="text-xs text-slate-600">{filteredClassRooms.length}</p>
+              <div className="flex items-center gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={crPage <= 1} onClick={() => setCrPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{crPage} / {crTotalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={crPage >= crTotalPages} onClick={() => setCrPage((p) => Math.min(crTotalPages, p + 1))}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
@@ -865,25 +1154,57 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgTeachingGroupsTitle')} description={t('orgTeachingGroupsDescription')} />
         {contextSwitcherBlock(false)}
+        <Card>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px]">
+            <InputField
+              label={t('orgSearchLabel')}
+              value={tgSearch}
+              placeholder={t('orgSearchPlaceholder')}
+              onChange={(v) => { setTgSearch(v); setTgPage(1); }}
+            />
+            <SelectField
+              label={t('orgColDailyOps')}
+              value={tgDailyOpsFilter}
+              onChange={(v) => { setTgDailyOpsFilter(v); setTgPage(1); }}
+              options={[
+                { value: '', label: t('orgFilterAll') },
+                { value: 'yes', label: t('orgFilterDailyOpsYes') },
+                { value: 'no', label: t('orgFilterDailyOpsNo') }
+              ]}
+            />
+          </div>
+        </Card>
         <Card className="sk-user-management overflow-hidden">
           <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t('orgTeachingGroupsList')}</p>
-            <p className="mt-1 text-xs text-slate-500">{teachingGroups.length}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{t('orgTeachingGroupsList')}</p>
+                <p className="mt-1 text-xs text-slate-500">{filteredTeachingGroups.length}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="sk-input !w-auto text-xs" value={tgPageSize} onChange={(e) => { setTgPageSize(Number(e.target.value)); setTgPage(1); }}>
+                  {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+                </select>
+                {filteredTeachingGroups.length > 0 ? (
+                  <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(tgPageFrom), to: String(tgPageTo), total: String(filteredTeachingGroups.length) })}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {teachingGroups.length === 0 ? (
+          {filteredTeachingGroups.length === 0 ? (
             <div className="p-4"><EmptyState text={t('orgTeachingGroupsEmpty')} /></div>
           ) : (
             <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
               <table className="sk-table sk-user-management-table sk-sticky">
                 <thead>
                   <tr className="border-b text-left">
-                    <th>{t('orgColName')}</th>
-                    <th>{t('orgColClassRoomRef')}</th>
-                    <th>{t('orgColDailyOps')}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('name', tgSortField, tgSortDir, setTgSortField, setTgSortDir, setTgPage)}>{t('orgColName')}{mkSortIndicator('name', tgSortField, tgSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('classRoom', tgSortField, tgSortDir, setTgSortField, setTgSortDir, setTgPage)}>{t('orgColClassRoomRef')}{mkSortIndicator('classRoom', tgSortField, tgSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('dailyOps', tgSortField, tgSortDir, setTgSortField, setTgSortDir, setTgPage)}>{t('orgColDailyOps')}{mkSortIndicator('dailyOps', tgSortField, tgSortDir)}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teachingGroups.map((x) => (
+                  {pagedTeachingGroups.map((x) => (
                     <tr key={x.id} className="sk-user-management-row border-b">
                       <td><span className="font-medium text-slate-900">{x.name}</span></td>
                       <td className="text-sm text-slate-600">
@@ -903,6 +1224,16 @@ export function OrganizationParityPage({
               </table>
             </div>
           )}
+          {filteredTeachingGroups.length > 0 ? (
+            <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+              <p className="text-xs text-slate-600">{filteredTeachingGroups.length}</p>
+              <div className="flex items-center gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={tgPage <= 1} onClick={() => setTgPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{tgPage} / {tgTotalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={tgPage >= tgTotalPages} onClick={() => setTgPage((p) => Math.min(tgTotalPages, p + 1))}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
@@ -924,24 +1255,44 @@ export function OrganizationParityPage({
       <section className="space-y-3">
         <SectionHeader title={t('orgSubjectsTitle')} description={t('orgSubjectsDescription')} />
         {contextSwitcherBlock(false)}
+        <Card>
+          <InputField
+            label={t('orgSearchLabel')}
+            value={subSearch}
+            placeholder={t('orgSearchPlaceholder')}
+            onChange={(v) => { setSubSearch(v); setSubPage(1); }}
+          />
+        </Card>
         <Card className="sk-user-management overflow-hidden">
           <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t('orgSubjectsList')}</p>
-            <p className="mt-1 text-xs text-slate-500">{subjects.length}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{t('orgSubjectsList')}</p>
+                <p className="mt-1 text-xs text-slate-500">{filteredSubjects.length}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="sk-input !w-auto text-xs" value={subPageSize} onChange={(e) => { setSubPageSize(Number(e.target.value)); setSubPage(1); }}>
+                  {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+                </select>
+                {filteredSubjects.length > 0 ? (
+                  <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(subPageFrom), to: String(subPageTo), total: String(filteredSubjects.length) })}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {subjects.length === 0 ? (
+          {filteredSubjects.length === 0 ? (
             <div className="p-4"><EmptyState text={t('orgSubjectsEmpty')} /></div>
           ) : (
             <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
               <table className="sk-table sk-user-management-table sk-sticky">
                 <thead>
                   <tr className="border-b text-left">
-                    <th>{t('orgColCode')}</th>
-                    <th>{t('orgColName')}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('code', subSortField, subSortDir, setSubSortField, setSubSortDir, setSubPage)}>{t('orgColCode')}{mkSortIndicator('code', subSortField, subSortDir)}</th>
+                    <th className="sk-sortable-th" onClick={() => mkToggleSort('name', subSortField, subSortDir, setSubSortField, setSubSortDir, setSubPage)}>{t('orgColName')}{mkSortIndicator('name', subSortField, subSortDir)}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {subjects.map((x) => (
+                  {pagedSubjects.map((x) => (
                     <tr key={x.id} className="sk-user-management-row border-b">
                       <td><span className="font-medium text-slate-900">{x.code}</span></td>
                       <td className="text-sm text-slate-600">{x.name}</td>
@@ -951,6 +1302,16 @@ export function OrganizationParityPage({
               </table>
             </div>
           )}
+          {filteredSubjects.length > 0 ? (
+            <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+              <p className="text-xs text-slate-600">{filteredSubjects.length}</p>
+              <div className="flex items-center gap-2">
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={subPage <= 1} onClick={() => setSubPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+                <span className="text-xs text-slate-600">{subPage} / {subTotalPages}</span>
+                <button className="sk-btn sk-btn-secondary" type="button" disabled={subPage >= subTotalPages} onClick={() => setSubPage((p) => Math.min(subTotalPages, p + 1))}>{t('userManagementNext')}</button>
+              </div>
+            </div>
+          ) : null}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
@@ -970,26 +1331,57 @@ export function OrganizationParityPage({
     <section className="space-y-3">
       <SectionHeader title={t('orgTeacherAssignmentsTitle')} description={t('orgTeacherAssignmentsDescription')} />
       {contextSwitcherBlock(false)}
+      <Card>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px]">
+          <InputField
+            label={t('orgSearchLabel')}
+            value={taSearch}
+            placeholder={t('orgSearchPlaceholder')}
+            onChange={(v) => { setTaSearch(v); setTaPage(1); }}
+          />
+          <SelectField
+            label={t('orgColScope')}
+            value={taScopeFilter}
+            onChange={(v) => { setTaScopeFilter(v); setTaPage(1); }}
+            options={[
+              { value: '', label: t('orgFilterAll') },
+              ...taScopes.map((s) => ({ value: s, label: s }))
+            ]}
+          />
+        </div>
+      </Card>
       <Card className="sk-user-management overflow-hidden">
         <div className="sk-user-management-panel mt-0 rounded-none border-0 border-b border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-semibold text-slate-900">{t('orgTeacherAssignmentsList')}</p>
-          <p className="mt-1 text-xs text-slate-500">{teacherAssignments.length}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{t('orgTeacherAssignmentsList')}</p>
+              <p className="mt-1 text-xs text-slate-500">{filteredTeacherAssignments.length}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select className="sk-input !w-auto text-xs" value={taPageSize} onChange={(e) => { setTaPageSize(Number(e.target.value)); setTaPage(1); }}>
+                {[10, 20, 50].map((s) => <option key={s} value={s}>{t('orgPageSize')} {s}</option>)}
+              </select>
+              {filteredTeacherAssignments.length > 0 ? (
+                <span className="text-xs text-slate-500">{t('userManagementShowingRange', { from: String(taPageFrom), to: String(taPageTo), total: String(filteredTeacherAssignments.length) })}</span>
+              ) : null}
+            </div>
+          </div>
         </div>
-        {teacherAssignments.length === 0 ? (
+        {filteredTeacherAssignments.length === 0 ? (
           <div className="p-4"><EmptyState text={t('orgTeacherAssignmentsEmpty')} /></div>
         ) : (
           <div className="sk-table-wrap mt-0 overflow-x-auto border-0 rounded-none">
             <table className="sk-table sk-user-management-table sk-sticky">
               <thead>
                 <tr className="border-b text-left">
-                  <th>{t('orgColScope')}</th>
-                  <th>{t('orgColClassRoomRef')}</th>
+                  <th className="sk-sortable-th" onClick={() => mkToggleSort('scope', taSortField, taSortDir, setTaSortField, setTaSortDir, setTaPage)}>{t('orgColScope')}{mkSortIndicator('scope', taSortField, taSortDir)}</th>
+                  <th className="sk-sortable-th" onClick={() => mkToggleSort('classRoom', taSortField, taSortDir, setTaSortField, setTaSortDir, setTaPage)}>{t('orgColClassRoomRef')}{mkSortIndicator('classRoom', taSortField, taSortDir)}</th>
                   <th>{t('orgColGroup')}</th>
                   <th>{t('orgColSubject')}</th>
                 </tr>
               </thead>
               <tbody>
-                {teacherAssignments.map((x) => (
+                {pagedTeacherAssignments.map((x) => (
                   <tr key={x.id} className="sk-user-management-row border-b">
                     <td><span className="font-medium text-slate-900">{x.scope}</span></td>
                     <td className="text-sm text-slate-600">
@@ -1013,6 +1405,16 @@ export function OrganizationParityPage({
             </table>
           </div>
         )}
+        {filteredTeacherAssignments.length > 0 ? (
+          <div className="sk-user-management-footer mt-0 flex items-center justify-between border-t border-slate-200 px-3 py-2">
+            <p className="text-xs text-slate-600">{filteredTeacherAssignments.length}</p>
+            <div className="flex items-center gap-2">
+              <button className="sk-btn sk-btn-secondary" type="button" disabled={taPage <= 1} onClick={() => setTaPage((p) => Math.max(1, p - 1))}>{t('userManagementPrevious')}</button>
+              <span className="text-xs text-slate-600">{taPage} / {taTotalPages}</span>
+              <button className="sk-btn sk-btn-secondary" type="button" disabled={taPage >= taTotalPages} onClick={() => setTaPage((p) => Math.min(taTotalPages, p + 1))}>{t('userManagementNext')}</button>
+            </div>
+          </div>
+        ) : null}
       </Card>
       {canWriteSchoolContext ? (
         <Card>
