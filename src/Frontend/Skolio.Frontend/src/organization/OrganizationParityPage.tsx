@@ -470,7 +470,6 @@ export function OrganizationParityPage({
             {notice}
           </div>
         ) : null}
-        {contextSwitcherBlock(false)}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric label={t('orgSchoolsSummaryFiltered')} value={schoolSummary.filtered} />
           <Metric label={t('orgSchoolsSummaryActive')} value={schoolSummary.active} />
