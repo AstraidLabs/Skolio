@@ -313,13 +313,13 @@ export function OrganizationParityPage({
     if (isParent || isStudent) return [] as { label: string; description: string; count: number; route: string; emphasize?: boolean }[];
 
     const entries = [
-      { label: 'Školy', description: 'Přehled škol a jejich aktivace.', count: schools.length, route: '/organization/schools' },
-      { label: 'Přehled školních roků', description: 'Aktivní a historické školní roky.', count: schoolYears.length, route: '/organization/school-years' },
-      { label: 'Ročníky', description: 'Organizační struktura ročníků.', count: gradeLevels.length, route: '/organization/grade-levels' },
-      { label: 'Třídy', description: 'Třídní struktura školy.', count: classRooms.length, route: '/organization/classes', emphasize: session.schoolType === 'ElementarySchool' },
-      { label: 'Skupiny', description: 'Skupinová struktura a provozní skupiny.', count: teachingGroups.length, route: '/organization/groups', emphasize: session.schoolType === 'Kindergarten' },
-      { label: 'Předměty', description: 'Předmětový kontext školy.', count: subjects.length, route: '/organization/subjects', emphasize: session.schoolType === 'ElementarySchool' },
-      { label: t('navTeacherAssignments'), description: 'Organizační přiřazení učitelů.', count: teacherAssignments.length, route: '/organization/teacher-assignments' }
+      { label: t('orgEntrySchoolsLabel'), description: t('orgEntrySchoolsDescription'), count: schools.length, route: '/organization/schools' },
+      { label: t('orgEntrySchoolYearsLabel'), description: t('orgEntrySchoolYearsDescription'), count: schoolYears.length, route: '/organization/school-years' },
+      { label: t('orgEntryGradeLevelsLabel'), description: t('orgEntryGradeLevelsDescription'), count: gradeLevels.length, route: '/organization/grade-levels' },
+      { label: t('orgEntryClassRoomsLabel'), description: t('orgEntryClassRoomsDescription'), count: classRooms.length, route: '/organization/classes', emphasize: session.schoolType === 'ElementarySchool' },
+      { label: t('orgEntryGroupsLabel'), description: t('orgEntryGroupsDescription'), count: teachingGroups.length, route: '/organization/groups', emphasize: session.schoolType === 'Kindergarten' },
+      { label: t('orgEntrySubjectsLabel'), description: t('orgEntrySubjectsDescription'), count: subjects.length, route: '/organization/subjects', emphasize: session.schoolType === 'ElementarySchool' },
+      { label: t('navTeacherAssignments'), description: t('orgEntryTeacherAssignmentsDescription'), count: teacherAssignments.length, route: '/organization/teacher-assignments' }
     ];
 
     if (session.schoolType === 'SecondarySchool') {
@@ -422,16 +422,16 @@ export function OrganizationParityPage({
   if (isStudent && studentContext) {
     return (
       <section className="space-y-3">
-        <SectionHeader title={t('routeOrganization')} description="?tec? ?koln? kontext studenta." />
+        <SectionHeader title={t('routeOrganization')} description={t('orgStudentContextDescription')} />
         <Card>
-          <p className="font-semibold text-sm">{studentContext.school.name} ({studentContext.school.schoolType})</p>
-          <p className="mt-1 text-sm text-slate-600">Tento přístup je pouze čtecí.</p>
+          <p className="font-semibold text-sm">{studentContext.school.name} ({getSchoolTypeLabel(t, studentContext.school.schoolType)})</p>
+          <p className="mt-1 text-sm text-slate-600">{t('orgStudentReadOnly')}</p>
         </Card>
         <div className="grid gap-3 md:grid-cols-2">
-          <Card><p className="font-semibold text-sm">Školní roky</p><ul className="sk-list">{studentContext.schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Třídy</p><ul className="sk-list">{studentContext.classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.displayName}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Skupiny</p><ul className="sk-list">{studentContext.teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
-          <Card><p className="font-semibold text-sm">Předměty</p><ul className="sk-list">{studentContext.subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgStudentSchoolYears')}</p><ul className="sk-list">{studentContext.schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgStudentClassRooms')}</p><ul className="sk-list">{studentContext.classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.displayName}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgStudentGroups')}</p><ul className="sk-list">{studentContext.teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
+          <Card><p className="font-semibold text-sm">{t('orgStudentSubjects')}</p><ul className="sk-list">{studentContext.subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul></Card>
         </div>
       </section>
     );
@@ -440,20 +440,22 @@ export function OrganizationParityPage({
   if (activeView === 'overview') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Organization" description="Přehled organizační oblasti a vstupní body na jednotlivé organizační stránky. Sidebar zůstává hlavní navigace." />
+        <SectionHeader title={t('orgOverviewTitle')} description={t('orgOverviewDescription')} />
         {contextSwitcherBlock(true)}
 
         <Card>
           <div className="grid gap-3 md:grid-cols-3">
-            <Metric label="Školy" value={schools.length} />
-            <Metric label="Školní roky" value={schoolYears.length} />
-            <Metric label="Ročníky" value={gradeLevels.length} />
-            <Metric label="Třídy" value={classRooms.length} />
-            <Metric label="Skupiny" value={teachingGroups.length} />
-            <Metric label="Předměty" value={subjects.length} />
+            <Metric label={t('orgOverviewMetricSchools')} value={schools.length} />
+            <Metric label={t('orgOverviewMetricSchoolYears')} value={schoolYears.length} />
+            <Metric label={t('orgOverviewMetricGradeLevels')} value={gradeLevels.length} />
+            <Metric label={t('orgOverviewMetricClassRooms')} value={classRooms.length} />
+            <Metric label={t('orgOverviewMetricGroups')} value={teachingGroups.length} />
+            <Metric label={t('orgOverviewMetricSubjects')} value={subjects.length} />
           </div>
           <div className="mt-3 text-sm text-slate-600">
-            {currentSchool ? `Aktivní školní kontext: ${currentSchool.name} (${currentSchool.schoolType})` : 'Není vybraný školní kontext.'}
+            {currentSchool
+              ? t('orgOverviewActiveContext', { name: currentSchool.name, type: getSchoolTypeLabel(t, currentSchool.schoolType) })
+              : t('orgOverviewNoContext')}
           </div>
         </Card>
 
@@ -469,14 +471,14 @@ export function OrganizationParityPage({
                   <StatusBadge label={String(entry.count)} tone="info" />
                 </div>
                 <div className="mt-3">
-                  <button className="sk-btn sk-btn-secondary" type="button" onClick={() => goTo(entry.route)}>Spravovat</button>
+                  <button className="sk-btn sk-btn-secondary" type="button" onClick={() => goTo(entry.route)}>{t('orgOverviewManage')}</button>
                 </div>
               </Card>
             ))}
           </div>
         ) : (
           <Card>
-            <p className="text-sm text-slate-700">Pro tuto roli není organizační management dostupný. Používejte pouze přidělené read-only kontexty.</p>
+            <p className="text-sm text-slate-700">{t('orgOverviewNoManagement')}</p>
           </Card>
         )}
       </section>
@@ -691,24 +693,24 @@ export function OrganizationParityPage({
   if (activeView === 'school-years') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Přehled školních roků" description="Entry point pro school years list/detail flow." />
+        <SectionHeader title={t('orgSchoolYearsTitle')} description={t('orgSchoolYearsDescription')} />
         {contextSwitcherBlock(false)}
         <Card>
-          <p className="font-semibold text-sm">Školní roky</p>
-          {schoolYears.length === 0 ? <EmptyState text="No school years." /> : (
+          <p className="font-semibold text-sm">{t('orgSchoolYearsList')}</p>
+          {schoolYears.length === 0 ? <EmptyState text={t('orgSchoolYearsEmpty')} /> : (
             <ul className="sk-list">{schoolYears.map((x) => <li className="sk-list-item" key={x.id}>{x.label} ({x.startDate} - {x.endDate})</li>)}</ul>
           )}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
-            <p className="font-semibold text-sm">Vytvořit školní rok</p>
+            <p className="font-semibold text-sm">{t('orgSchoolYearsCreateTitle')}</p>
             <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="Label" value={newSchoolYear.label} onChange={(e) => setNewSchoolYear((v) => ({ ...v, label: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgSchoolYearLabelPlaceholder')} value={newSchoolYear.label} onChange={(e) => setNewSchoolYear((v) => ({ ...v, label: e.target.value }))} />
               <input className="sk-input" type="date" value={newSchoolYear.startDate} onChange={(e) => setNewSchoolYear((v) => ({ ...v, startDate: e.target.value }))} />
               <input className="sk-input" type="date" value={newSchoolYear.endDate} onChange={(e) => setNewSchoolYear((v) => ({ ...v, endDate: e.target.value }))} />
             </div>
             <div className="mt-3">
-              <button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSchoolYear.label.trim()} onClick={createSchoolYear} type="button">Create school year</button>
+              <button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSchoolYear.label.trim()} onClick={createSchoolYear} type="button">{t('orgSchoolYearsCreate')}</button>
             </div>
           </Card>
         ) : null}
@@ -719,22 +721,22 @@ export function OrganizationParityPage({
   if (activeView === 'grade-levels') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Ročníky" description="Organizační struktura ročníků (nikoli grading)." />
+        <SectionHeader title={t('orgGradeLevelsTitle')} description={t('orgGradeLevelsDescription')} />
         {contextSwitcherBlock(false)}
         <Card>
-          <p className="font-semibold text-sm">Ročníky</p>
-          {gradeLevels.length === 0 ? <EmptyState text="No grade levels." /> : (
+          <p className="font-semibold text-sm">{t('orgGradeLevelsList')}</p>
+          {gradeLevels.length === 0 ? <EmptyState text={t('orgGradeLevelsEmpty')} /> : (
             <ul className="sk-list">{gradeLevels.map((x) => <li className="sk-list-item" key={x.id}>{x.level} - {x.displayName}</li>)}</ul>
           )}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
-            <p className="font-semibold text-sm">Vytvořit ročník</p>
+            <p className="font-semibold text-sm">{t('orgGradeLevelsCreateTitle')}</p>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" type="number" value={newGradeLevel.level} onChange={(e) => setNewGradeLevel((v) => ({ ...v, level: Number(e.target.value) || 1 }))} />
-              <input className="sk-input" placeholder="Display name" value={newGradeLevel.displayName} onChange={(e) => setNewGradeLevel((v) => ({ ...v, displayName: e.target.value }))} />
+              <input className="sk-input" type="number" placeholder={t('orgGradeLevelLevelPlaceholder')} value={newGradeLevel.level} onChange={(e) => setNewGradeLevel((v) => ({ ...v, level: Number(e.target.value) || 1 }))} />
+              <input className="sk-input" placeholder={t('orgGradeLevelDisplayNamePlaceholder')} value={newGradeLevel.displayName} onChange={(e) => setNewGradeLevel((v) => ({ ...v, displayName: e.target.value }))} />
             </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGradeLevel.displayName.trim()} onClick={createGradeLevel} type="button">Create grade level</button></div>
+            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGradeLevel.displayName.trim()} onClick={createGradeLevel} type="button">{t('orgGradeLevelsCreate')}</button></div>
           </Card>
         ) : null}
       </section>
@@ -744,23 +746,23 @@ export function OrganizationParityPage({
   if (activeView === 'class-rooms') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Třídy" description="Entry point pro classes list/detail flow." />
+        <SectionHeader title={t('orgClassRoomsTitle')} description={t('orgClassRoomsDescription')} />
         {contextSwitcherBlock(false)}
         <Card>
-          <p className="font-semibold text-sm">Třídy</p>
-          {classRooms.length === 0 ? <EmptyState text="No class rooms." /> : (
+          <p className="font-semibold text-sm">{t('orgClassRoomsList')}</p>
+          {classRooms.length === 0 ? <EmptyState text={t('orgClassRoomsEmpty')} /> : (
             <ul className="sk-list">{classRooms.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.displayName}</li>)}</ul>
           )}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
-            <p className="font-semibold text-sm">Vytvořit třídu</p>
+            <p className="font-semibold text-sm">{t('orgClassRoomsCreateTitle')}</p>
             <div className="mt-2 grid gap-2 md:grid-cols-3">
-              <input className="sk-input" placeholder="Grade level id" value={newClassRoom.gradeLevelId} onChange={(e) => setNewClassRoom((v) => ({ ...v, gradeLevelId: e.target.value }))} />
-              <input className="sk-input" placeholder="Code" value={newClassRoom.code} onChange={(e) => setNewClassRoom((v) => ({ ...v, code: e.target.value }))} />
-              <input className="sk-input" placeholder="Display name" value={newClassRoom.displayName} onChange={(e) => setNewClassRoom((v) => ({ ...v, displayName: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgClassRoomGradeLevelPlaceholder')} value={newClassRoom.gradeLevelId} onChange={(e) => setNewClassRoom((v) => ({ ...v, gradeLevelId: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgClassRoomCodePlaceholder')} value={newClassRoom.code} onChange={(e) => setNewClassRoom((v) => ({ ...v, code: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgClassRoomDisplayNamePlaceholder')} value={newClassRoom.displayName} onChange={(e) => setNewClassRoom((v) => ({ ...v, displayName: e.target.value }))} />
             </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newClassRoom.code.trim()} onClick={createClassRoom} type="button">Create class room</button></div>
+            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newClassRoom.code.trim()} onClick={createClassRoom} type="button">{t('orgClassRoomsCreate')}</button></div>
           </Card>
         ) : null}
       </section>
@@ -770,23 +772,23 @@ export function OrganizationParityPage({
   if (activeView === 'teaching-groups') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Skupiny" description="Entry point pro groups list/detail flow." />
+        <SectionHeader title={t('orgTeachingGroupsTitle')} description={t('orgTeachingGroupsDescription')} />
         {contextSwitcherBlock(false)}
         <Card>
-          <p className="font-semibold text-sm">Skupiny</p>
-          {teachingGroups.length === 0 ? <EmptyState text="No teaching groups." /> : (
+          <p className="font-semibold text-sm">{t('orgTeachingGroupsList')}</p>
+          {teachingGroups.length === 0 ? <EmptyState text={t('orgTeachingGroupsEmpty')} /> : (
             <ul className="sk-list">{teachingGroups.map((x) => <li className="sk-list-item" key={x.id}>{x.name}</li>)}</ul>
           )}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
-            <p className="font-semibold text-sm">Vytvořit skupinu</p>
+            <p className="font-semibold text-sm">{t('orgTeachingGroupsCreateTitle')}</p>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" placeholder="Class room id (optional)" value={newGroup.classRoomId} onChange={(e) => setNewGroup((v) => ({ ...v, classRoomId: e.target.value }))} />
-              <input className="sk-input" placeholder="Name" value={newGroup.name} onChange={(e) => setNewGroup((v) => ({ ...v, name: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgTeachingGroupClassRoomPlaceholder')} value={newGroup.classRoomId} onChange={(e) => setNewGroup((v) => ({ ...v, classRoomId: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgTeachingGroupNamePlaceholder')} value={newGroup.name} onChange={(e) => setNewGroup((v) => ({ ...v, name: e.target.value }))} />
             </div>
-            <label className="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={newGroup.isDailyOperationsGroup} onChange={(e) => setNewGroup((v) => ({ ...v, isDailyOperationsGroup: e.target.checked }))} />Daily operations group</label>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGroup.name.trim()} onClick={createGroup} type="button">Create group</button></div>
+            <label className="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={newGroup.isDailyOperationsGroup} onChange={(e) => setNewGroup((v) => ({ ...v, isDailyOperationsGroup: e.target.checked }))} />{t('orgTeachingGroupDailyOps')}</label>
+            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newGroup.name.trim()} onClick={createGroup} type="button">{t('orgTeachingGroupsCreate')}</button></div>
           </Card>
         ) : null}
       </section>
@@ -796,22 +798,22 @@ export function OrganizationParityPage({
   if (activeView === 'subjects') {
     return (
       <section className="space-y-3">
-        <SectionHeader title="Předměty" description="Entry point pro subjects list/detail flow." />
+        <SectionHeader title={t('orgSubjectsTitle')} description={t('orgSubjectsDescription')} />
         {contextSwitcherBlock(false)}
         <Card>
-          <p className="font-semibold text-sm">Předměty</p>
-          {subjects.length === 0 ? <EmptyState text="No subjects." /> : (
+          <p className="font-semibold text-sm">{t('orgSubjectsList')}</p>
+          {subjects.length === 0 ? <EmptyState text={t('orgSubjectsEmpty')} /> : (
             <ul className="sk-list">{subjects.map((x) => <li className="sk-list-item" key={x.id}>{x.code} - {x.name}</li>)}</ul>
           )}
         </Card>
         {canWriteSchoolContext ? (
           <Card>
-            <p className="font-semibold text-sm">Vytvořit předmět</p>
+            <p className="font-semibold text-sm">{t('orgSubjectsCreateTitle')}</p>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input className="sk-input" placeholder="Code" value={newSubject.code} onChange={(e) => setNewSubject((v) => ({ ...v, code: e.target.value }))} />
-              <input className="sk-input" placeholder="Name" value={newSubject.name} onChange={(e) => setNewSubject((v) => ({ ...v, name: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgSubjectCodePlaceholder')} value={newSubject.code} onChange={(e) => setNewSubject((v) => ({ ...v, code: e.target.value }))} />
+              <input className="sk-input" placeholder={t('orgSubjectNamePlaceholder')} value={newSubject.name} onChange={(e) => setNewSubject((v) => ({ ...v, name: e.target.value }))} />
             </div>
-            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSubject.code.trim()} onClick={createSubject} type="button">Create subject</button></div>
+            <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newSubject.code.trim()} onClick={createSubject} type="button">{t('orgSubjectsCreate')}</button></div>
           </Card>
         ) : null}
       </section>
@@ -820,25 +822,25 @@ export function OrganizationParityPage({
 
   return (
     <section className="space-y-3">
-      <SectionHeader title="Teacher Assignments" description="Entry point pro teacher assignments list/detail flow." />
+      <SectionHeader title={t('orgTeacherAssignmentsTitle')} description={t('orgTeacherAssignmentsDescription')} />
       {contextSwitcherBlock(false)}
       <Card>
-        <p className="font-semibold text-sm">Teacher assignments</p>
-        {teacherAssignments.length === 0 ? <EmptyState text="No teacher assignments." /> : (
+        <p className="font-semibold text-sm">{t('orgTeacherAssignmentsList')}</p>
+        {teacherAssignments.length === 0 ? <EmptyState text={t('orgTeacherAssignmentsEmpty')} /> : (
           <ul className="sk-list">{teacherAssignments.map((x) => <li className="sk-list-item" key={x.id}>{x.teacherUserId} | {x.scope}</li>)}</ul>
         )}
       </Card>
       {canWriteSchoolContext ? (
         <Card>
-          <p className="font-semibold text-sm">Vytvořit teacher assignment</p>
+          <p className="font-semibold text-sm">{t('orgTeacherAssignmentsCreateTitle')}</p>
           <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input className="sk-input" placeholder="Teacher user id" value={newAssignment.teacherUserId} onChange={(e) => setNewAssignment((v) => ({ ...v, teacherUserId: e.target.value }))} />
-            <input className="sk-input" placeholder="Scope" value={newAssignment.scope} onChange={(e) => setNewAssignment((v) => ({ ...v, scope: e.target.value }))} />
-            <input className="sk-input" placeholder="Class room id" value={newAssignment.classRoomId} onChange={(e) => setNewAssignment((v) => ({ ...v, classRoomId: e.target.value }))} />
-            <input className="sk-input" placeholder="Teaching group id" value={newAssignment.teachingGroupId} onChange={(e) => setNewAssignment((v) => ({ ...v, teachingGroupId: e.target.value }))} />
-            <input className="sk-input" placeholder="Subject id" value={newAssignment.subjectId} onChange={(e) => setNewAssignment((v) => ({ ...v, subjectId: e.target.value }))} />
+            <input className="sk-input" placeholder={t('orgTeacherAssignmentTeacherPlaceholder')} value={newAssignment.teacherUserId} onChange={(e) => setNewAssignment((v) => ({ ...v, teacherUserId: e.target.value }))} />
+            <input className="sk-input" placeholder={t('orgTeacherAssignmentScopePlaceholder')} value={newAssignment.scope} onChange={(e) => setNewAssignment((v) => ({ ...v, scope: e.target.value }))} />
+            <input className="sk-input" placeholder={t('orgTeacherAssignmentClassRoomPlaceholder')} value={newAssignment.classRoomId} onChange={(e) => setNewAssignment((v) => ({ ...v, classRoomId: e.target.value }))} />
+            <input className="sk-input" placeholder={t('orgTeacherAssignmentGroupPlaceholder')} value={newAssignment.teachingGroupId} onChange={(e) => setNewAssignment((v) => ({ ...v, teachingGroupId: e.target.value }))} />
+            <input className="sk-input" placeholder={t('orgTeacherAssignmentSubjectPlaceholder')} value={newAssignment.subjectId} onChange={(e) => setNewAssignment((v) => ({ ...v, subjectId: e.target.value }))} />
           </div>
-          <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newAssignment.teacherUserId.trim()} onClick={createAssignment} type="button">Create assignment</button></div>
+          <div className="mt-3"><button className="sk-btn sk-btn-primary" disabled={!activeSchoolId || !newAssignment.teacherUserId.trim()} onClick={createAssignment} type="button">{t('orgTeacherAssignmentsCreate')}</button></div>
         </Card>
       ) : null}
     </section>
