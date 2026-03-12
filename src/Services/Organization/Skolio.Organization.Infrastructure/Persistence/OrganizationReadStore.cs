@@ -26,4 +26,41 @@ public sealed class OrganizationReadStore(OrganizationDbContext dbContext) : IOr
     public Task<SchoolScopeOverride?> GetSchoolScopeOverrideAsync(Guid schoolId, CancellationToken cancellationToken)
         => dbContext.SchoolScopeOverrides
             .FirstOrDefaultAsync(x => x.SchoolId == schoolId, cancellationToken);
+
+    public Task<List<SchoolPlaceOfEducation>> GetSchoolPlacesOfEducationAsync(Guid schoolId, CancellationToken cancellationToken)
+        => dbContext.SchoolPlacesOfEducation
+            .Where(x => x.SchoolId == schoolId)
+            .OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Name)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<SchoolCapacity>> GetSchoolCapacitiesAsync(Guid schoolId, CancellationToken cancellationToken)
+        => dbContext.SchoolCapacities
+            .Where(x => x.SchoolId == schoolId)
+            .OrderBy(x => x.CapacityType)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<RoleDefinition>> GetRoleDefinitionsAsync(CancellationToken cancellationToken)
+        => dbContext.RoleDefinitions
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync(cancellationToken);
+
+    public Task<OrganizationSchoolStructureMatrixEntry?> GetSchoolStructureMatrixByMatrixIdAsync(Guid matrixId, CancellationToken cancellationToken)
+        => dbContext.OrganizationSchoolStructureMatrixEntries
+            .FirstOrDefaultAsync(x => x.ParentScopeMatrixId == matrixId, cancellationToken);
+
+    public Task<OrganizationRegistryMatrixEntry?> GetRegistryMatrixByMatrixIdAsync(Guid matrixId, CancellationToken cancellationToken)
+        => dbContext.OrganizationRegistryMatrixEntries
+            .FirstOrDefaultAsync(x => x.ParentScopeMatrixId == matrixId, cancellationToken);
+
+    public Task<OrganizationCapacityMatrixEntry?> GetCapacityMatrixByMatrixIdAsync(Guid matrixId, CancellationToken cancellationToken)
+        => dbContext.OrganizationCapacityMatrixEntries
+            .FirstOrDefaultAsync(x => x.ParentScopeMatrixId == matrixId, cancellationToken);
+
+    public Task<OrganizationAcademicStructureMatrixEntry?> GetAcademicStructureMatrixByMatrixIdAsync(Guid matrixId, CancellationToken cancellationToken)
+        => dbContext.OrganizationAcademicStructureMatrixEntries
+            .FirstOrDefaultAsync(x => x.ParentScopeMatrixId == matrixId, cancellationToken);
+
+    public Task<OrganizationAssignmentMatrixEntry?> GetAssignmentMatrixByMatrixIdAsync(Guid matrixId, CancellationToken cancellationToken)
+        => dbContext.OrganizationAssignmentMatrixEntries
+            .FirstOrDefaultAsync(x => x.ParentScopeMatrixId == matrixId, cancellationToken);
 }

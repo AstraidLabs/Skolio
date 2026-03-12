@@ -99,6 +99,113 @@ export type TeachingGroup = { id: string; schoolId: string; classRoomId?: string
 export type Subject = { id: string; schoolId: string; code: string; name: string };
 export type SecondaryFieldOfStudy = { id: string; schoolId: string; code: string; name: string };
 export type TeacherAssignment = { id: string; schoolId: string; teacherUserId: string; scope: string; classRoomId?: string; teachingGroupId?: string; subjectId?: string };
+
+export type SchoolPlaceOfEducation = {
+  id: string;
+  schoolId: string;
+  name: string;
+  address: Address;
+  description?: string;
+  isPrimary: boolean;
+};
+
+export type SchoolCapacity = {
+  id: string;
+  schoolId: string;
+  capacityType: string;
+  maxCapacity: number;
+  description?: string;
+};
+
+export type RoleDefinition = {
+  id: string;
+  roleCode: string;
+  translationKey: string;
+  scopeType: string;
+  isBootstrapAllowed: boolean;
+  isCreateUserFlowAllowed: boolean;
+  isUserManagementAllowed: boolean;
+  sortOrder: number;
+};
+
+export type ChildMatrixEntry = {
+  id: string;
+  parentScopeMatrixId: string;
+  parentSchoolType: string;
+  code: string;
+  translationKey: string;
+};
+
+export type SchoolStructureMatrix = ChildMatrixEntry & {
+  usesGradeLevels: boolean;
+  usesClasses: boolean;
+  usesGroups: boolean;
+  groupIsPrimaryStructure: boolean;
+};
+
+export type RegistryMatrix = ChildMatrixEntry & {
+  requiresIzo: boolean;
+  requiresRedIzo: boolean;
+  requiresIco: boolean;
+  requiresDataBox: boolean;
+  requiresFounder: boolean;
+  requiresTeachingLanguage: boolean;
+};
+
+export type CapacityMatrix = ChildMatrixEntry & {
+  capacityType: string;
+  isRequired: boolean;
+};
+
+export type AcademicStructureMatrix = ChildMatrixEntry & {
+  usesSubjects: boolean;
+  usesFieldOfStudy: boolean;
+  subjectIsClassBound: boolean;
+  fieldOfStudyIsRequired: boolean;
+};
+
+export type AssignmentMatrix = ChildMatrixEntry & {
+  allowsClassRoomAssignment: boolean;
+  allowsGroupAssignment: boolean;
+  allowsSubjectAssignment: boolean;
+  studentRequiresClassPlacement: boolean;
+  studentRequiresGroupPlacement: boolean;
+};
+
+export type ResolvedChildMatrices = {
+  matrixId: string;
+  schoolType: string;
+  code: string;
+  structure?: {
+    usesGradeLevels: boolean;
+    usesClasses: boolean;
+    usesGroups: boolean;
+    groupIsPrimaryStructure: boolean;
+  } | null;
+  registry?: {
+    requiresIzo: boolean;
+    requiresRedIzo: boolean;
+    requiresIco: boolean;
+    requiresDataBox: boolean;
+    requiresFounder: boolean;
+    requiresTeachingLanguage: boolean;
+  } | null;
+  capacity: { capacityType: string; isRequired: boolean }[];
+  academic?: {
+    usesSubjects: boolean;
+    usesFieldOfStudy: boolean;
+    subjectIsClassBound: boolean;
+    fieldOfStudyIsRequired: boolean;
+  } | null;
+  assignment?: {
+    allowsClassRoomAssignment: boolean;
+    allowsGroupAssignment: boolean;
+    allowsSubjectAssignment: boolean;
+    studentRequiresClassPlacement: boolean;
+    studentRequiresGroupPlacement: boolean;
+  } | null;
+};
+
 export type StudentContext = {
   school: School;
   schoolYears: SchoolYear[];
@@ -167,6 +274,31 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
         ...context,
         school: normalizeSchool(context.school)
       };
-    }
+    },
+
+    // School Places of Education
+    schoolPlaces: (schoolId: string) => http<SchoolPlaceOfEducation[]>('organization', `/api/organization/school-places-of-education?schoolId=${schoolId}`),
+    createSchoolPlace: (payload: { schoolId: string; name: string; address: Address; description?: string; isPrimary: boolean }) =>
+      http<SchoolPlaceOfEducation>('organization', '/api/organization/school-places-of-education', { method: 'POST', body: JSON.stringify(payload) }),
+    updateSchoolPlace: (id: string, payload: { name: string; address: Address; description?: string; isPrimary: boolean }) =>
+      http<SchoolPlaceOfEducation>('organization', `/api/organization/school-places-of-education/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+    // School Capacities
+    schoolCapacities: (schoolId: string) => http<SchoolCapacity[]>('organization', `/api/organization/school-capacities?schoolId=${schoolId}`),
+    createSchoolCapacity: (payload: { schoolId: string; capacityType: string; maxCapacity: number; description?: string }) =>
+      http<SchoolCapacity>('organization', '/api/organization/school-capacities', { method: 'POST', body: JSON.stringify(payload) }),
+    updateSchoolCapacity: (id: string, payload: { capacityType: string; maxCapacity: number; description?: string }) =>
+      http<SchoolCapacity>('organization', `/api/organization/school-capacities/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+    // Role Definitions (read-only)
+    roleDefinitions: () => http<RoleDefinition[]>('organization', '/api/organization/role-definitions'),
+
+    // Child Matrices (read-only)
+    childMatricesStructure: () => http<SchoolStructureMatrix[]>('organization', '/api/organization/child-matrices/school-structure'),
+    childMatricesRegistry: () => http<RegistryMatrix[]>('organization', '/api/organization/child-matrices/registry'),
+    childMatricesCapacity: () => http<CapacityMatrix[]>('organization', '/api/organization/child-matrices/capacity'),
+    childMatricesAcademic: () => http<AcademicStructureMatrix[]>('organization', '/api/organization/child-matrices/academic-structure'),
+    childMatricesAssignment: () => http<AssignmentMatrix[]>('organization', '/api/organization/child-matrices/assignment'),
+    childMatricesBySchoolType: (schoolType: string) => http<ResolvedChildMatrices>('organization', `/api/organization/child-matrices/by-school-type/${schoolType}`)
   };
 }

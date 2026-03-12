@@ -12,5 +12,7 @@ public interface IOrganizationCommandStore
     Task AddTeachingGroupAsync(TeachingGroup teachingGroup, CancellationToken cancellationToken);
     Task AddSubjectAsync(Subject subject, CancellationToken cancellationToken);
     Task AddTeacherAssignmentAsync(TeacherAssignment teacherAssignment, CancellationToken cancellationToken);
+    Task AddSchoolPlaceOfEducationAsync(SchoolPlaceOfEducation place, CancellationToken cancellationToken);
+    Task AddSchoolCapacityAsync(SchoolCapacity capacity, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

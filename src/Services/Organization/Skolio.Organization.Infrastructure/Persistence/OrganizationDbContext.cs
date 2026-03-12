@@ -29,6 +29,14 @@ public sealed class OrganizationDbContext : DbContext
     public DbSet<SchoolContextScopeAllowedOrganizationSection> SchoolContextScopeAllowedOrganizationSections => Set<SchoolContextScopeAllowedOrganizationSection>();
     public DbSet<SchoolContextScopeAllowedAcademicsSection> SchoolContextScopeAllowedAcademicsSections => Set<SchoolContextScopeAllowedAcademicsSection>();
     public DbSet<SchoolScopeOverride> SchoolScopeOverrides => Set<SchoolScopeOverride>();
+    public DbSet<SchoolPlaceOfEducation> SchoolPlacesOfEducation => Set<SchoolPlaceOfEducation>();
+    public DbSet<SchoolCapacity> SchoolCapacities => Set<SchoolCapacity>();
+    public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
+    public DbSet<OrganizationSchoolStructureMatrixEntry> OrganizationSchoolStructureMatrixEntries => Set<OrganizationSchoolStructureMatrixEntry>();
+    public DbSet<OrganizationRegistryMatrixEntry> OrganizationRegistryMatrixEntries => Set<OrganizationRegistryMatrixEntry>();
+    public DbSet<OrganizationCapacityMatrixEntry> OrganizationCapacityMatrixEntries => Set<OrganizationCapacityMatrixEntry>();
+    public DbSet<OrganizationAcademicStructureMatrixEntry> OrganizationAcademicStructureMatrixEntries => Set<OrganizationAcademicStructureMatrixEntry>();
+    public DbSet<OrganizationAssignmentMatrixEntry> OrganizationAssignmentMatrixEntries => Set<OrganizationAssignmentMatrixEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
