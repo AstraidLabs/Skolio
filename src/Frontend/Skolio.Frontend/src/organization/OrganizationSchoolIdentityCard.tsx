@@ -12,6 +12,7 @@ const legalForms = ['PublicInstitution', 'Municipality', 'Region', 'Association'
 const defaultAddress = { street: '', city: '', postalCode: '', country: 'CZ' };
 
 type DetailTab = 'school' | 'operator' | 'founder';
+type FieldErrors = Record<string, string>;
 
 function toMutation(school: School): SchoolMutation {
   return {
@@ -54,25 +55,101 @@ function toMutation(school: School): SchoolMutation {
   };
 }
 
-function isValid(form: SchoolMutation): boolean {
-  return Boolean(
-    form.name.trim() &&
-    form.mainAddress.street.trim() &&
-    form.mainAddress.city.trim() &&
-    form.mainAddress.postalCode.trim() &&
-    form.mainAddress.country.trim() &&
-    form.schoolOperator.legalEntityName.trim() &&
-    form.schoolOperator.registeredOfficeAddress.street.trim() &&
-    form.schoolOperator.registeredOfficeAddress.city.trim() &&
-    form.schoolOperator.registeredOfficeAddress.postalCode.trim() &&
-    form.schoolOperator.registeredOfficeAddress.country.trim() &&
-    form.founder.founderName.trim() &&
-    form.founder.founderAddress.street.trim() &&
-    form.founder.founderAddress.city.trim() &&
-    form.founder.founderAddress.postalCode.trim() &&
-    form.founder.founderAddress.country.trim()
-  );
+// ── Validation ────────────────────────────────────────────────────────────────
+
+type TFn = ReturnType<typeof useI18n>['t'];
+
+function buildValidate(t: TFn) {
+  return function validate(form: SchoolMutation): FieldErrors {
+    const errors: FieldErrors = {};
+
+    const req = (key: string, value: string) => {
+      if (!value.trim()) errors[key] = t('profileFieldRequired');
+    };
+    const max = (key: string, value: string | null | undefined, limit: number) => {
+      if (!errors[key] && value && value.length > limit) {
+        errors[key] = t('validationTooLong', { max: String(limit) });
+      }
+    };
+    const email = (key: string, value: string | null | undefined) => {
+      if (!errors[key] && value?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        errors[key] = t('profileValidationEmail');
+      }
+    };
+
+    // School identity
+    req('name', form.name);                                      max('name', form.name, 200);
+    max('schoolIzo', form.schoolIzo, 32);
+    max('schoolEmail', form.schoolEmail, 256);                   email('schoolEmail', form.schoolEmail);
+    max('schoolPhone', form.schoolPhone, 64);
+    max('schoolWebsite', form.schoolWebsite, 256);
+    req('mainAddress.street', form.mainAddress.street);          max('mainAddress.street', form.mainAddress.street, 200);
+    req('mainAddress.city', form.mainAddress.city);              max('mainAddress.city', form.mainAddress.city, 120);
+    req('mainAddress.postalCode', form.mainAddress.postalCode);  max('mainAddress.postalCode', form.mainAddress.postalCode, 32);
+    req('mainAddress.country', form.mainAddress.country);        max('mainAddress.country', form.mainAddress.country, 120);
+
+    // School operations
+    max('educationLocationsSummary', form.educationLocationsSummary, 1000);
+    max('teachingLanguage', form.teachingLanguage, 64);
+    if (form.maxStudentCapacity !== undefined && form.maxStudentCapacity !== null && form.maxStudentCapacity <= 0) {
+      errors['maxStudentCapacity'] = t('validationPositiveNumber');
+    }
+
+    // Operator
+    req('schoolOperator.legalEntityName', form.schoolOperator.legalEntityName);
+    max('schoolOperator.legalEntityName', form.schoolOperator.legalEntityName, 200);
+    max('schoolOperator.companyNumberIco', form.schoolOperator.companyNumberIco, 32);
+    max('schoolOperator.redIzo', form.schoolOperator.redIzo, 32);
+    max('schoolOperator.operatorEmail', form.schoolOperator.operatorEmail, 256);
+    email('schoolOperator.operatorEmail', form.schoolOperator.operatorEmail);
+    max('schoolOperator.dataBox', form.schoolOperator.dataBox, 64);
+    max('schoolOperator.resortIdentifier', form.schoolOperator.resortIdentifier, 64);
+    max('schoolOperator.directorSummary', form.schoolOperator.directorSummary, 300);
+    max('schoolOperator.statutoryBodySummary', form.schoolOperator.statutoryBodySummary, 600);
+    req('schoolOperator.registeredOfficeAddress.street', form.schoolOperator.registeredOfficeAddress.street);
+    max('schoolOperator.registeredOfficeAddress.street', form.schoolOperator.registeredOfficeAddress.street, 200);
+    req('schoolOperator.registeredOfficeAddress.city', form.schoolOperator.registeredOfficeAddress.city);
+    max('schoolOperator.registeredOfficeAddress.city', form.schoolOperator.registeredOfficeAddress.city, 120);
+    req('schoolOperator.registeredOfficeAddress.postalCode', form.schoolOperator.registeredOfficeAddress.postalCode);
+    max('schoolOperator.registeredOfficeAddress.postalCode', form.schoolOperator.registeredOfficeAddress.postalCode, 32);
+    req('schoolOperator.registeredOfficeAddress.country', form.schoolOperator.registeredOfficeAddress.country);
+    max('schoolOperator.registeredOfficeAddress.country', form.schoolOperator.registeredOfficeAddress.country, 120);
+
+    // Founder
+    req('founder.founderName', form.founder.founderName);        max('founder.founderName', form.founder.founderName, 200);
+    max('founder.founderIco', form.founder.founderIco, 32);
+    max('founder.founderEmail', form.founder.founderEmail, 256); email('founder.founderEmail', form.founder.founderEmail);
+    max('founder.founderDataBox', form.founder.founderDataBox, 64);
+    req('founder.founderAddress.street', form.founder.founderAddress.street);
+    max('founder.founderAddress.street', form.founder.founderAddress.street, 200);
+    req('founder.founderAddress.city', form.founder.founderAddress.city);
+    max('founder.founderAddress.city', form.founder.founderAddress.city, 120);
+    req('founder.founderAddress.postalCode', form.founder.founderAddress.postalCode);
+    max('founder.founderAddress.postalCode', form.founder.founderAddress.postalCode, 32);
+    req('founder.founderAddress.country', form.founder.founderAddress.country);
+    max('founder.founderAddress.country', form.founder.founderAddress.country, 120);
+
+    return errors;
+  };
 }
+
+const SCHOOL_TAB_KEYS = [
+  'name', 'schoolIzo', 'schoolEmail', 'schoolPhone', 'schoolWebsite',
+  'mainAddress.street', 'mainAddress.city', 'mainAddress.postalCode', 'mainAddress.country',
+  'educationLocationsSummary', 'teachingLanguage', 'maxStudentCapacity'
+];
+const OPERATOR_TAB_KEYS = [
+  'schoolOperator.legalEntityName', 'schoolOperator.companyNumberIco', 'schoolOperator.redIzo',
+  'schoolOperator.operatorEmail', 'schoolOperator.dataBox', 'schoolOperator.resortIdentifier',
+  'schoolOperator.directorSummary', 'schoolOperator.statutoryBodySummary',
+  'schoolOperator.registeredOfficeAddress.street', 'schoolOperator.registeredOfficeAddress.city',
+  'schoolOperator.registeredOfficeAddress.postalCode', 'schoolOperator.registeredOfficeAddress.country'
+];
+const FOUNDER_TAB_KEYS = [
+  'founder.founderName', 'founder.founderIco', 'founder.founderEmail', 'founder.founderDataBox',
+  'founder.founderAddress.street', 'founder.founderAddress.city',
+  'founder.founderAddress.postalCode', 'founder.founderAddress.country'
+];
 
 // ── Icon helpers ──────────────────────────────────────────────────────────────
 
@@ -120,23 +197,34 @@ export function OrganizationSchoolIdentityCard({
   const [form, setForm] = useState<SchoolMutation>(() => toMutation(school));
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('school');
+  const [showErrors, setShowErrors] = useState(false);
+
+  const validate = useMemo(() => buildValidate(t), [t]);
+  const fieldErrors = useMemo(() => validate(form), [validate, form]);
 
   useEffect(() => {
     setForm(toMutation(school));
     setActiveTab('school');
+    setShowErrors(false);
   }, [school]);
 
-  const canSave = useMemo(() => editable && isValid(form) && !saving, [editable, form, saving]);
+  const canSave = editable && Object.keys(fieldErrors).length === 0 && !saving;
   const locationLabel = [school.mainAddress.street, school.mainAddress.city].filter(Boolean).join(', ');
 
-  const save = () => {
-    if (!canSave) {
-      return;
-    }
+  const visibleErrors = showErrors ? fieldErrors : {};
 
+  const tabErrorCount = (keys: string[]) =>
+    showErrors ? keys.filter((k) => fieldErrors[k]).length : 0;
+
+  const save = () => {
+    if (!editable) return;
+    setShowErrors(true);
+    if (Object.keys(fieldErrors).length > 0) return;
     setSaving(true);
     void onSave(school.id, form).finally(() => setSaving(false));
   };
+
+  const err = (key: string) => visibleErrors[key];
 
   return (
     <div className="space-y-4">
@@ -168,51 +256,59 @@ export function OrganizationSchoolIdentityCard({
       <Card>
         <div className="flex flex-wrap gap-2">
           {([
-            { key: 'school', label: t('orgTabSchool') },
-            { key: 'operator', label: t('orgTabOperator') },
-            { key: 'founder', label: t('orgTabFounder') }
-          ] as { key: DetailTab; label: string }[]).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`sk-btn ${activeTab === tab.key ? 'sk-btn-primary' : 'sk-btn-secondary'}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
+            { key: 'school', label: t('orgTabSchool'), errorKeys: SCHOOL_TAB_KEYS },
+            { key: 'operator', label: t('orgTabOperator'), errorKeys: OPERATOR_TAB_KEYS },
+            { key: 'founder', label: t('orgTabFounder'), errorKeys: FOUNDER_TAB_KEYS }
+          ] as { key: DetailTab; label: string; errorKeys: string[] }[]).map((tab) => {
+            const errCount = tabErrorCount(tab.errorKeys);
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`sk-btn ${activeTab === tab.key ? 'sk-btn-primary' : 'sk-btn-secondary'} inline-flex items-center gap-1.5`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+                {errCount > 0 ? (
+                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {errCount}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         {activeTab === 'school' ? (
           <div className="mt-4 space-y-4">
             <SectionTitle title={t('orgSchoolIdentityTitle')} />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <InputField icon={IcoSchool} label={t('orgSchoolName')} value={form.name} disabled={!editable} placeholder="Základní škola, Praha 1" onChange={(value) => setForm((v) => ({ ...v, name: value }))} />
-              <SelectField icon={IcoTag} label={t('orgSchoolTypeLabel')} value={form.schoolType} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolType: value }))} options={[
+              <InputField icon={IcoSchool} label={t('orgSchoolName')} required value={form.name} disabled={!editable} placeholder="Základní škola, Praha 1" maxLength={200} error={err('name')} onChange={(value) => setForm((v) => ({ ...v, name: value }))} />
+              <SelectField icon={IcoTag} label={t('orgSchoolTypeLabel')} required value={form.schoolType} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolType: value }))} options={[
                 { value: 'Kindergarten', label: t('orgSchoolTypeKindergarten') },
                 { value: 'ElementarySchool', label: t('orgSchoolTypeElementarySchool') },
                 { value: 'SecondarySchool', label: t('orgSchoolTypeSecondarySchool') }
               ]} />
-              <SelectField icon={IcoFolder} label={t('orgSchoolKindLabel')} value={form.schoolKind} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolKind: value }))} options={schoolKinds.map((option) => ({ value: option, label: t(`orgSchoolKind${option}` as never) }))} />
-              <InputField icon={IcoHash} label={t('orgSchoolIzo')} value={form.schoolIzo ?? ''} disabled={!editable} placeholder="600000000" onChange={(value) => setForm((v) => ({ ...v, schoolIzo: value }))} />
-              <InputField icon={IcoMail} label={t('orgSchoolEmail')} type="email" value={form.schoolEmail ?? ''} disabled={!editable} placeholder="info@skola.cz" onChange={(value) => setForm((v) => ({ ...v, schoolEmail: value }))} />
-              <InputField icon={IcoPhone} label={t('orgSchoolPhone')} value={form.schoolPhone ?? ''} disabled={!editable} placeholder="+420 123 456 789" onChange={(value) => setForm((v) => ({ ...v, schoolPhone: value }))} />
-              <InputField icon={IcoLink} label={t('orgSchoolWebsite')} value={form.schoolWebsite ?? ''} disabled={!editable} placeholder="https://www.skola.cz" onChange={(value) => setForm((v) => ({ ...v, schoolWebsite: value }))} />
-              <InputField icon={IcoPin} label={t('orgAddressStreet')} value={form.mainAddress.street} disabled={!editable} placeholder="Školní 1" onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, street: value } }))} />
-              <InputField icon={IcoCity} label={t('orgAddressCity')} value={form.mainAddress.city} disabled={!editable} placeholder="Praha" onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, city: value } }))} />
-              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} value={form.mainAddress.postalCode} disabled={!editable} placeholder="110 00" onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, postalCode: value } }))} />
-              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} value={form.mainAddress.country} disabled={!editable} placeholder="CZ" onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, country: value } }))} />
+              <SelectField icon={IcoFolder} label={t('orgSchoolKindLabel')} required value={form.schoolKind} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolKind: value }))} options={schoolKinds.map((option) => ({ value: option, label: t(`orgSchoolKind${option}` as never) }))} />
+              <InputField icon={IcoHash} label={t('orgSchoolIzo')} value={form.schoolIzo ?? ''} disabled={!editable} placeholder="600000000" maxLength={32} error={err('schoolIzo')} onChange={(value) => setForm((v) => ({ ...v, schoolIzo: value }))} />
+              <InputField icon={IcoMail} label={t('orgSchoolEmail')} type="email" value={form.schoolEmail ?? ''} disabled={!editable} placeholder="info@skola.cz" maxLength={256} error={err('schoolEmail')} onChange={(value) => setForm((v) => ({ ...v, schoolEmail: value }))} />
+              <InputField icon={IcoPhone} label={t('orgSchoolPhone')} value={form.schoolPhone ?? ''} disabled={!editable} placeholder="+420 123 456 789" maxLength={64} error={err('schoolPhone')} onChange={(value) => setForm((v) => ({ ...v, schoolPhone: value }))} />
+              <InputField icon={IcoLink} label={t('orgSchoolWebsite')} value={form.schoolWebsite ?? ''} disabled={!editable} placeholder="https://www.skola.cz" maxLength={256} error={err('schoolWebsite')} onChange={(value) => setForm((v) => ({ ...v, schoolWebsite: value }))} />
+              <InputField icon={IcoPin} label={t('orgAddressStreet')} required value={form.mainAddress.street} disabled={!editable} placeholder="Školní 1" maxLength={200} error={err('mainAddress.street')} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, street: value } }))} />
+              <InputField icon={IcoCity} label={t('orgAddressCity')} required value={form.mainAddress.city} disabled={!editable} placeholder="Praha" maxLength={120} error={err('mainAddress.city')} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, city: value } }))} />
+              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} required value={form.mainAddress.postalCode} disabled={!editable} placeholder="110 00" maxLength={32} error={err('mainAddress.postalCode')} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, postalCode: value } }))} />
+              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} required value={form.mainAddress.country} disabled={!editable} placeholder="CZ" maxLength={120} error={err('mainAddress.country')} onChange={(value) => setForm((v) => ({ ...v, mainAddress: { ...v.mainAddress, country: value } }))} />
             </div>
 
             <SectionTitle title={t('orgSchoolOperationsTitle')} />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <InputField icon={IcoCalendar} label={t('orgRegistryEntryDate')} type="date" value={form.registryEntryDate ?? ''} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, registryEntryDate: value || undefined }))} />
               <InputField icon={IcoCalendar} label={t('orgEducationStartDate')} type="date" value={form.educationStartDate ?? ''} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, educationStartDate: value || undefined }))} />
-              <InputField icon={IcoCapacity} label={t('orgSchoolMaxStudentCapacity')} type="number" value={form.maxStudentCapacity?.toString() ?? ''} disabled={!editable} placeholder="500" onChange={(value) => setForm((v) => ({ ...v, maxStudentCapacity: value ? Number(value) : undefined }))} />
-              <InputField icon={IcoGlobe} label={t('orgTeachingLanguage')} value={form.teachingLanguage ?? ''} disabled={!editable} placeholder="cs" onChange={(value) => setForm((v) => ({ ...v, teachingLanguage: value }))} />
-              <SelectField icon={IcoGear} label={t('orgSchoolPlatformStatusLabel')} value={form.platformStatus} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, platformStatus: value }))} options={platformStatuses.map((option) => ({ value: option, label: t(`orgPlatformStatus${option}` as never) }))} />
+              <InputField icon={IcoCapacity} label={t('orgSchoolMaxStudentCapacity')} type="number" value={form.maxStudentCapacity?.toString() ?? ''} disabled={!editable} placeholder="500" error={err('maxStudentCapacity')} onChange={(value) => setForm((v) => ({ ...v, maxStudentCapacity: value ? Number(value) : undefined }))} />
+              <InputField icon={IcoGlobe} label={t('orgTeachingLanguage')} value={form.teachingLanguage ?? ''} disabled={!editable} placeholder="cs" maxLength={64} error={err('teachingLanguage')} onChange={(value) => setForm((v) => ({ ...v, teachingLanguage: value }))} />
+              <SelectField icon={IcoGear} label={t('orgSchoolPlatformStatusLabel')} required value={form.platformStatus} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, platformStatus: value }))} options={platformStatuses.map((option) => ({ value: option, label: t(`orgPlatformStatus${option}` as never) }))} />
             </div>
-            <TextAreaField icon={IcoText} label={t('orgSchoolEducationLocationsSummary')} value={form.educationLocationsSummary ?? ''} disabled={!editable} placeholder="Stručný popis míst vzdělávání..." onChange={(value) => setForm((v) => ({ ...v, educationLocationsSummary: value }))} rows={3} />
+            <TextAreaField icon={IcoText} label={t('orgSchoolEducationLocationsSummary')} value={form.educationLocationsSummary ?? ''} disabled={!editable} placeholder="Stručný popis míst vzdělávání..." maxLength={1000} error={err('educationLocationsSummary')} onChange={(value) => setForm((v) => ({ ...v, educationLocationsSummary: value }))} rows={3} />
           </div>
         ) : null}
 
@@ -220,21 +316,21 @@ export function OrganizationSchoolIdentityCard({
           <div className="mt-4 space-y-4">
             <SectionTitle title={t('orgSchoolOperatorTitle')} />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <InputField icon={IcoBuilding} label={t('orgLegalEntityName')} value={form.schoolOperator.legalEntityName} disabled={!editable} placeholder="Název právnické osoby" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalEntityName: value } }))} />
-              <SelectField icon={IcoClipboard} label={t('orgLegalForm')} value={form.schoolOperator.legalForm} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalForm: value } }))} options={legalForms.map((option) => ({ value: option, label: t(`orgLegalForm${option}` as never) }))} />
-              <InputField icon={IcoHash} label={t('orgCompanyNumberIco')} value={form.schoolOperator.companyNumberIco ?? ''} disabled={!editable} placeholder="12345678" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, companyNumberIco: value } }))} />
-              <InputField icon={IcoHash} label={t('orgSchoolOperatorRedIzo')} value={form.schoolOperator.redIzo ?? ''} disabled={!editable} placeholder="600000000" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, redIzo: value } }))} />
-              <InputField icon={IcoMail} label={t('orgSchoolOperatorEmail')} type="email" value={form.schoolOperator.operatorEmail ?? ''} disabled={!editable} placeholder="reditel@skola.cz" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, operatorEmail: value } }))} />
-              <InputField icon={IcoInbox} label={t('orgSchoolOperatorDataBox')} value={form.schoolOperator.dataBox ?? ''} disabled={!editable} placeholder="abc1234" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, dataBox: value } }))} />
-              <InputField icon={IcoTag} label={t('orgSchoolOperatorResortIdentifier')} value={form.schoolOperator.resortIdentifier ?? ''} disabled={!editable} placeholder="MŠMT-123" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, resortIdentifier: value } }))} />
-              <InputField icon={IcoPin} label={t('orgAddressStreet')} value={form.schoolOperator.registeredOfficeAddress.street} disabled={!editable} placeholder="Školní 1" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, street: value } } }))} />
-              <InputField icon={IcoCity} label={t('orgAddressCity')} value={form.schoolOperator.registeredOfficeAddress.city} disabled={!editable} placeholder="Praha" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, city: value } } }))} />
-              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} value={form.schoolOperator.registeredOfficeAddress.postalCode} disabled={!editable} placeholder="110 00" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, postalCode: value } } }))} />
-              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} value={form.schoolOperator.registeredOfficeAddress.country} disabled={!editable} placeholder="CZ" onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, country: value } } }))} />
+              <InputField icon={IcoBuilding} label={t('orgLegalEntityName')} required value={form.schoolOperator.legalEntityName} disabled={!editable} placeholder="Název právnické osoby" maxLength={200} error={err('schoolOperator.legalEntityName')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalEntityName: value } }))} />
+              <SelectField icon={IcoClipboard} label={t('orgLegalForm')} required value={form.schoolOperator.legalForm} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, legalForm: value } }))} options={legalForms.map((option) => ({ value: option, label: t(`orgLegalForm${option}` as never) }))} />
+              <InputField icon={IcoHash} label={t('orgCompanyNumberIco')} value={form.schoolOperator.companyNumberIco ?? ''} disabled={!editable} placeholder="12345678" maxLength={32} error={err('schoolOperator.companyNumberIco')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, companyNumberIco: value } }))} />
+              <InputField icon={IcoHash} label={t('orgSchoolOperatorRedIzo')} value={form.schoolOperator.redIzo ?? ''} disabled={!editable} placeholder="600000000" maxLength={32} error={err('schoolOperator.redIzo')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, redIzo: value } }))} />
+              <InputField icon={IcoMail} label={t('orgSchoolOperatorEmail')} type="email" value={form.schoolOperator.operatorEmail ?? ''} disabled={!editable} placeholder="reditel@skola.cz" maxLength={256} error={err('schoolOperator.operatorEmail')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, operatorEmail: value } }))} />
+              <InputField icon={IcoInbox} label={t('orgSchoolOperatorDataBox')} value={form.schoolOperator.dataBox ?? ''} disabled={!editable} placeholder="abc1234" maxLength={64} error={err('schoolOperator.dataBox')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, dataBox: value } }))} />
+              <InputField icon={IcoTag} label={t('orgSchoolOperatorResortIdentifier')} value={form.schoolOperator.resortIdentifier ?? ''} disabled={!editable} placeholder="MŠMT-123" maxLength={64} error={err('schoolOperator.resortIdentifier')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, resortIdentifier: value } }))} />
+              <InputField icon={IcoPin} label={t('orgAddressStreet')} required value={form.schoolOperator.registeredOfficeAddress.street} disabled={!editable} placeholder="Školní 1" maxLength={200} error={err('schoolOperator.registeredOfficeAddress.street')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, street: value } } }))} />
+              <InputField icon={IcoCity} label={t('orgAddressCity')} required value={form.schoolOperator.registeredOfficeAddress.city} disabled={!editable} placeholder="Praha" maxLength={120} error={err('schoolOperator.registeredOfficeAddress.city')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, city: value } } }))} />
+              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} required value={form.schoolOperator.registeredOfficeAddress.postalCode} disabled={!editable} placeholder="110 00" maxLength={32} error={err('schoolOperator.registeredOfficeAddress.postalCode')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, postalCode: value } } }))} />
+              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} required value={form.schoolOperator.registeredOfficeAddress.country} disabled={!editable} placeholder="CZ" maxLength={120} error={err('schoolOperator.registeredOfficeAddress.country')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, registeredOfficeAddress: { ...v.schoolOperator.registeredOfficeAddress, country: value } } }))} />
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
-              <TextAreaField icon={IcoUser} label={t('orgSchoolDirectorSummary')} value={form.schoolOperator.directorSummary ?? ''} disabled={!editable} placeholder="Jméno ředitele, funkce..." onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, directorSummary: value } }))} rows={4} />
-              <TextAreaField icon={IcoUsers} label={t('orgSchoolStatutoryBodySummary')} value={form.schoolOperator.statutoryBodySummary ?? ''} disabled={!editable} placeholder="Popis statutárního orgánu..." onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, statutoryBodySummary: value } }))} rows={4} />
+              <TextAreaField icon={IcoUser} label={t('orgSchoolDirectorSummary')} value={form.schoolOperator.directorSummary ?? ''} disabled={!editable} placeholder="Jméno ředitele, funkce..." maxLength={300} error={err('schoolOperator.directorSummary')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, directorSummary: value } }))} rows={4} />
+              <TextAreaField icon={IcoUsers} label={t('orgSchoolStatutoryBodySummary')} value={form.schoolOperator.statutoryBodySummary ?? ''} disabled={!editable} placeholder="Popis statutárního orgánu..." maxLength={600} error={err('schoolOperator.statutoryBodySummary')} onChange={(value) => setForm((v) => ({ ...v, schoolOperator: { ...v.schoolOperator, statutoryBodySummary: value } }))} rows={4} />
             </div>
           </div>
         ) : null}
@@ -243,17 +339,17 @@ export function OrganizationSchoolIdentityCard({
           <div className="mt-4 space-y-4">
             <SectionTitle title={t('orgFounderTitle')} />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <SelectField icon={IcoTag} label={t('orgFounderTypeLabel')} value={form.founder.founderType} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderType: value } }))} options={founderTypes.map((option) => ({ value: option, label: t(`orgFounderType${option}` as never) }))} />
-              <SelectField icon={IcoFolder} label={t('orgFounderCategoryLabel')} value={form.founder.founderCategory} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderCategory: value } }))} options={founderCategories.map((option) => ({ value: option, label: t(`orgFounderCategory${option}` as never) }))} />
-              <InputField icon={IcoBuilding} label={t('orgFounderName')} value={form.founder.founderName} disabled={!editable} placeholder="Obec / Město / Kraj..." onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderName: value } }))} />
-              <SelectField icon={IcoClipboard} label={t('orgFounderLegalFormLabel')} value={form.founder.founderLegalForm} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderLegalForm: value } }))} options={legalForms.map((option) => ({ value: option, label: t(`orgLegalForm${option}` as never) }))} />
-              <InputField icon={IcoHash} label={t('orgFounderIco')} value={form.founder.founderIco ?? ''} disabled={!editable} placeholder="00064581" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderIco: value } }))} />
-              <InputField icon={IcoMail} label={t('orgFounderEmail')} type="email" value={form.founder.founderEmail ?? ''} disabled={!editable} placeholder="kontakt@zakladatel.cz" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderEmail: value } }))} />
-              <InputField icon={IcoInbox} label={t('orgFounderDataBox')} value={form.founder.founderDataBox ?? ''} disabled={!editable} placeholder="xyz5678" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderDataBox: value } }))} />
-              <InputField icon={IcoPin} label={t('orgAddressStreet')} value={form.founder.founderAddress.street} disabled={!editable} placeholder="Školní 1" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, street: value } } }))} />
-              <InputField icon={IcoCity} label={t('orgAddressCity')} value={form.founder.founderAddress.city} disabled={!editable} placeholder="Praha" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, city: value } } }))} />
-              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} value={form.founder.founderAddress.postalCode} disabled={!editable} placeholder="110 00" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, postalCode: value } } }))} />
-              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} value={form.founder.founderAddress.country} disabled={!editable} placeholder="CZ" onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, country: value } } }))} />
+              <SelectField icon={IcoTag} label={t('orgFounderTypeLabel')} required value={form.founder.founderType} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderType: value } }))} options={founderTypes.map((option) => ({ value: option, label: t(`orgFounderType${option}` as never) }))} />
+              <SelectField icon={IcoFolder} label={t('orgFounderCategoryLabel')} required value={form.founder.founderCategory} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderCategory: value } }))} options={founderCategories.map((option) => ({ value: option, label: t(`orgFounderCategory${option}` as never) }))} />
+              <InputField icon={IcoBuilding} label={t('orgFounderName')} required value={form.founder.founderName} disabled={!editable} placeholder="Obec / Město / Kraj..." maxLength={200} error={err('founder.founderName')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderName: value } }))} />
+              <SelectField icon={IcoClipboard} label={t('orgFounderLegalFormLabel')} required value={form.founder.founderLegalForm} disabled={!editable} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderLegalForm: value } }))} options={legalForms.map((option) => ({ value: option, label: t(`orgLegalForm${option}` as never) }))} />
+              <InputField icon={IcoHash} label={t('orgFounderIco')} value={form.founder.founderIco ?? ''} disabled={!editable} placeholder="00064581" maxLength={32} error={err('founder.founderIco')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderIco: value } }))} />
+              <InputField icon={IcoMail} label={t('orgFounderEmail')} type="email" value={form.founder.founderEmail ?? ''} disabled={!editable} placeholder="kontakt@zakladatel.cz" maxLength={256} error={err('founder.founderEmail')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderEmail: value } }))} />
+              <InputField icon={IcoInbox} label={t('orgFounderDataBox')} value={form.founder.founderDataBox ?? ''} disabled={!editable} placeholder="xyz5678" maxLength={64} error={err('founder.founderDataBox')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderDataBox: value } }))} />
+              <InputField icon={IcoPin} label={t('orgAddressStreet')} required value={form.founder.founderAddress.street} disabled={!editable} placeholder="Školní 1" maxLength={200} error={err('founder.founderAddress.street')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, street: value } } }))} />
+              <InputField icon={IcoCity} label={t('orgAddressCity')} required value={form.founder.founderAddress.city} disabled={!editable} placeholder="Praha" maxLength={120} error={err('founder.founderAddress.city')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, city: value } } }))} />
+              <InputField icon={IcoPostal} label={t('orgAddressPostalCode')} required value={form.founder.founderAddress.postalCode} disabled={!editable} placeholder="110 00" maxLength={32} error={err('founder.founderAddress.postalCode')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, postalCode: value } } }))} />
+              <InputField icon={IcoGlobe} label={t('orgAddressCountry')} required value={form.founder.founderAddress.country} disabled={!editable} placeholder="CZ" maxLength={120} error={err('founder.founderAddress.country')} onChange={(value) => setForm((v) => ({ ...v, founder: { ...v.founder, founderAddress: { ...v.founder.founderAddress, country: value } } }))} />
             </div>
           </div>
         ) : null}
@@ -263,7 +359,7 @@ export function OrganizationSchoolIdentityCard({
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-slate-600">{t('orgSchoolDetailSaveHint')}</p>
-            <button className="sk-btn sk-btn-primary" type="button" disabled={!canSave} onClick={save}>
+            <button className="sk-btn sk-btn-primary" type="button" disabled={saving} onClick={save}>
               {saving ? t('profileSaving') : t('save')}
             </button>
           </div>
@@ -293,7 +389,10 @@ function InputField({
   disabled = false,
   type = 'text',
   placeholder,
-  icon
+  icon,
+  required,
+  maxLength,
+  error
 }: {
   label: string;
   value: string;
@@ -302,14 +401,27 @@ function InputField({
   type?: string;
   placeholder?: string;
   icon?: React.ReactNode;
+  required?: boolean;
+  maxLength?: number;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="sk-label flex items-center gap-1.5">
         {icon ? <span className="text-slate-400">{icon}</span> : null}
         {label}
+        {required ? <span className="text-red-500">*</span> : null}
       </label>
-      <input className="sk-input" value={value} type={type} disabled={disabled} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <input
+        className={`sk-input${error ? ' sk-input-invalid' : ''}`}
+        value={value}
+        type={type}
+        disabled={disabled}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -320,7 +432,9 @@ function SelectField({
   onChange,
   options,
   disabled = false,
-  icon
+  icon,
+  required,
+  error
 }: {
   label: string;
   value: string;
@@ -328,20 +442,29 @@ function SelectField({
   options: { value: string; label: string }[];
   disabled?: boolean;
   icon?: React.ReactNode;
+  required?: boolean;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="sk-label flex items-center gap-1.5">
         {icon ? <span className="text-slate-400">{icon}</span> : null}
         {label}
+        {required ? <span className="text-red-500">*</span> : null}
       </label>
-      <select className="sk-input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={`sk-input${error ? ' sk-input-invalid' : ''}`}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -353,7 +476,10 @@ function TextAreaField({
   disabled = false,
   rows = 4,
   placeholder,
-  icon
+  icon,
+  required,
+  maxLength,
+  error
 }: {
   label: string;
   value: string;
@@ -362,14 +488,34 @@ function TextAreaField({
   rows?: number;
   placeholder?: string;
   icon?: React.ReactNode;
+  required?: boolean;
+  maxLength?: number;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="sk-label flex items-center gap-1.5">
-        {icon ? <span className="text-slate-400">{icon}</span> : null}
-        {label}
-      </label>
-      <textarea className="sk-input min-h-24" rows={rows} value={value} disabled={disabled} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <div className="flex items-center justify-between gap-2">
+        <label className="sk-label flex items-center gap-1.5">
+          {icon ? <span className="text-slate-400">{icon}</span> : null}
+          {label}
+          {required ? <span className="text-red-500">*</span> : null}
+        </label>
+        {maxLength ? (
+          <span className={`text-xs ${value.length > maxLength ? 'text-red-500' : 'text-slate-400'}`}>
+            {value.length} / {maxLength}
+          </span>
+        ) : null}
+      </div>
+      <textarea
+        className={`sk-input min-h-24${error ? ' sk-input-invalid' : ''}`}
+        rows={rows}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
