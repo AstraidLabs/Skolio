@@ -593,10 +593,9 @@ export function OrganizationParityPage({
           </Card>
         </div>
         {schoolDetailOpen && currentSchool ? (
-          <>
-            <div className="sk-drawer-overlay" onClick={() => setSchoolDetailOpen(false)} role="presentation" />
-            <div className="sk-drawer" role="dialog" aria-modal="true" aria-label={t('orgSchoolDetail')}>
-              <div className="sk-drawer-header">
+          <div className="sk-modal-overlay" onClick={() => setSchoolDetailOpen(false)} role="presentation">
+            <div className="sk-modal" role="dialog" aria-modal="true" aria-label={t('orgSchoolDetail')} onClick={(e) => e.stopPropagation()}>
+              <div className="sk-modal-header">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-900">{currentSchool.name}</p>
                   <p className="mt-1 text-xs text-slate-500">{getSchoolTypeLabel(t, currentSchool.schoolType)}</p>
@@ -611,7 +610,7 @@ export function OrganizationParityPage({
                 onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => setNotice(t('orgSchoolDetailSavedSuccess'))).then(() => load())}
               />
             </div>
-          </>
+          </div>
         ) : null}
       </section>
     );
