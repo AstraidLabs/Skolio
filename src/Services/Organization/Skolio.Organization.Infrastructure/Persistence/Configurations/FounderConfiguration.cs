@@ -29,5 +29,6 @@ public sealed class FounderConfiguration : IEntityTypeConfiguration<Founder>
 
         builder.HasIndex(x => x.FounderType);
         builder.HasIndex(x => x.FounderCategory);
+        builder.HasIndex(x => x.FounderIco).IsUnique().HasFilter("founder_ico IS NOT NULL");
     }
 }

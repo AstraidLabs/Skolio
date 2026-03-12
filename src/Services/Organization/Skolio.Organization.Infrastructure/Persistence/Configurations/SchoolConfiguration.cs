@@ -50,6 +50,6 @@ public sealed class SchoolConfiguration : IEntityTypeConfiguration<School>
         builder.HasIndex(x => x.Name);
         builder.HasIndex(x => x.SchoolType);
         builder.HasIndex(x => x.IsActive);
-        builder.HasIndex(x => x.SchoolIzo);
+        builder.HasIndex(x => x.SchoolIzo).IsUnique().HasFilter("school_izo IS NOT NULL");
     }
 }

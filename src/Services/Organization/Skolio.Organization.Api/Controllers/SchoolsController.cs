@@ -10,13 +10,14 @@ using Skolio.Organization.Application.Schools;
 using Skolio.Organization.Application.SchoolYears;
 using Skolio.Organization.Domain.Entities;
 using Skolio.Organization.Domain.Enums;
+using Skolio.Organization.Application.Abstractions;
 using Skolio.Organization.Infrastructure.Persistence;
 
 namespace Skolio.Organization.Api.Controllers;
 
 [ApiController]
 [Route("api/organization/schools")]
-public sealed class SchoolsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<SchoolsController> logger) : ControllerBase
+public sealed class SchoolsController(IMediator mediator, OrganizationDbContext dbContext, IOrganizationReadStore readStore, ILogger<SchoolsController> logger) : ControllerBase
 {
     private const int MaxPageSize = 200;
 
@@ -170,6 +171,18 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
         {
             return NotFound();
         }
+
+        if (!string.IsNullOrWhiteSpace(request.SchoolIzo) && await readStore.SchoolIzoExistsAsync(request.SchoolIzo, id, cancellationToken))
+            return this.ValidationField("schoolIzo", "DUPLICATE_SCHOOL_IZO");
+
+        if (!string.IsNullOrWhiteSpace(request.SchoolOperator.CompanyNumberIco) && await readStore.OperatorIcoExistsAsync(request.SchoolOperator.CompanyNumberIco, school.SchoolOperatorId, cancellationToken))
+            return this.ValidationField("companyNumberIco", "DUPLICATE_OPERATOR_ICO");
+
+        if (!string.IsNullOrWhiteSpace(request.SchoolOperator.RedIzo) && await readStore.OperatorRedIzoExistsAsync(request.SchoolOperator.RedIzo, school.SchoolOperatorId, cancellationToken))
+            return this.ValidationField("redIzo", "DUPLICATE_OPERATOR_RED_IZO");
+
+        if (!string.IsNullOrWhiteSpace(request.Founder.FounderIco) && await readStore.FounderIcoExistsAsync(request.Founder.FounderIco, school.FounderId, cancellationToken))
+            return this.ValidationField("founderIco", "DUPLICATE_FOUNDER_ICO");
 
         var schoolOperator = school.SchoolOperator;
         if (schoolOperator is null)

@@ -30,7 +30,7 @@ public sealed class SchoolOperatorConfiguration : IEntityTypeConfiguration<Schoo
         });
 
         builder.HasIndex(x => x.LegalEntityName);
-        builder.HasIndex(x => x.CompanyNumberIco);
-        builder.HasIndex(x => x.RedIzo);
+        builder.HasIndex(x => x.CompanyNumberIco).IsUnique().HasFilter("company_number_ico IS NOT NULL");
+        builder.HasIndex(x => x.RedIzo).IsUnique().HasFilter("red_izo IS NOT NULL");
     }
 }

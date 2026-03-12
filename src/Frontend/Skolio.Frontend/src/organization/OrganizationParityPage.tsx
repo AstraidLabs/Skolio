@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
+import { SkolioHttpError } from '../shared/http/httpClient';
 import type { SessionState } from '../shared/auth/session';
 import type {
   ClassRoom,
@@ -244,6 +245,16 @@ export function OrganizationParityPage({
 
   const currentSchool = schools.find((x) => x.id === activeSchoolId) ?? schools[0] ?? null;
 
+  const mapDuplicateError = (e: unknown): string => {
+    const detail = e instanceof SkolioHttpError ? e.problem?.detail : undefined;
+    if (detail === 'DUPLICATE_SCHOOL_IZO') return t('orgDuplicateSchoolIzo');
+    if (detail === 'DUPLICATE_OPERATOR_ICO') return t('orgDuplicateOperatorIco');
+    if (detail === 'DUPLICATE_OPERATOR_RED_IZO') return t('orgDuplicateOperatorRedIzo');
+    if (detail === 'DUPLICATE_FOUNDER_ICO') return t('orgDuplicateFounderIco');
+    if (detail === 'DUPLICATE_CONSTRAINT_VIOLATION') return t('orgDuplicateConstraint');
+    return e instanceof Error ? e.message : String(e);
+  };
+
   const guarded = (action: () => Promise<unknown>, successMessage?: string) => {
     setError('');
     setNotice('');
@@ -255,7 +266,7 @@ export function OrganizationParityPage({
 
         load();
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: unknown) => setError(mapDuplicateError(e)));
   };
 
   const goTo = (route: string) => {
@@ -668,7 +679,7 @@ export function OrganizationParityPage({
               <OrganizationSchoolIdentityCard
                 school={currentSchool}
                 editable={canWriteSchoolContext}
-                onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => setNotice(t('orgSchoolDetailSavedSuccess'))).then(() => load())}
+                onSave={(schoolId, payload) => api.updateSchool(schoolId, payload).then(() => { setError(''); setNotice(t('orgSchoolDetailSavedSuccess')); load(); }).catch((e: unknown) => { setNotice(''); setError(mapDuplicateError(e)); })}
               />
             </div>
           </div>

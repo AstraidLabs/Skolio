@@ -3,15 +3,28 @@ using MediatR;
 using Skolio.Organization.Application.Abstractions;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Domain.Entities;
+using Skolio.Organization.Domain.Exceptions;
 using Skolio.Organization.Domain.ValueObjects;
 
 namespace Skolio.Organization.Application.Schools;
 
-public sealed class CreateSchoolCommandHandler(IOrganizationCommandStore commandStore, TypeAdapterConfig mapsterConfig)
+public sealed class CreateSchoolCommandHandler(IOrganizationCommandStore commandStore, IOrganizationReadStore readStore, TypeAdapterConfig mapsterConfig)
     : IRequestHandler<CreateSchoolCommand, SchoolContract>
 {
     public async Task<SchoolContract> Handle(CreateSchoolCommand request, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(request.SchoolIzo) && await readStore.SchoolIzoExistsAsync(request.SchoolIzo, null, cancellationToken))
+            throw new OrganizationDomainException("DUPLICATE_SCHOOL_IZO");
+
+        if (!string.IsNullOrWhiteSpace(request.SchoolOperator.CompanyNumberIco) && await readStore.OperatorIcoExistsAsync(request.SchoolOperator.CompanyNumberIco, null, cancellationToken))
+            throw new OrganizationDomainException("DUPLICATE_OPERATOR_ICO");
+
+        if (!string.IsNullOrWhiteSpace(request.SchoolOperator.RedIzo) && await readStore.OperatorRedIzoExistsAsync(request.SchoolOperator.RedIzo, null, cancellationToken))
+            throw new OrganizationDomainException("DUPLICATE_OPERATOR_RED_IZO");
+
+        if (!string.IsNullOrWhiteSpace(request.Founder.FounderIco) && await readStore.FounderIcoExistsAsync(request.Founder.FounderIco, null, cancellationToken))
+            throw new OrganizationDomainException("DUPLICATE_FOUNDER_ICO");
+
         var schoolOperator = SchoolOperator.Create(
             Guid.NewGuid(),
             request.SchoolOperator.LegalEntityName,

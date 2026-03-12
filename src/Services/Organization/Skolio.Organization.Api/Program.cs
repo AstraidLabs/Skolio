@@ -139,6 +139,12 @@ app.UseExceptionHandler(exceptionApp =>
             problem.Status = StatusCodes.Status400BadRequest;
             problem.Detail = exception.Message;
         }
+        else if (exception is DbUpdateException dbEx && dbEx.InnerException?.Message.Contains("unique", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            problem.Title = "Duplicate record detected.";
+            problem.Status = StatusCodes.Status409Conflict;
+            problem.Detail = "DUPLICATE_CONSTRAINT_VIOLATION";
+        }
         else
         {
             problem.Title = "Unexpected server error.";
