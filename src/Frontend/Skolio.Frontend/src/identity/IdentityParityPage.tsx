@@ -131,6 +131,8 @@ export function IdentityParityPage({
   const [managedSchoolIdsDraft, setManagedSchoolIdsDraft] = useState<string[]>([]);
   const [managedParentLinksDraft, setManagedParentLinksDraft] = useState('');
   const [activeManagedUserTab, setActiveManagedUserTab] = useState<ManagedUserDetailTab>('basic');
+  const [managedBasicFieldErrors, setManagedBasicFieldErrors] = useState<Record<string, string>>({});
+  const [showManagedBasicErrors, setShowManagedBasicErrors] = useState(false);
   const [userListFilters, setUserListFilters] = useState<AdminUserListQuery>({ pageNumber: 1, pageSize: 20, sortField: 'name', sortDirection: 'asc', search: '' });
   const [managedSchoolContextId, setManagedSchoolContextId] = useState<string>(() => localStorage.getItem(USER_MANAGEMENT_SCHOOL_CONTEXT_STORAGE_KEY) ?? '');
   const [managedSchoolOptions, setManagedSchoolOptions] = useState<SchoolContextOption[]>([]);
@@ -255,6 +257,8 @@ export function IdentityParityPage({
     setActiveManagedUserTab('basic');
     setManagedUserDetailError('');
     setManagedUserDetail(null);
+    setManagedBasicFieldErrors({});
+    setShowManagedBasicErrors(false);
     setManagedRoleSetDraft([]);
     void api.adminUserDetail(userId, managedSchoolContextId || undefined)
       .then((detail) => {
@@ -287,6 +291,8 @@ export function IdentityParityPage({
     setManagedRoleSetDraft([]);
     setManagedSchoolIdsDraft([]);
     setManagedParentLinksDraft('');
+    setManagedBasicFieldErrors({});
+    setShowManagedBasicErrors(false);
   };
 
   const runManagedLifecycleAction = (userId: string, action: () => Promise<unknown>) => {
@@ -327,10 +333,21 @@ export function IdentityParityPage({
 
   const saveManagedBasic = () => {
     if (!managedUserDetail) return;
-    if (!managedBasicDraft.firstName.trim() || !managedBasicDraft.lastName.trim()) {
-      setFormError(t('userManagementValidationBasicRequired'));
-      return;
+    const basicErrors: Record<string, string> = {};
+    if (!managedBasicDraft.firstName.trim()) basicErrors['firstName'] = t('profileFieldRequired');
+    else if (managedBasicDraft.firstName.length > 120) basicErrors['firstName'] = t('validationTooLong', { max: '120' });
+    if (!managedBasicDraft.lastName.trim()) basicErrors['lastName'] = t('profileFieldRequired');
+    else if (managedBasicDraft.lastName.length > 120) basicErrors['lastName'] = t('validationTooLong', { max: '120' });
+    if (managedBasicDraft.preferredDisplayName.length > 120) basicErrors['preferredDisplayName'] = t('validationTooLong', { max: '120' });
+    if (managedBasicDraft.phoneNumber.length > 32) basicErrors['phoneNumber'] = t('validationTooLong', { max: '32' });
+    if (managedBasicDraft.contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(managedBasicDraft.contactEmail)) {
+      basicErrors['contactEmail'] = t('profileValidationEmail');
+    } else if (managedBasicDraft.contactEmail.length > 200) {
+      basicErrors['contactEmail'] = t('validationTooLong', { max: '200' });
     }
+    setManagedBasicFieldErrors(basicErrors);
+    setShowManagedBasicErrors(true);
+    if (Object.keys(basicErrors).length > 0) return;
 
     setManagedActionBusyUserId(managedUserDetail.userId);
     setFormError('');
@@ -1682,19 +1699,21 @@ function ManagedUsersSection({
         </div>
       ) : null}
 
-      {/* Detail drawer (slide-over from right) */}
+      {/* Detail modal */}
       {managedDetailUserId ? (
-        <>
-          <div className="sk-drawer-overlay" onClick={() => closeManagedDetail()} role="presentation" />
-          <div className="sk-drawer" role="dialog" aria-modal="true" aria-label={t('userManagementDetailTitle')}>
-            <div className="sk-drawer-header">
-              <p className="font-semibold text-sm">{t('userManagementDetailTitle')}</p>
+        <div className="sk-modal-overlay" onClick={() => closeManagedDetail()} role="presentation">
+          <div className="sk-modal sk-user-management-detail-modal" role="dialog" aria-modal="true" aria-label={t('userManagementDetailTitle')} onClick={(e) => e.stopPropagation()}>
+            <div className="sk-modal-header">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm">{t('userManagementDetailTitle')}</p>
+                {managedUserDetail ? <p className="mt-0.5 text-xs text-slate-500">{managedUserDetail.email}</p> : null}
+              </div>
               <button className="sk-btn sk-btn-secondary text-xs" type="button" onClick={() => closeManagedDetail()}>{t('userManagementDetailClose')}</button>
             </div>
             {managedUserDetailLoading ? <LoadingState text={t('loading')} /> : null}
             {managedUserDetailError ? <ErrorState text={managedUserDetailError} /> : null}
             {managedUserDetail ? (
-              <div className="mt-3 space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center gap-3 rounded-lg border bg-slate-50 p-3">
                   <span className={getUserAvatarClass(managedUserDetail as unknown as IdentityManagedUser)} style={{ width: 40, height: 40, fontSize: 14 }}>
                     {getUserInitials(managedUserDetail as unknown as IdentityManagedUser)}
@@ -1720,23 +1739,26 @@ function ManagedUsersSection({
                 </div>
 
                 {activeManagedUserTab === 'basic' ? (
-                  <div className="grid gap-2">
-                    <Field label={t('profileFieldFirstName')} value={managedBasicDraft.firstName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, firstName: value }))} />
-                    <Field label={t('profileFieldLastName')} value={managedBasicDraft.lastName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, lastName: value }))} />
-                    <Field label={t('profileFieldPreferredDisplayName')} value={managedBasicDraft.preferredDisplayName} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredDisplayName: value }))} />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field icon={<ProfileIdentityIcon className="h-3.5 w-3.5" />} label={t('profileFieldFirstName')} required value={managedBasicDraft.firstName} placeholder="Jan" maxLength={120} invalid={showManagedBasicErrors && !!managedBasicFieldErrors['firstName']} errorText={showManagedBasicErrors ? managedBasicFieldErrors['firstName'] : undefined} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, firstName: value }))} />
+                    <Field icon={<ProfileIdentityIcon className="h-3.5 w-3.5" />} label={t('profileFieldLastName')} required value={managedBasicDraft.lastName} placeholder="Novák" maxLength={120} invalid={showManagedBasicErrors && !!managedBasicFieldErrors['lastName']} errorText={showManagedBasicErrors ? managedBasicFieldErrors['lastName'] : undefined} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, lastName: value }))} />
+                    <Field icon={<ProfileCardIcon className="h-3.5 w-3.5" />} label={t('profileFieldPreferredDisplayName')} value={managedBasicDraft.preferredDisplayName} placeholder="Jan N." maxLength={120} invalid={showManagedBasicErrors && !!managedBasicFieldErrors['preferredDisplayName']} errorText={showManagedBasicErrors ? managedBasicFieldErrors['preferredDisplayName'] : undefined} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredDisplayName: value }))} />
                     <LanguageField
+                      icon={<ProfileLanguageIcon className="h-3.5 w-3.5" />}
                       label={t('profileFieldPreferredLanguage')}
                       value={managedBasicDraft.preferredLanguage}
                       placeholder={t('profileSelectLanguagePlaceholder')}
                       onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, preferredLanguage: value }))}
                     />
-                    <Field label={t('profileFieldPhoneNumber')} value={managedBasicDraft.phoneNumber} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, phoneNumber: value }))} />
-                    <Field label={t('profileFieldContactEmail')} value={managedBasicDraft.contactEmail} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, contactEmail: value }))} />
-                    <Field label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled />
-                    <Field label={t('userManagementLabelUsername')} value={managedUserDetail.userName} onChange={() => {}} disabled />
-                    <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveBasic'), saveManagedBasic)}>
-                      <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveBasic')}
-                    </button>
+                    <Field icon={<ProfilePhoneIcon className="h-3.5 w-3.5" />} label={t('profileFieldPhoneNumber')} value={managedBasicDraft.phoneNumber} placeholder="+420 123 456 789" maxLength={32} invalid={showManagedBasicErrors && !!managedBasicFieldErrors['phoneNumber']} errorText={showManagedBasicErrors ? managedBasicFieldErrors['phoneNumber'] : undefined} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, phoneNumber: value }))} />
+                    <Field icon={<ProfileContactIcon className="h-3.5 w-3.5" />} label={t('profileFieldContactEmail')} value={managedBasicDraft.contactEmail} placeholder="jan.novak@email.cz" maxLength={200} invalid={showManagedBasicErrors && !!managedBasicFieldErrors['contactEmail']} errorText={showManagedBasicErrors ? managedBasicFieldErrors['contactEmail'] : undefined} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, contactEmail: value }))} />
+                    <Field icon={<ProfileEmailIcon className="h-3.5 w-3.5" />} label={t('email')} value={managedUserDetail.email} onChange={() => {}} disabled />
+                    <Field icon={<ProfileCardIcon className="h-3.5 w-3.5" />} label={t('userManagementLabelUsername')} value={managedUserDetail.userName} onChange={() => {}} disabled />
+                    <div className="md:col-span-2">
+                      <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveBasic'), saveManagedBasic)}>
+                        <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveBasic')}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
 
@@ -1784,14 +1806,16 @@ function ManagedUsersSection({
                 ) : null}
 
                 {activeManagedUserTab === 'schoolContext' ? (
-                  <div className="grid gap-2">
-                    <Field label={t('userManagementColSchool')} value={managedBasicDraft.schoolPlacement} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolPlacement: value }))} />
-                    <Field label={t('userManagementFilterSchoolType')} value={managedBasicDraft.schoolContextSummary} onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolContextSummary: value }))} />
-                    <Field label={t('profileLabelAssignedSchools')} value={managedSchoolIdsDraft.join(', ')} onChange={(value) => setManagedSchoolIdsDraft(value.split(',').map((x) => x.trim()).filter((x) => x.length > 0))} />
-                    <Field label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled />
-                    <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveSchoolContext'), saveManagedSchoolContext)}>
-                      <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveSchoolContext')}
-                    </button>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field icon={<ProfilePositionIcon className="h-3.5 w-3.5" />} label={t('userManagementColSchool')} value={managedBasicDraft.schoolPlacement} placeholder="Učitel / Ředitel..." onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolPlacement: value }))} />
+                    <Field icon={<ProfileAssignmentIcon className="h-3.5 w-3.5" />} label={t('userManagementFilterSchoolType')} value={managedBasicDraft.schoolContextSummary} placeholder="Stručný popis kontextu..." onChange={(value) => setManagedBasicDraft((prev) => ({ ...prev, schoolContextSummary: value }))} />
+                    <Field icon={<ProfileSchoolIcon className="h-3.5 w-3.5" />} label={t('profileLabelAssignedSchools')} value={managedSchoolIdsDraft.join(', ')} placeholder="ID školy, ID školy..." onChange={(value) => setManagedSchoolIdsDraft(value.split(',').map((x) => x.trim()).filter((x) => x.length > 0))} />
+                    <Field icon={<ProfileStatusIcon className="h-3.5 w-3.5" />} label={t('userManagementSchoolScopeHint')} value={isPlatformAdministrator ? t('userManagementScopePlatform') : t('userManagementScopeSchool')} onChange={() => {}} disabled />
+                    <div className="md:col-span-2">
+                      <button className="sk-btn sk-btn-primary text-xs inline-flex items-center gap-1" type="button" disabled={managedActionBusyUserId === managedUserDetail.userId} onClick={() => confirmAndRun(t('userManagementConfirmSaveSchoolContext'), saveManagedSchoolContext)}>
+                        <SaveDiskIcon className="h-4 w-4" />{t('userManagementSaveSchoolContext')}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
 
@@ -1814,7 +1838,7 @@ function ManagedUsersSection({
               </div>
             ) : null}
           </div>
-        </>
+        </div>
       ) : null}
       </section>
     </Card>
@@ -1872,7 +1896,9 @@ function Field({
   disabled = false,
   invalid = false,
   errorText,
-  placeholder
+  placeholder,
+  required,
+  maxLength
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -1882,12 +1908,15 @@ function Field({
   invalid?: boolean;
   errorText?: string;
   placeholder?: string;
+  required?: boolean;
+  maxLength?: number;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="sk-label inline-flex items-center gap-1.5">
         {icon}
         <span>{label}</span>
+        {required ? <span className="text-red-500">*</span> : null}
       </label>
       <input
         className={`sk-input ${invalid ? 'sk-input-invalid' : ''}`}
@@ -1895,6 +1924,7 @@ function Field({
         disabled={disabled}
         aria-invalid={invalid}
         placeholder={placeholder}
+        maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
       />
       {errorText ? <span className="text-xs text-red-700">{errorText}</span> : null}
