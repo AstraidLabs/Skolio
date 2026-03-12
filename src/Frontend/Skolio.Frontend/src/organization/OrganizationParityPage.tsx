@@ -11,6 +11,10 @@ import type {
   TeacherAssignment,
   TeachingGroup,
   StudentContext,
+  SchoolPlaceOfEducation,
+  SchoolCapacity,
+  RoleDefinition,
+  ResolvedChildMatrices,
   createOrganizationApi
 } from './api';
 import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
@@ -28,7 +32,11 @@ type OrganizationView =
   | 'class-rooms'
   | 'teaching-groups'
   | 'subjects'
-  | 'teacher-assignments';
+  | 'teacher-assignments'
+  | 'places-of-education'
+  | 'capacities'
+  | 'role-definitions'
+  | 'child-matrices';
 
 type SchoolStatusFilter = 'all' | 'active' | 'inactive';
 
@@ -95,6 +103,10 @@ export function OrganizationParityPage({
   const [teachingGroups, setTeachingGroups] = useState<TeachingGroup[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
+  const [schoolPlaces, setSchoolPlaces] = useState<SchoolPlaceOfEducation[]>([]);
+  const [schoolCapacities, setSchoolCapacities] = useState<SchoolCapacity[]>([]);
+  const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>([]);
+  const [resolvedMatrices, setResolvedMatrices] = useState<ResolvedChildMatrices | null>(null);
   const [studentContext, setStudentContext] = useState<StudentContext | null>(null);
 
   const [activeSchoolId, setActiveSchoolId] = useState(session.schoolIds[0] ?? '');
@@ -168,6 +180,8 @@ export function OrganizationParityPage({
       setTeachingGroups([]);
       setSubjects([]);
       setTeacherAssignments([]);
+      setSchoolPlaces([]);
+      setSchoolCapacities([]);
       return;
     }
 
@@ -177,7 +191,9 @@ export function OrganizationParityPage({
       api.classRooms(schoolId).then(setClassRooms),
       api.teachingGroups(schoolId).then(setTeachingGroups),
       api.subjects(schoolId).then(setSubjects),
-      api.teacherAssignments(schoolId).then(setTeacherAssignments)
+      api.teacherAssignments(schoolId).then(setTeacherAssignments),
+      api.schoolPlaces(schoolId).then(setSchoolPlaces),
+      api.schoolCapacities(schoolId).then(setSchoolCapacities)
     ]);
   };
 
@@ -203,13 +219,18 @@ export function OrganizationParityPage({
       return;
     }
 
-    void api.schools()
-      .then(async (result) => {
+    void Promise.all([
+      api.schools().then(async (result) => {
         setSchools(result);
         const scopedSchoolId = session.schoolIds[0] ?? result[0]?.id ?? '';
         setActiveSchoolId((current) => current || scopedSchoolId);
         await loadSchoolBoundaries(scopedSchoolId);
-      })
+        if (result[0]?.schoolType) {
+          await api.childMatricesBySchoolType(result[0].schoolType).then(setResolvedMatrices).catch(() => {});
+        }
+      }),
+      api.roleDefinitions().then(setRoleDefinitions).catch(() => {})
+    ])
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   };

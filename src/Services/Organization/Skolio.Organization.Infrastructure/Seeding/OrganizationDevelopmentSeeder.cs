@@ -189,6 +189,37 @@ public sealed class OrganizationDevelopmentSeeder(
         new(ParseSeedGuid("25000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolType.SecondarySchool, "IT", "Informacni technologie")
     ];
 
+    // School places of education
+    private static readonly SchoolPlaceOfEducationDefinition[] PlacesOfEducation =
+    [
+        new(ParseSeedGuid("26000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, "Hlavni areal MŠ Brno", Address.Create("Skolkova 1", "Brno", "60200", "CZ"), "Hlavni areal materske skoly", true),
+        new(ParseSeedGuid("26000000-0000-0000-0000-000000000201"), ElementarySchool.Id, "Hlavni budova ZŠ Praha", Address.Create("Skolni 10", "Praha", "11000", "CZ"), "Hlavni budova zakladni skoly", true),
+        new(ParseSeedGuid("26000000-0000-0000-0000-000000000301"), SecondarySchool.Id, "Hlavni kampus SŠ Ostrava", Address.Create("Akademicka 5", "Ostrava", "70200", "CZ"), "Hlavni kampus stredni skoly", true),
+        new(ParseSeedGuid("26000000-0000-0000-0000-000000000302"), SecondarySchool.Id, "Technologicke centrum SŠ Ostrava", Address.Create("Technicka 12", "Ostrava", "70200", "CZ"), "Odloucene pracoviste pro IT obory", false)
+    ];
+
+    // School capacities
+    private static readonly SchoolCapacityDefinition[] Capacities =
+    [
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000101"), KindergartenSchool.Id, SchoolCapacityType.TotalStudentCapacity, 220, "Celkova kapacita MŠ"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000102"), KindergartenSchool.Id, SchoolCapacityType.GroupCapacity, 28, "Max deti na skupinu"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000201"), ElementarySchool.Id, SchoolCapacityType.TotalStudentCapacity, 540, "Celkova kapacita ZŠ"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000202"), ElementarySchool.Id, SchoolCapacityType.ClassCapacity, 30, "Max zaku na tridu"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000203"), ElementarySchool.Id, SchoolCapacityType.DiningCapacity, 200, "Kapacita jidelny"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000301"), SecondarySchool.Id, SchoolCapacityType.TotalStudentCapacity, 680, "Celkova kapacita SŠ"),
+        new(ParseSeedGuid("27000000-0000-0000-0000-000000000302"), SecondarySchool.Id, SchoolCapacityType.ClassCapacity, 32, "Max zaku na tridu")
+    ];
+
+    // Role definitions — system-level metadata about roles
+    private static readonly RoleDefinitionSeedDef[] RoleDefinitions =
+    [
+        new(ParseSeedGuid("28000000-0000-0000-0000-000000000001"), "PlatformAdministrator", "role.platform_administrator", RoleScopeType.Global, true, false, true, 1),
+        new(ParseSeedGuid("28000000-0000-0000-0000-000000000002"), "SchoolAdministrator", "role.school_administrator", RoleScopeType.SchoolScoped, false, true, true, 2),
+        new(ParseSeedGuid("28000000-0000-0000-0000-000000000003"), "Teacher", "role.teacher", RoleScopeType.SchoolScoped, false, true, true, 3),
+        new(ParseSeedGuid("28000000-0000-0000-0000-000000000004"), "Parent", "role.parent", RoleScopeType.SchoolScoped, false, true, true, 4),
+        new(ParseSeedGuid("28000000-0000-0000-0000-000000000005"), "Student", "role.student", RoleScopeType.SchoolScoped, false, true, true, 5)
+    ];
+
     // School Context Scope Matrix IDs — stable seed identifiers, one per SchoolType
     private static readonly Guid MatrixKindergartenId = ParseSeedGuid("a0000001-0000-0000-0000-000000000001");
     private static readonly Guid MatrixElementaryId = ParseSeedGuid("a0000002-0000-0000-0000-000000000002");
@@ -387,6 +418,59 @@ public sealed class OrganizationDevelopmentSeeder(
         new(ParseSeedGuid("b3000003-0000-0000-0000-000000000003"), MatrixSecondaryId, AcademicsSectionCode.Homework, "academics.section.homework")
     ];
 
+    // Child matrix: OrganizationSchoolStructureMatrix — one entry per school type scope
+    private static readonly ChildSchoolStructureMatrixDef[] ChildSchoolStructureMatrices =
+    [
+        // Kindergarten: group-centric, no grade levels, no classes
+        new(ParseSeedGuid("c4000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "KindergartenStructure", "child.structure.kindergarten", false, false, true, true),
+        // ElementarySchool: class + subject centric, grade levels, classes, groups
+        new(ParseSeedGuid("c4000002-0000-0000-0000-000000000002"), MatrixElementaryId, "ElementarySchoolStructure", "child.structure.elementary", true, true, true, false),
+        // SecondarySchool: class + subject + field-of-study centric
+        new(ParseSeedGuid("c4000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "SecondarySchoolStructure", "child.structure.secondary", true, true, true, false)
+    ];
+
+    // Child matrix: OrganizationRegistryMatrix
+    private static readonly ChildRegistryMatrixDef[] ChildRegistryMatrices =
+    [
+        new(ParseSeedGuid("c5000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "KindergartenRegistry", "child.registry.kindergarten", true, false, true, false, true, false),
+        new(ParseSeedGuid("c5000002-0000-0000-0000-000000000002"), MatrixElementaryId, "ElementarySchoolRegistry", "child.registry.elementary", true, true, true, true, true, true),
+        new(ParseSeedGuid("c5000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "SecondarySchoolRegistry", "child.registry.secondary", true, true, true, true, true, true)
+    ];
+
+    // Child matrix: OrganizationCapacityMatrix
+    private static readonly ChildCapacityMatrixDef[] ChildCapacityMatrices =
+    [
+        new(ParseSeedGuid("c6000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "KgTotalCapacity", "child.capacity.kg_total", SchoolCapacityType.TotalStudentCapacity, true),
+        new(ParseSeedGuid("c6000001-0000-0000-0000-000000000002"), MatrixKindergartenId, "KgGroupCapacity", "child.capacity.kg_group", SchoolCapacityType.GroupCapacity, false),
+        new(ParseSeedGuid("c6000002-0000-0000-0000-000000000001"), MatrixElementaryId, "ElTotalCapacity", "child.capacity.el_total", SchoolCapacityType.TotalStudentCapacity, true),
+        new(ParseSeedGuid("c6000002-0000-0000-0000-000000000002"), MatrixElementaryId, "ElClassCapacity", "child.capacity.el_class", SchoolCapacityType.ClassCapacity, false),
+        new(ParseSeedGuid("c6000002-0000-0000-0000-000000000003"), MatrixElementaryId, "ElDiningCapacity", "child.capacity.el_dining", SchoolCapacityType.DiningCapacity, false),
+        new(ParseSeedGuid("c6000003-0000-0000-0000-000000000001"), MatrixSecondaryId, "SeTotalCapacity", "child.capacity.se_total", SchoolCapacityType.TotalStudentCapacity, true),
+        new(ParseSeedGuid("c6000003-0000-0000-0000-000000000002"), MatrixSecondaryId, "SeClassCapacity", "child.capacity.se_class", SchoolCapacityType.ClassCapacity, false)
+    ];
+
+    // Child matrix: OrganizationAcademicStructureMatrix
+    private static readonly ChildAcademicStructureMatrixDef[] ChildAcademicStructureMatrices =
+    [
+        // Kindergarten: no subjects, no fields of study
+        new(ParseSeedGuid("c7000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "KindergartenAcademics", "child.academic.kindergarten", false, false, false, false),
+        // Elementary: subjects yes, no fields of study, subjects class-bound
+        new(ParseSeedGuid("c7000002-0000-0000-0000-000000000002"), MatrixElementaryId, "ElementarySchoolAcademics", "child.academic.elementary", true, false, true, false),
+        // Secondary: subjects yes, fields of study yes and required
+        new(ParseSeedGuid("c7000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "SecondarySchoolAcademics", "child.academic.secondary", true, true, false, true)
+    ];
+
+    // Child matrix: OrganizationAssignmentMatrix
+    private static readonly ChildAssignmentMatrixDef[] ChildAssignmentMatrices =
+    [
+        // Kindergarten: group assignment only, student requires group
+        new(ParseSeedGuid("c8000001-0000-0000-0000-000000000001"), MatrixKindergartenId, "KindergartenAssignment", "child.assignment.kindergarten", false, true, false, false, true),
+        // Elementary: class + group + subject, student requires class
+        new(ParseSeedGuid("c8000002-0000-0000-0000-000000000002"), MatrixElementaryId, "ElementarySchoolAssignment", "child.assignment.elementary", true, true, true, true, false),
+        // Secondary: class + group + subject, student requires class
+        new(ParseSeedGuid("c8000003-0000-0000-0000-000000000003"), MatrixSecondaryId, "SecondarySchoolAssignment", "child.assignment.secondary", true, true, true, true, false)
+    ];
+
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
         var seedEnabled = configuration.GetValue("Organization:Seed:Enabled", true);
@@ -419,6 +503,9 @@ public sealed class OrganizationDevelopmentSeeder(
         await EnsureTeachingGroupsAsync(cancellationToken);
         await EnsureSubjectsAsync(cancellationToken);
         await EnsureSecondaryFieldsAsync(cancellationToken);
+        await EnsurePlacesOfEducationAsync(cancellationToken);
+        await EnsureCapacitiesAsync(cancellationToken);
+        await EnsureRoleDefinitionsAsync(cancellationToken);
         await EnsureSchoolContextMatricesAsync(cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -719,6 +806,11 @@ public sealed class OrganizationDevelopmentSeeder(
         await EnsureAllowedUserManagementFlowsAsync(cancellationToken);
         await EnsureAllowedOrganizationSectionsAsync(cancellationToken);
         await EnsureAllowedAcademicsSectionsAsync(cancellationToken);
+        await EnsureChildSchoolStructureMatricesAsync(cancellationToken);
+        await EnsureChildRegistryMatricesAsync(cancellationToken);
+        await EnsureChildCapacityMatricesAsync(cancellationToken);
+        await EnsureChildAcademicStructureMatricesAsync(cancellationToken);
+        await EnsureChildAssignmentMatricesAsync(cancellationToken);
     }
 
     private async Task EnsureCapabilitiesAsync(CancellationToken cancellationToken)
@@ -861,6 +953,120 @@ public sealed class OrganizationDevelopmentSeeder(
         logger.LogInformation("Organization seed consistency validation completed successfully.");
     }
 
+    private async Task EnsurePlacesOfEducationAsync(CancellationToken cancellationToken)
+    {
+        foreach (var definition in PlacesOfEducation)
+        {
+            var exists = await dbContext.SchoolPlacesOfEducation.AnyAsync(x => x.Id == definition.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.SchoolPlacesOfEducation.Add(SchoolPlaceOfEducation.Create(
+                    definition.Id, definition.SchoolId, definition.Name, definition.Address, definition.Description, definition.IsPrimary));
+                logger.LogInformation("Organization seed created place of education {Name} for school {SchoolId}.", definition.Name, definition.SchoolId);
+            }
+        }
+    }
+
+    private async Task EnsureCapacitiesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var definition in Capacities)
+        {
+            var exists = await dbContext.SchoolCapacities.AnyAsync(x => x.Id == definition.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.SchoolCapacities.Add(SchoolCapacity.Create(
+                    definition.Id, definition.SchoolId, definition.CapacityType, definition.MaxCapacity, definition.Description));
+                logger.LogInformation("Organization seed created capacity {Type} for school {SchoolId}.", definition.CapacityType, definition.SchoolId);
+            }
+        }
+    }
+
+    private async Task EnsureRoleDefinitionsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var definition in RoleDefinitions)
+        {
+            var exists = await dbContext.RoleDefinitions.AnyAsync(x => x.Id == definition.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.RoleDefinitions.Add(RoleDefinition.Create(
+                    definition.Id, definition.RoleCode, definition.TranslationKey, definition.ScopeType,
+                    definition.IsBootstrapAllowed, definition.IsCreateUserFlowAllowed,
+                    definition.IsUserManagementAllowed, definition.SortOrder));
+                logger.LogInformation("Organization seed created role definition {RoleCode}.", definition.RoleCode);
+            }
+        }
+    }
+
+    private async Task EnsureChildSchoolStructureMatricesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var def in ChildSchoolStructureMatrices)
+        {
+            var exists = await dbContext.OrganizationSchoolStructureMatrixEntries.AnyAsync(x => x.Id == def.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.OrganizationSchoolStructureMatrixEntries.Add(OrganizationSchoolStructureMatrixEntry.Create(
+                    def.Id, def.ParentScopeMatrixId, def.Code, def.TranslationKey, def.UsesGradeLevels, def.UsesClasses, def.UsesGroups, def.GroupIsPrimaryStructure));
+                logger.LogInformation("Organization seed created child school structure matrix {Code}.", def.Code);
+            }
+        }
+    }
+
+    private async Task EnsureChildRegistryMatricesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var def in ChildRegistryMatrices)
+        {
+            var exists = await dbContext.OrganizationRegistryMatrixEntries.AnyAsync(x => x.Id == def.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.OrganizationRegistryMatrixEntries.Add(OrganizationRegistryMatrixEntry.Create(
+                    def.Id, def.ParentScopeMatrixId, def.Code, def.TranslationKey, def.RequiresIzo, def.RequiresRedIzo, def.RequiresIco, def.RequiresDataBox, def.RequiresFounder, def.RequiresTeachingLanguage));
+                logger.LogInformation("Organization seed created child registry matrix {Code}.", def.Code);
+            }
+        }
+    }
+
+    private async Task EnsureChildCapacityMatricesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var def in ChildCapacityMatrices)
+        {
+            var exists = await dbContext.OrganizationCapacityMatrixEntries.AnyAsync(x => x.Id == def.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.OrganizationCapacityMatrixEntries.Add(OrganizationCapacityMatrixEntry.Create(
+                    def.Id, def.ParentScopeMatrixId, def.Code, def.TranslationKey, def.CapacityType, def.IsRequired));
+                logger.LogInformation("Organization seed created child capacity matrix {Code}.", def.Code);
+            }
+        }
+    }
+
+    private async Task EnsureChildAcademicStructureMatricesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var def in ChildAcademicStructureMatrices)
+        {
+            var exists = await dbContext.OrganizationAcademicStructureMatrixEntries.AnyAsync(x => x.Id == def.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.OrganizationAcademicStructureMatrixEntries.Add(OrganizationAcademicStructureMatrixEntry.Create(
+                    def.Id, def.ParentScopeMatrixId, def.Code, def.TranslationKey, def.UsesSubjects, def.UsesFieldOfStudy, def.SubjectIsClassBound, def.FieldOfStudyIsRequired));
+                logger.LogInformation("Organization seed created child academic structure matrix {Code}.", def.Code);
+            }
+        }
+    }
+
+    private async Task EnsureChildAssignmentMatricesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var def in ChildAssignmentMatrices)
+        {
+            var exists = await dbContext.OrganizationAssignmentMatrixEntries.AnyAsync(x => x.Id == def.Id, cancellationToken);
+            if (!exists)
+            {
+                dbContext.OrganizationAssignmentMatrixEntries.Add(OrganizationAssignmentMatrixEntry.Create(
+                    def.Id, def.ParentScopeMatrixId, def.Code, def.TranslationKey, def.AllowsClassRoomAssignment, def.AllowsGroupAssignment, def.AllowsSubjectAssignment, def.StudentRequiresClassPlacement, def.StudentRequiresGroupPlacement));
+                logger.LogInformation("Organization seed created child assignment matrix {Code}.", def.Code);
+            }
+        }
+    }
+
     private sealed record SchoolOperatorDefinition(Guid Id, string LegalEntityName, LegalForm LegalForm, string? CompanyNumberIco, string? RedIzo, Address RegisteredOfficeAddress, string? OperatorEmail, string? DataBox, string? ResortIdentifier, string? DirectorSummary, string? StatutoryBodySummary);
     private sealed record FounderDefinition(Guid Id, FounderType FounderType, FounderCategory FounderCategory, string FounderName, LegalForm FounderLegalForm, string? FounderIco, Address FounderAddress, string? FounderEmail, string? FounderDataBox);
     private sealed record SchoolDefinition(Guid Id, string Name, SchoolType SchoolType, SchoolKind SchoolKind, string? SchoolIzo, string? SchoolEmail, string? SchoolPhone, string? SchoolWebsite, Address MainAddress, string? EducationLocationsSummary, DateOnly? RegistryEntryDate, DateOnly? EducationStartDate, int? MaxStudentCapacity, string? TeachingLanguage, Guid SchoolOperatorId, Guid FounderId, PlatformStatus PlatformStatus);
@@ -878,6 +1084,14 @@ public sealed class OrganizationDevelopmentSeeder(
     private sealed record AllowedUserManagementFlowDefinition(Guid Id, Guid MatrixId, UserManagementFlowCode FlowCode, string TranslationKey);
     private sealed record AllowedOrganizationSectionDefinition(Guid Id, Guid MatrixId, OrganizationSectionCode SectionCode, string TranslationKey);
     private sealed record AllowedAcademicsSectionDefinition(Guid Id, Guid MatrixId, AcademicsSectionCode SectionCode, string TranslationKey);
+    private sealed record SchoolPlaceOfEducationDefinition(Guid Id, Guid SchoolId, string Name, Address Address, string? Description, bool IsPrimary);
+    private sealed record SchoolCapacityDefinition(Guid Id, Guid SchoolId, SchoolCapacityType CapacityType, int MaxCapacity, string? Description);
+    private sealed record RoleDefinitionSeedDef(Guid Id, string RoleCode, string TranslationKey, RoleScopeType ScopeType, bool IsBootstrapAllowed, bool IsCreateUserFlowAllowed, bool IsUserManagementAllowed, int SortOrder);
+    private sealed record ChildSchoolStructureMatrixDef(Guid Id, Guid ParentScopeMatrixId, string Code, string TranslationKey, bool UsesGradeLevels, bool UsesClasses, bool UsesGroups, bool GroupIsPrimaryStructure);
+    private sealed record ChildRegistryMatrixDef(Guid Id, Guid ParentScopeMatrixId, string Code, string TranslationKey, bool RequiresIzo, bool RequiresRedIzo, bool RequiresIco, bool RequiresDataBox, bool RequiresFounder, bool RequiresTeachingLanguage);
+    private sealed record ChildCapacityMatrixDef(Guid Id, Guid ParentScopeMatrixId, string Code, string TranslationKey, SchoolCapacityType CapacityType, bool IsRequired);
+    private sealed record ChildAcademicStructureMatrixDef(Guid Id, Guid ParentScopeMatrixId, string Code, string TranslationKey, bool UsesSubjects, bool UsesFieldOfStudy, bool SubjectIsClassBound, bool FieldOfStudyIsRequired);
+    private sealed record ChildAssignmentMatrixDef(Guid Id, Guid ParentScopeMatrixId, string Code, string TranslationKey, bool AllowsClassRoomAssignment, bool AllowsGroupAssignment, bool AllowsSubjectAssignment, bool StudentRequiresClassPlacement, bool StudentRequiresGroupPlacement);
 
     private enum SeedState
     {

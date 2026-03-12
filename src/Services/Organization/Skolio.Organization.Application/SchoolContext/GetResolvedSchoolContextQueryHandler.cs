@@ -27,13 +27,22 @@ public sealed class GetResolvedSchoolContextQueryHandler(IOrganizationReadStore 
 
         var override_ = await readStore.GetSchoolScopeOverrideAsync(request.SchoolId, cancellationToken);
 
-        return Resolve(school, matrix, override_);
+        var structureMatrix = await readStore.GetSchoolStructureMatrixByMatrixIdAsync(matrix.Id, cancellationToken);
+        var registryMatrix = await readStore.GetRegistryMatrixByMatrixIdAsync(matrix.Id, cancellationToken);
+        var academicMatrix = await readStore.GetAcademicStructureMatrixByMatrixIdAsync(matrix.Id, cancellationToken);
+        var assignmentMatrix = await readStore.GetAssignmentMatrixByMatrixIdAsync(matrix.Id, cancellationToken);
+
+        return Resolve(school, matrix, override_, structureMatrix, registryMatrix, academicMatrix, assignmentMatrix);
     }
 
     private static ResolvedSchoolContextContract Resolve(
         School school,
         SchoolContextScopeMatrix matrix,
-        SchoolScopeOverride? scopeOverride)
+        SchoolScopeOverride? scopeOverride,
+        OrganizationSchoolStructureMatrixEntry? structureMatrix,
+        OrganizationRegistryMatrixEntry? registryMatrix,
+        OrganizationAcademicStructureMatrixEntry? academicMatrix,
+        OrganizationAssignmentMatrixEntry? assignmentMatrix)
     {
         bool GetCapability(ScopeCapabilityCode code)
             => matrix.Capabilities.FirstOrDefault(c => c.CapabilityCode == code)?.IsEnabled ?? false;
@@ -46,6 +55,41 @@ public sealed class GetResolvedSchoolContextQueryHandler(IOrganizationReadStore 
         bool usesAttendance = ApplyOverride(GetCapability(ScopeCapabilityCode.UsesAttendance), scopeOverride?.OverrideUsesAttendance);
         bool usesGrades = ApplyOverride(GetCapability(ScopeCapabilityCode.UsesGrades), scopeOverride?.OverrideUsesGrades);
         bool usesHomework = ApplyOverride(GetCapability(ScopeCapabilityCode.UsesHomework), scopeOverride?.OverrideUsesHomework);
+
+        var resolvedStructure = structureMatrix is not null
+            ? new ResolvedSchoolStructureContract(
+                structureMatrix.UsesGradeLevels,
+                structureMatrix.UsesClasses,
+                structureMatrix.UsesGroups,
+                structureMatrix.GroupIsPrimaryStructure)
+            : null;
+
+        var resolvedRegistry = registryMatrix is not null
+            ? new ResolvedRegistryContract(
+                registryMatrix.RequiresIzo,
+                registryMatrix.RequiresRedIzo,
+                registryMatrix.RequiresIco,
+                registryMatrix.RequiresDataBox,
+                registryMatrix.RequiresFounder,
+                registryMatrix.RequiresTeachingLanguage)
+            : null;
+
+        var resolvedAcademic = academicMatrix is not null
+            ? new ResolvedAcademicStructureContract(
+                academicMatrix.UsesSubjects,
+                academicMatrix.UsesFieldOfStudy,
+                academicMatrix.SubjectIsClassBound,
+                academicMatrix.FieldOfStudyIsRequired)
+            : null;
+
+        var resolvedAssignment = assignmentMatrix is not null
+            ? new ResolvedAssignmentContract(
+                assignmentMatrix.AllowsClassRoomAssignment,
+                assignmentMatrix.AllowsGroupAssignment,
+                assignmentMatrix.AllowsSubjectAssignment,
+                assignmentMatrix.StudentRequiresClassPlacement,
+                assignmentMatrix.StudentRequiresGroupPlacement)
+            : null;
 
         return new ResolvedSchoolContextContract(
             SchoolId: school.Id,
@@ -65,7 +109,11 @@ public sealed class GetResolvedSchoolContextQueryHandler(IOrganizationReadStore 
             AllowedUserManagementFlows: matrix.AllowedUserManagementFlows.Select(f => f.FlowCode.ToString()).ToList().AsReadOnly(),
             AllowedOrganizationSections: matrix.AllowedOrganizationSections.Select(s => s.SectionCode.ToString()).ToList().AsReadOnly(),
             AllowedAcademicsSections: matrix.AllowedAcademicsSections.Select(s => s.SectionCode.ToString()).ToList().AsReadOnly(),
-            HasSchoolScopeOverride: scopeOverride is not null);
+            HasSchoolScopeOverride: scopeOverride is not null,
+            SchoolStructure: resolvedStructure,
+            Registry: resolvedRegistry,
+            AcademicStructure: resolvedAcademic,
+            Assignment: resolvedAssignment);
     }
 
     /// <summary>
