@@ -52,7 +52,9 @@ export function createHttpClient(config: SkolioBootstrapConfig) {
   return async function request<T>(service: 'identity' | 'organization' | 'academics' | 'communication' | 'administration', path: string, init?: RequestInit): Promise<T> {
     const session = loadSession();
     const headers = new Headers(init?.headers);
-    headers.set('Content-Type', 'application/json');
+    if (init?.body !== undefined) {
+      headers.set('Content-Type', 'application/json');
+    }
     if (session) headers.set('Authorization', `Bearer ${session.accessToken}`);
 
     let response: Response;

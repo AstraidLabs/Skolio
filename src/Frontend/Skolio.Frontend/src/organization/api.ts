@@ -216,7 +216,20 @@ export type StudentContext = {
   secondaryFieldsOfStudy: SecondaryFieldOfStudy[];
 };
 
-type PagedResult<T> = { items: T[]; pageNumber: number; pageSize: number; totalCount: number };
+type PagedResult<T> = {
+  items?: T[];
+  pageNumber?: number;
+  pageSize?: number;
+  totalCount?: number;
+  Items?: T[];
+  PageNumber?: number;
+  PageSize?: number;
+  TotalCount?: number;
+};
+
+function getPagedItems<T>(result: PagedResult<T>): T[] {
+  return result.items ?? result.Items ?? [];
+}
 
 function normalizeSchool(school: School): School {
   return {
@@ -231,11 +244,13 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
   return {
     schools: async (query?: { search?: string; schoolType?: string; isActive?: boolean }) => {
       const params = new URLSearchParams();
+      params.set('pageNumber', '1');
+      params.set('pageSize', '200');
       if (query?.search) params.set('search', query.search);
-      if (query?.schoolType) params.set('schoolType', query.schoolType);
+      if (query?.schoolType) params.set('schoolType', normalizeSchoolType(query.schoolType));
       if (typeof query?.isActive === 'boolean') params.set('isActive', String(query.isActive));
-      const result = await http<PagedResult<School>>('organization', `/api/organization/schools${params.size > 0 ? `?${params.toString()}` : ''}`);
-      return result.items.map(normalizeSchool);
+      const result = await http<PagedResult<School>>('organization', `/api/organization/schools?${params.toString()}`);
+      return getPagedItems(result).map(normalizeSchool);
     },
     school: async (id: string) => normalizeSchool(await http<School>('organization', `/api/organization/schools/${id}`)),
     createSchool: async (payload: SchoolMutation) => normalizeSchool(await http<School>('organization', '/api/organization/schools', { method: 'POST', body: JSON.stringify(payload) })),
@@ -257,7 +272,7 @@ export function createOrganizationApi(http: ReturnType<typeof createHttpClient>)
     overrideTeachingGroup: (id: string, payload: { classRoomId?: string; name: string; isDailyOperationsGroup: boolean; overrideReason: string }) => http<TeachingGroup>('organization', `/api/organization/teaching-groups/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),
     subjects: async (schoolId: string) => {
       const result = await http<PagedResult<Subject>>('organization', `/api/organization/subjects?schoolId=${schoolId}`);
-      return result.items;
+      return getPagedItems(result);
     },
     createSubject: (payload: Omit<Subject, 'id'>) => http<Subject>('organization', '/api/organization/subjects', { method: 'POST', body: JSON.stringify(payload) }),
     overrideSubject: (id: string, payload: { code: string; name: string; overrideReason: string }) => http<Subject>('organization', `/api/organization/subjects/${id}/override`, { method: 'PUT', body: JSON.stringify(payload) }),

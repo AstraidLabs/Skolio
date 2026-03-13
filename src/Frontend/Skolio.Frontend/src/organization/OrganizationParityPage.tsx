@@ -16,6 +16,7 @@ import type {
 import { OrganizationContextSwitcher } from './OrganizationContextSwitcher';
 import { OrganizationSchoolIdentityCard } from './OrganizationSchoolIdentityCard';
 import { getPlatformStatusLabel, getSchoolTypeLabel } from './schoolLabels';
+import { SkolioHttpError } from '../shared/http/httpClient';
 import { Card, SectionHeader, StatusBadge } from '../shared/ui/primitives';
 import { ErrorState, LoadingState } from '../shared/ui/states';
 import { useClientGrid } from './hooks/useClientGrid';
@@ -208,18 +209,34 @@ export function OrganizationParityPage({
       return;
     }
 
+    const allowForbiddenEmpty = async <T,>(request: Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await request;
+      } catch (nextError) {
+        if (nextError instanceof SkolioHttpError && nextError.status === 403) {
+          return fallback;
+        }
+
+        throw nextError;
+      }
+    };
+
     const teacherAssignmentsPromise = canManageOrganization
-      ? api.teacherAssignments(schoolId)
+      ? allowForbiddenEmpty(api.teacherAssignments(schoolId), [] as TeacherAssignment[])
       : canTeacherScopedOrganization
-        ? api.myTeacherAssignments(schoolId)
+        ? allowForbiddenEmpty(api.myTeacherAssignments(schoolId), [] as TeacherAssignment[])
         : Promise.resolve([] as TeacherAssignment[]);
 
+    const gradeLevelsPromise = canManageOrganization
+      ? allowForbiddenEmpty(api.gradeLevels(schoolId), [] as GradeLevel[])
+      : Promise.resolve([] as GradeLevel[]);
+
     const [nextSchoolYears, nextGradeLevels, nextClassRooms, nextTeachingGroups, nextSubjects, nextAssignments] = await Promise.all([
-      api.schoolYears(schoolId),
-      api.gradeLevels(schoolId),
-      api.classRooms(schoolId),
-      api.teachingGroups(schoolId),
-      api.subjects(schoolId),
+      allowForbiddenEmpty(api.schoolYears(schoolId), [] as SchoolYear[]),
+      gradeLevelsPromise,
+      allowForbiddenEmpty(api.classRooms(schoolId), [] as ClassRoom[]),
+      allowForbiddenEmpty(api.teachingGroups(schoolId), [] as TeachingGroup[]),
+      allowForbiddenEmpty(api.subjects(schoolId), [] as Subject[]),
       teacherAssignmentsPromise
     ]);
 
@@ -254,14 +271,13 @@ export function OrganizationParityPage({
     }
 
     void api.schools()
-      .then(async (result) => {
+      .then((result) => {
         setSchools(result);
         const scopedSchoolId = session.schoolIds[0] ?? result[0]?.id ?? '';
         const nextSchoolId = activeSchoolId && result.some((school) => school.id === activeSchoolId)
           ? activeSchoolId
           : scopedSchoolId;
         setActiveSchoolId(nextSchoolId);
-        await loadSchoolBoundaries(nextSchoolId);
       })
       .catch((nextError: Error) => setError(nextError.message))
       .finally(() => setLoading(false));
@@ -274,12 +290,12 @@ export function OrganizationParityPage({
   }, [initialView]);
 
   useEffect(() => {
-    if (isStudent || !activeSchoolId) {
+    if (isStudent || !activeSchoolId || schools.length === 0 || !schools.some((school) => school.id === activeSchoolId)) {
       return;
     }
 
     void loadSchoolBoundaries(activeSchoolId).catch((nextError: Error) => setError(nextError.message));
-  }, [activeSchoolId, canManageOrganization, canTeacherScopedOrganization, isStudent]);
+  }, [activeSchoolId, canManageOrganization, canTeacherScopedOrganization, isStudent, schools]);
 
   const currentSchool = schools.find((school) => school.id === activeSchoolId) ?? schools[0] ?? null;
   const gradeLevelNameById = useMemo(
