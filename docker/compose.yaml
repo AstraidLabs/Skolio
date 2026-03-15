@@ -11,7 +11,7 @@ services:
       ServiceEndpoints__OidcClientId: skolio-frontend
       ServiceEndpoints__OidcRedirectUri: http://localhost:8080/auth/callback
       ServiceEndpoints__OidcPostLogoutRedirectUri: http://localhost:8080/
-      ServiceEndpoints__OidcScope: openid profile skolio_api
+      ServiceEndpoints__OidcScope: openid profile skolio_api offline_access
       ServiceEndpoints__OrganizationApi: http://localhost:8082
       ServiceEndpoints__AcademicsApi: http://localhost:8083
       ServiceEndpoints__CommunicationApi: http://localhost:8084
@@ -48,7 +48,7 @@ services:
       Identity__Service__PublicBaseUrl: http://identity-api:8080
       Identity__OpenIddict__Issuer: http://localhost:8081
       Identity__Jwt__AccessTokenLifetime: 00:30:00
-      Identity__Jwt__IssueRefreshTokens: false
+      Identity__Jwt__IssueRefreshTokens: true
       Identity__Jwks__DiscoveryPath: /.well-known/jwks.json
       Identity__Jwks__KeySetId: skolio-identity-signing-k1
       Identity__Signing__UseDevelopmentCertificate: true

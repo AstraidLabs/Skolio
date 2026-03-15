@@ -138,7 +138,7 @@ public sealed class IdentityAuthSeeder(
         var descriptor = new OpenIddictApplicationDescriptor
         {
             ClientId = oidcOptions.FrontendClient.ClientId,
-            ConsentType = OpenIddictConstants.ConsentTypes.Explicit,
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
             DisplayName = oidcOptions.FrontendClient.DisplayName,
             ClientType = OpenIddictConstants.ClientTypes.Public
         };
@@ -159,9 +159,11 @@ public sealed class IdentityAuthSeeder(
             OpenIddictConstants.Permissions.Endpoints.Token,
             OpenIddictConstants.Permissions.Endpoints.EndSession,
             OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+            OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
             OpenIddictConstants.Permissions.ResponseTypes.Code,
             OpenIddictConstants.Permissions.Scopes.Profile,
-            OpenIddictConstants.Permissions.Prefixes.Scope + "skolio_api"
+            OpenIddictConstants.Permissions.Prefixes.Scope + "skolio_api",
+            OpenIddictConstants.Permissions.Prefixes.Scope + OpenIddictConstants.Scopes.OfflineAccess
         });
 
         descriptor.Requirements.Add(OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange);

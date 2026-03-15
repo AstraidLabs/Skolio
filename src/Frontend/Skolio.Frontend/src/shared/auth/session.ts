@@ -3,6 +3,7 @@ export type SchoolType = 'Kindergarten' | 'ElementarySchool' | 'SecondarySchool'
 
 export type SessionState = {
   accessToken: string;
+  refreshToken: string | null;
   expiresAtUtc: number;
   subject: string;
   roles: string[];

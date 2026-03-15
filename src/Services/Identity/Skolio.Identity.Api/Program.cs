@@ -18,7 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOptions<IdentityServiceOptions>().Bind(builder.Configuration.GetSection(IdentityServiceOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<BootstrapOptions>().Bind(builder.Configuration.GetSection(BootstrapOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddIdentityApplication();
-builder.Services.AddIdentityInfrastructure(builder.Configuration);
+builder.Services.AddIdentityInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 builder.Services.Configure<ApiBehaviorOptions>(options =>

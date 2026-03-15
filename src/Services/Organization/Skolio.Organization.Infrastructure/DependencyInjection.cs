@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Skolio.Organization.Application.Abstractions;
+using Skolio.Organization.Infrastructure.Auth;
 using Skolio.Organization.Infrastructure.Configuration;
 using Skolio.Organization.Infrastructure.Persistence;
 using Skolio.Organization.Infrastructure.Seeding;
@@ -35,6 +36,8 @@ public static class DependencyInjection
         services.AddDbContext<OrganizationDbContext>(options =>
             options.UseNpgsql(databaseOptions.ConnectionString, npgsql => npgsql.MigrationsAssembly(typeof(AssemblyMarker).Assembly.FullName)));
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserContext, ClaimsCurrentUserContext>();
         services.AddScoped<IOrganizationCommandStore, OrganizationCommandStore>();
         services.AddScoped<IOrganizationReadStore, OrganizationReadStore>();
 

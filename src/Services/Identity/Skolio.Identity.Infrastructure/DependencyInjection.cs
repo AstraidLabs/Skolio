@@ -17,7 +17,7 @@ namespace Skolio.Identity.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment = false)
     {
         services.AddOptions<IdentityDatabaseOptions>().Bind(configuration.GetSection(IdentityDatabaseOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<IdentityRedisOptions>().Bind(configuration.GetSection(IdentityRedisOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
@@ -91,7 +91,7 @@ public static class DependencyInjection
                 options.SetEndSessionEndpointUris("/connect/logout");
                 options.AllowAuthorizationCodeFlow();
                 options.RequireProofKeyForCodeExchange();
-                options.RegisterScopes(OpenIddictConstants.Scopes.OpenId, OpenIddictConstants.Scopes.Profile, "skolio_api");
+                options.RegisterScopes(OpenIddictConstants.Scopes.OpenId, OpenIddictConstants.Scopes.Profile, OpenIddictConstants.Scopes.OfflineAccess, "skolio_api");
                 options.DisableAccessTokenEncryption();
                 options.SetAccessTokenLifetime(TimeSpan.Parse(jwtOptions.AccessTokenLifetime));
                 if (jwtOptions.IssueRefreshTokens)
@@ -115,12 +115,16 @@ public static class DependencyInjection
                     options.AddSigningCertificate(certificate);
                 }
 
-                options.UseAspNetCore()
+                var aspNetCoreOptions = options.UseAspNetCore()
                     .EnableAuthorizationEndpointPassthrough()
                     .EnableTokenEndpointPassthrough()
                     .EnableEndSessionEndpointPassthrough()
-                    .EnableUserInfoEndpointPassthrough()
-                    .DisableTransportSecurityRequirement();
+                    .EnableUserInfoEndpointPassthrough();
+
+                if (isDevelopment)
+                {
+                    aspNetCoreOptions.DisableTransportSecurityRequirement();
+                }
             })
             .AddValidation(options =>
             {

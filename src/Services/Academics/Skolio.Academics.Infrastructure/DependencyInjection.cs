@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Skolio.Academics.Application.Abstractions;
+using Skolio.Academics.Infrastructure.Auth;
 using Skolio.Academics.Infrastructure.Configuration;
 using Skolio.Academics.Infrastructure.Persistence;
 using Skolio.Academics.Infrastructure.Services;
@@ -22,6 +23,8 @@ public static class DependencyInjection
         var redisOptions = configuration.GetSection(AcademicsRedisOptions.SectionName).Get<AcademicsRedisOptions>() ?? throw new InvalidOperationException("Missing AcademicsRedisOptions configuration.");
 
         services.AddDbContext<AcademicsDbContext>(options => options.UseNpgsql(databaseOptions.ConnectionString, npgsql => npgsql.MigrationsAssembly(typeof(AssemblyMarker).Assembly.FullName)));
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserContext, ClaimsCurrentUserContext>();
         services.AddScoped<IAcademicsCommandStore, AcademicsCommandStore>();
         services.AddSingleton<IAcademicsClock, SystemAcademicsClock>();
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions

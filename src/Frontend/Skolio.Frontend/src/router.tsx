@@ -6,7 +6,9 @@ import { createAcademicsApi } from './academics/api';
 import { createCommunicationApi } from './communication/api';
 import { createIdentityApi, type BootstrapAvailability, type MyProfileSummary } from './identity/api';
 import { createOrganizationApi } from './organization/api';
-import { clearPkce, clearSession, extractRolesFromClaims, loadPkce, loadSession, parseJwt, persistPkce, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
+import { clearSession, loadSession, persistSession, type SchoolType, type SessionState } from './shared/auth/session';
+import { type UserManager } from 'oidc-client-ts';
+import { buildSessionFromUser, createUserManager } from './shared/auth/oidcClient';
 import { createHttpClient, SkolioHttpError } from './shared/http/httpClient';
 import { Card, SectionHeader, StatusBadge, WidgetGrid } from './shared/ui/primitives';
 import { EmptyState, ErrorState, LoadingState } from './shared/ui/states';
@@ -65,6 +67,7 @@ export function RouterShell({ config }: RouterProps) {
   const [profileSummary, setProfileSummary] = useState<MyProfileSummary | null>(null);
   const [idleWarningSecondsLeft, setIdleWarningSecondsLeft] = useState<number | null>(null);
   const idleLogoutStartedRef = useRef(false);
+  const userManager = useMemo(() => createUserManager(config), [config]);
 
   useEffect(() => {
     const onPop = () => setRoute(resolveCurrentRoute());
@@ -77,6 +80,19 @@ export function RouterShell({ config }: RouterProps) {
       window.removeEventListener('skolio:auth-expired', onExpired);
     };
   }, []);
+
+  useEffect(() => {
+    const onUserLoaded = () => {
+      void userManager.getUser().then((user) => {
+        if (!user) return;
+        const updated = buildSessionFromUser(user);
+        persistSession(updated);
+        setSession(updated);
+      });
+    };
+    userManager.events.addUserLoaded(onUserLoaded);
+    return () => { userManager.events.removeUserLoaded(onUserLoaded); };
+  }, [userManager]);
 
   const http = useMemo(() => createHttpClient(config), [config]);
   const apis = useMemo(() => ({
@@ -146,7 +162,7 @@ export function RouterShell({ config }: RouterProps) {
       idleLogoutStartedRef.current = true;
       sessionStorage.setItem(logoutReasonStorageKey, 'idle');
       localStorage.setItem(idleLogoutStorageKey, `${Date.now()}:idle`);
-      beginLogout(config, setSession, 'idle');
+      beginLogout(userManager, setSession, 'idle');
     };
 
     const checkTimer = window.setInterval(() => {
@@ -193,11 +209,11 @@ export function RouterShell({ config }: RouterProps) {
   }
 
   if (route === '/login') {
-    return <IdentityLoginPage config={config} />;
+    return <IdentityLoginPage onSignIn={() => { void userManager.signinRedirect(); }} />;
   }
 
   if (route === '/auth/callback') {
-    return <AuthCallbackPage config={config} onSession={setSession} />;
+    return <AuthCallbackPage userManager={userManager} onSession={setSession} />;
   }
 
   if (route === '/security/forgot-password') {
@@ -239,12 +255,12 @@ export function RouterShell({ config }: RouterProps) {
   }
 
   if (!session) {
-    return <LandingPage onSignIn={() => { void beginLogin(config); }} />;
+    return <LandingPage onSignIn={() => { void userManager.signinRedirect(); }} />;
   }
 
   if (Date.now() > session.expiresAtUtc) {
     clearSession();
-    return <LandingPage onSignIn={() => { void beginLogin(config); }} />;
+    return <LandingPage onSignIn={() => { void userManager.signinRedirect(); }} />;
   }
 
   const nav = navigationFor(session.roles, session.schoolType);
@@ -263,7 +279,7 @@ export function RouterShell({ config }: RouterProps) {
       nav={nav}
       active={active}
       onNavigate={(nextRoute) => navigateTo(nextRoute, setRoute)}
-      onLogout={() => beginLogout(config, setSession, 'manual')}
+      onLogout={() => beginLogout(userManager, setSession, 'manual')}
       profileDisplayName={profileName}
       profileContext={profileContext}
       pageTitle={labelForRoute(active, t)}
@@ -299,7 +315,7 @@ export function RouterShell({ config }: RouterProps) {
             localStorage.setItem(idleActivityStorageKey, Date.now().toString());
             setIdleWarningSecondsLeft(null);
           }}
-          onLogout={() => beginLogout(config, setSession, 'manual')}
+          onLogout={() => beginLogout(userManager, setSession, 'manual')}
         />
       ) : null}
     </AppLayoutShell>
@@ -1045,7 +1061,7 @@ function IdentityPage({ api, session }: { api: ReturnType<typeof createIdentityA
   return <section className="space-y-3"><SectionHeader title={t('identityTitle')} />{error && <ErrorState text={error} />}{profile ? <Card><p className="text-sm">{profile.firstName} {profile.lastName} ({profile.email})</p></Card> : <EmptyState text="No identity profile available in current scope." />}</section>;
 }
 
-function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
+function IdentityLoginPage({ onSignIn }: { onSignIn: () => void }) {
   const { t } = useI18n();
   const query = new URLSearchParams(window.location.search);
   const returnUrl = query.get('returnUrl');
@@ -1073,9 +1089,9 @@ function IdentityLoginPage({ config }: { config: SkolioBootstrapConfig }) {
 
   useEffect(() => {
     if (!returnUrl) {
-      void beginLogin(config);
+      onSignIn();
     }
-  }, [config, returnUrl]);
+  }, [onSignIn, returnUrl]);
 
   useEffect(() => {
     if (idleLogoutInfo) {
@@ -1434,13 +1450,13 @@ function IdleTimeoutWarning({
   );
 }
 
-function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig; onSession: (state: SessionState | null) => void }) {
+function AuthCallbackPage({ userManager, onSession }: { userManager: UserManager; onSession: (state: SessionState | null) => void }) {
   const { t } = useI18n();
   const [status, setStatus] = useState(t('processingCallback'));
 
   useEffect(() => {
     setStatus(t('processingCallback'));
-    void completeAuthorizationCodeFlow(config, t)
+    void completeAuthorizationCodeFlow(userManager)
       .then((nextSession) => {
         localStorage.setItem(loginSeenStorageKey, 'true');
         localStorage.setItem(idleActivityStorageKey, Date.now().toString());
@@ -1455,7 +1471,7 @@ function AuthCallbackPage({ config, onSession }: { config: SkolioBootstrapConfig
         const message = error instanceof Error ? error.message : 'unknown error';
         setStatus(`${t('authFailed')}: ${message}`);
       });
-  }, [config, onSession, t]);
+  }, [userManager, onSession, t]);
 
   return <section className="text-sm text-slate-700">{status}</section>;
 }
@@ -1713,47 +1729,12 @@ function labelForRoute(route: AppRoute, t: ReturnType<typeof useI18n>['t']) {
   return route;
 }
 
-async function completeAuthorizationCodeFlow(config: SkolioBootstrapConfig, t: ReturnType<typeof useI18n>['t']): Promise<SessionState> {
-  const callback = new URL(window.location.href);
-  const code = callback.searchParams.get('code');
-  const state = callback.searchParams.get('state');
-  const pkce = loadPkce();
-
-  if (!code || !pkce) throw new Error(t('missingAuthState'));
-  if (pkce.state !== state) throw new Error(t('stateValidationFailed'));
-
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: config.oidcClientId,
-    code,
-    redirect_uri: config.oidcRedirectUri,
-    code_verifier: pkce.verifier
-  });
-
-  const response = await fetch(`${config.identityAuthority}/connect/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
-  });
-
-  if (!response.ok) throw new Error(t('tokenExchangeFailed', { status: response.status }));
-
-  const token = (await response.json()) as { access_token: string; expires_in: number };
-  const claims = parseJwt(token.access_token);
-  clearPkce();
-
-  return {
-    accessToken: token.access_token,
-    expiresAtUtc: Date.now() + token.expires_in * 1000,
-    subject: claims.sub ?? 'unknown',
-    roles: extractRolesFromClaims(claims),
-    schoolType: (claims['school_type'] as SchoolType) ?? 'ElementarySchool',
-    schoolIds: Array.isArray(claims['school_id']) ? claims['school_id'] as string[] : claims['school_id'] ? [claims['school_id'] as string] : [],
-    linkedStudentIds: Array.isArray(claims['linked_student_id']) ? claims['linked_student_id'] as string[] : claims['linked_student_id'] ? [claims['linked_student_id'] as string] : []
-  };
+async function completeAuthorizationCodeFlow(userManager: UserManager): Promise<SessionState> {
+  const user = await userManager.signinRedirectCallback();
+  return buildSessionFromUser(user);
 }
 
-function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionState | null) => void, reason: 'manual' | 'idle' = 'manual') {
+function beginLogout(userManager: UserManager, onSession: (state: SessionState | null) => void, reason: 'manual' | 'idle' = 'manual') {
   if (reason === 'idle') {
     sessionStorage.setItem(logoutReasonStorageKey, 'idle');
   }
@@ -1762,13 +1743,7 @@ function beginLogout(config: SkolioBootstrapConfig, onSession: (state: SessionSt
   clearSession();
   onSession(null);
 
-  const params = new URLSearchParams({
-    post_logout_redirect_uri: config.oidcPostLogoutRedirectUri,
-    client_id: config.oidcClientId,
-    logoutReason: reason
-  });
-
-  window.location.href = `${config.identityAuthority}/connect/logout?${params.toString()}`;
+  void userManager.signoutRedirect({ extraQueryParams: { logoutReason: reason } });
 }
 
 function navigateTo(route: AppRoute, onNavigate: (r: AppRoute) => void) {
@@ -1797,36 +1772,6 @@ function resolveCurrentRoute(): AppRoute | '/auth/callback' {
   return normalizedPath as AppRoute | '/auth/callback';
 }
 
-function randomString() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
-}
-
-async function sha256ToBase64Url(value: string) {
-  const encoded = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', encoded);
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function beginLogin(config: SkolioBootstrapConfig) {
-  const verifier = randomString();
-  const state = randomString();
-  const challenge = await sha256ToBase64Url(verifier);
-  persistPkce(verifier, state);
-
-  const params = new URLSearchParams({
-    client_id: config.oidcClientId,
-    response_type: 'code',
-    scope: config.oidcScope,
-    redirect_uri: config.oidcRedirectUri,
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-    state
-  });
-
-  window.location.href = `${config.identityAuthority}/connect/authorize?${params.toString()}`;
-}
 
 
 
