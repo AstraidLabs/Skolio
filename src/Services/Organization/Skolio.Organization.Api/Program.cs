@@ -37,6 +37,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.Authority = jwtOptions.Authority;
         options.Audience = jwtOptions.Audience;
         options.RequireHttpsMetadata = jwtOptions.RequireHttpsMetadata;
+        options.TokenValidationParameters.RoleClaimType = "role";
     });
 
 builder.Services.AddAuthorization(options =>
