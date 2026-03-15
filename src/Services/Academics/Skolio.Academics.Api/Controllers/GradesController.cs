@@ -3,7 +3,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Grades;
 using Skolio.Academics.Infrastructure.Persistence;

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Communication.Api.Auth;
 using Skolio.Communication.Api.Hubs;
 using Skolio.Communication.Application.Contracts;
 using Skolio.Communication.Application.Conversations;

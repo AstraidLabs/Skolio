@@ -1,8 +1,8 @@
 using System.Security.Claims;
 
-namespace Skolio.Organization.Api.Auth;
+namespace Skolio.Shared.Security;
 
-internal static class SchoolScope
+public static class SchoolScope
 {
     public static bool IsPlatformAdministrator(ClaimsPrincipal user) => user.IsInRole("PlatformAdministrator");
 
@@ -35,8 +35,7 @@ internal static class SchoolScope
     public static bool HasSchoolAccess(ClaimsPrincipal user, Guid schoolId)
     {
         if (IsPlatformAdministrator(user)) return true;
-        var scopedSchoolIds = GetScopedSchoolIds(user);
-        return scopedSchoolIds.Contains(schoolId);
+        return GetScopedSchoolIds(user).Contains(schoolId);
     }
 
     private static HashSet<Guid> GetScopedIds(ClaimsPrincipal user, string claimType)

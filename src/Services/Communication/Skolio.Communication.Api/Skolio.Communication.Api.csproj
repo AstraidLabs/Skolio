@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="../Skolio.Communication.Application/Skolio.Communication.Application.csproj" />
     <ProjectReference Include="../Skolio.Communication.Infrastructure/Skolio.Communication.Infrastructure.csproj" />
+    <ProjectReference Include="../../../../Shared/Skolio.Shared.Security/Skolio.Shared.Security.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />

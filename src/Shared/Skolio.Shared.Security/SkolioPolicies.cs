@@ -1,4 +1,4 @@
-namespace Skolio.Academics.Api.Auth;
+namespace Skolio.Shared.Security;
 
 public static class SkolioPolicies
 {

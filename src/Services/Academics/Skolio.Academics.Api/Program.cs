@@ -1,10 +1,9 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
 using Skolio.Academics.Api.Configuration;
+using Skolio.Shared.Security;
 using Skolio.Academics.Api.Diagnostics;
 using Skolio.Academics.Application;
 using Skolio.Academics.Domain.Exceptions;
@@ -18,17 +17,8 @@ builder.Services.AddOptions<JwtValidationOptions>().Bind(builder.Configuration.G
 var jwtOptions = builder.Configuration.GetSection(JwtValidationOptions.SectionName).Get<JwtValidationOptions>() ?? throw new InvalidOperationException("Missing Academics auth options.");
 builder.Services.AddAcademicsApplication();
 builder.Services.AddAcademicsInfrastructure(builder.Configuration);
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => { options.Authority = jwtOptions.Authority; options.Audience = jwtOptions.Audience; options.RequireHttpsMetadata = jwtOptions.RequireHttpsMetadata; options.TokenValidationParameters.RoleClaimType = "role"; });
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(SkolioPolicies.PlatformAdministration, policy => policy.RequireRole("PlatformAdministrator"));
-    options.AddPolicy(SkolioPolicies.SharedAdministration, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator"));
-    options.AddPolicy(SkolioPolicies.SchoolAdministrationOnly, policy => policy.RequireRole("SchoolAdministrator"));
-    options.AddPolicy(SkolioPolicies.TeacherOrSchoolAdministrationOnly, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher"));
-    options.AddPolicy(SkolioPolicies.ParentStudentTeacherRead, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"));
-    options.AddPolicy(SkolioPolicies.StudentSelfService, policy => policy.RequireRole("Student"));
-    options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
-});
+builder.Services.AddSkolioJwtBearer(jwtOptions.Authority, jwtOptions.Audience, jwtOptions.RequireHttpsMetadata);
+builder.Services.AddSkolioAuthorization();
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {

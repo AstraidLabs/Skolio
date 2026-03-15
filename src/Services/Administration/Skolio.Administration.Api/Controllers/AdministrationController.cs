@@ -3,7 +3,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Administration.Api.Auth;
 using Skolio.Administration.Application.AuditLogs;
 using Skolio.Administration.Application.Contracts;
 using Skolio.Administration.Application.FeatureToggles;

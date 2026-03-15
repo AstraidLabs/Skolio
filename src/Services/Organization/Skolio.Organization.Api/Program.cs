@@ -1,10 +1,9 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
 using Skolio.Organization.Api.Configuration;
+using Skolio.Shared.Security;
 using Skolio.Organization.Api.Diagnostics;
 using Skolio.Organization.Application;
 using Skolio.Organization.Domain.Exceptions;
@@ -31,25 +30,8 @@ var jwtOptions = builder.Configuration.GetSection(JwtValidationOptions.SectionNa
 builder.Services.AddOrganizationApplication();
 builder.Services.AddOrganizationInfrastructure(builder.Configuration);
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = jwtOptions.Authority;
-        options.Audience = jwtOptions.Audience;
-        options.RequireHttpsMetadata = jwtOptions.RequireHttpsMetadata;
-        options.TokenValidationParameters.RoleClaimType = "role";
-    });
-
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(SkolioPolicies.PlatformAdministration, policy => policy.RequireRole("PlatformAdministrator"));
-    options.AddPolicy(SkolioPolicies.SharedAdministration, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator"));
-    options.AddPolicy(SkolioPolicies.SchoolAdministrationOnly, policy => policy.RequireRole("SchoolAdministrator"));
-    options.AddPolicy(SkolioPolicies.TeacherOrSchoolAdministrationOnly, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher"));
-    options.AddPolicy(SkolioPolicies.ParentStudentTeacherRead, policy => policy.RequireRole("PlatformAdministrator", "SchoolAdministrator", "Teacher", "Parent", "Student"));
-    options.AddPolicy(SkolioPolicies.StudentSelfService, policy => policy.RequireRole("Student"));
-    options.AddPolicy(SkolioPolicies.PlatformAdminOverride, policy => policy.RequireRole("PlatformAdministrator"));
-});
+builder.Services.AddSkolioJwtBearer(jwtOptions.Authority, jwtOptions.Audience, jwtOptions.RequireHttpsMetadata);
+builder.Services.AddSkolioAuthorization();
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
