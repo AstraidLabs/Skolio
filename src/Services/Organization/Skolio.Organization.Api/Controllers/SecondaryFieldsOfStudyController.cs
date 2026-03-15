@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Domain.Entities;
 using Skolio.Organization.Domain.Enums;
@@ -15,7 +15,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class SecondaryFieldsOfStudyController(OrganizationDbContext dbContext, ILogger<SecondaryFieldsOfStudyController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<SecondaryFieldOfStudyContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -28,7 +28,7 @@ public sealed class SecondaryFieldsOfStudyController(OrganizationDbContext dbCon
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<SecondaryFieldOfStudyContract>> Create([FromBody] CreateSecondaryFieldOfStudyRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -46,7 +46,7 @@ public sealed class SecondaryFieldsOfStudyController(OrganizationDbContext dbCon
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<SecondaryFieldOfStudyContract>> Update(Guid id, [FromBody] UpdateSecondaryFieldOfStudyRequest request, CancellationToken cancellationToken)
     {
         var field = await dbContext.SecondaryFieldsOfStudy.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

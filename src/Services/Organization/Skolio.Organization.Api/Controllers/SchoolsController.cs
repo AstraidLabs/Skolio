@@ -4,7 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.Schools;
 using Skolio.Organization.Application.SchoolYears;
@@ -21,7 +21,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     private const int MaxPageSize = 200;
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<PagedResult<SchoolContract>>> List(
         [FromQuery] SchoolType? schoolType,
         [FromQuery] bool? isActive,
@@ -71,7 +71,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<SchoolContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, id))
@@ -88,7 +88,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     [ProducesResponseType(typeof(SchoolContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSchool([FromBody] CreateSchoolRequest request, CancellationToken cancellationToken)
     {
@@ -148,7 +148,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolContract>> UpdateSchool(Guid id, [FromBody] UpdateSchoolRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, id))
@@ -276,7 +276,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPut("{id:guid}/status")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     public async Task<ActionResult<SchoolContract>> SetStatus(Guid id, [FromBody] SetSchoolStatusRequest request, CancellationToken cancellationToken)
     {
         var school = await dbContext.Schools
@@ -305,7 +305,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPut("{id:guid}/school-administrator")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     public async Task<ActionResult<SchoolContract>> AssignSchoolAdministrator(Guid id, [FromBody] AssignSchoolAdministratorRequest request, CancellationToken cancellationToken)
     {
         var school = await dbContext.Schools
@@ -326,7 +326,7 @@ public sealed class SchoolsController(IMediator mediator, OrganizationDbContext 
     }
 
     [HttpPost("{id:guid}/initial-school-year")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolYearContract>> CreateInitialSchoolYear(Guid id, [FromBody] CreateInitialSchoolYearRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, id))

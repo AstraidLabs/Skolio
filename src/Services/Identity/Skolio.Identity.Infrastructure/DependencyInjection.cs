@@ -11,6 +11,7 @@ using Skolio.Identity.Infrastructure.Configuration;
 using Skolio.Identity.Infrastructure.Delivery;
 using Skolio.Identity.Infrastructure.Persistence;
 using Skolio.Identity.Infrastructure.Seeding;
+using Skolio.ServiceDefaults.Authentication.ClientCredentials;
 using StackExchange.Redis;
 
 namespace Skolio.Identity.Infrastructure;
@@ -90,8 +91,9 @@ public static class DependencyInjection
                 options.SetUserInfoEndpointUris("/connect/userinfo");
                 options.SetEndSessionEndpointUris("/connect/logout");
                 options.AllowAuthorizationCodeFlow();
+                options.AllowClientCredentialsFlow();
                 options.RequireProofKeyForCodeExchange();
-                options.RegisterScopes(OpenIddictConstants.Scopes.OpenId, OpenIddictConstants.Scopes.Profile, "skolio_api");
+                options.RegisterScopes(OpenIddictConstants.Scopes.OpenId, OpenIddictConstants.Scopes.Profile, "skolio_api", "skolio_service_api");
                 options.DisableAccessTokenEncryption();
                 options.SetAccessTokenLifetime(TimeSpan.Parse(jwtOptions.AccessTokenLifetime));
                 if (jwtOptions.IssueRefreshTokens)
@@ -130,11 +132,14 @@ public static class DependencyInjection
 
         services.AddScoped<IIdentityCommandStore, IdentityCommandStore>();
         services.AddScoped<IIdentityReadStore, IdentityReadStore>();
-        services.AddHttpClient<IIdentityEmailSender, EmailGatewayIdentityEmailSender>(httpClient =>
-        {
-            httpClient.BaseAddress = new Uri(emailGatewayOptions.BaseUrl);
-            httpClient.Timeout = TimeSpan.FromSeconds(emailGatewayOptions.TimeoutSeconds);
-        });
+        services.AddSkolioServiceClient<IIdentityEmailSender, EmailGatewayIdentityEmailSender>(
+            configuration,
+            "Identity:ServiceClient",
+            httpClient =>
+            {
+                httpClient.BaseAddress = new Uri(emailGatewayOptions.BaseUrl);
+                httpClient.Timeout = TimeSpan.FromSeconds(emailGatewayOptions.TimeoutSeconds);
+            });
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(new ConfigurationOptions
         {
             EndPoints = { redisOptions.ConnectionString },

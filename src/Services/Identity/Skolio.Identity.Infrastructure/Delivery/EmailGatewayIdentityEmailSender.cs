@@ -1,20 +1,16 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Skolio.Identity.Application.Abstractions;
-using Skolio.Identity.Infrastructure.Configuration;
 
 namespace Skolio.Identity.Infrastructure.Delivery;
 
 public sealed class EmailGatewayIdentityEmailSender(
     HttpClient httpClient,
-    IOptions<EmailGatewayOptions> options,
     ILogger<EmailGatewayIdentityEmailSender> logger) : IIdentityEmailSender
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly HttpClient _httpClient = httpClient;
-    private readonly EmailGatewayOptions _options = options.Value;
     private readonly ILogger<EmailGatewayIdentityEmailSender> _logger = logger;
 
     public Task SendPasswordResetAsync(PasswordResetEmailDelivery delivery, CancellationToken cancellationToken) =>
@@ -71,14 +67,13 @@ public sealed class EmailGatewayIdentityEmailSender(
             delivery.ActivationCode,
             delivery.ExpiresAtUtc
         }, cancellationToken);
+
     private async Task SendAsync(string relativeUrl, object payload, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, relativeUrl)
         {
             Content = JsonContent.Create(payload, options: JsonOptions)
         };
-
-        request.Headers.Add("X-Internal-Service-Key", _options.InternalApiKey);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (response.IsSuccessStatusCode)

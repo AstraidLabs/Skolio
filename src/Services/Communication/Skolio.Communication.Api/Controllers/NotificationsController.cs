@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Skolio.Communication.Application.Contracts;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Communication.Application.Notifications;
 using Skolio.Communication.Domain.Enums;
 using Skolio.Communication.Infrastructure.Persistence;
@@ -11,7 +12,7 @@ using Skolio.Communication.Infrastructure.Persistence;
 namespace Skolio.Communication.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+[Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
 [Route("api/communication/notifications")]
 public sealed class NotificationsController(IMediator mediator, CommunicationDbContext dbContext) : ControllerBase
 {
@@ -49,7 +50,7 @@ public sealed class NotificationsController(IMediator mediator, CommunicationDbC
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<NotificationContract>> Create([FromBody] CreateNotificationRequest request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new CreateNotificationCommand(request.RecipientUserId, request.Title, request.Body, request.Channel), cancellationToken);

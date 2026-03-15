@@ -7,9 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="../Skolio.Academics.Application/Skolio.Academics.Application.csproj" />
     <ProjectReference Include="../Skolio.Academics.Infrastructure/Skolio.Academics.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Skolio.ServiceDefaults/Skolio.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Administration.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Administration.Infrastructure.Persistence;
 
 namespace Skolio.Administration.Api.Controllers;
@@ -12,7 +12,7 @@ namespace Skolio.Administration.Api.Controllers;
 public sealed class StudentContextController(AdministrationDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.StudentSelfService)]
+    [Authorize(Policy = SkolioPolicies.StudentSelfService)]
     public async Task<ActionResult<StudentContextResponse>> Context(CancellationToken cancellationToken)
     {
         if (!SchoolScope.IsStudent(User)) return Forbid();

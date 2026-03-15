@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
@@ -9,6 +9,7 @@ using OpenIddict.Extensions;
 using OpenIddict.Server.AspNetCore;
 using Skolio.Identity.Infrastructure.Auth;
 using Skolio.Identity.Infrastructure.Persistence;
+using Skolio.ServiceDefaults.Authorization;
 
 namespace Skolio.Identity.Api.Controllers;
 
@@ -60,7 +61,7 @@ public sealed class AuthorizationController(
             foreach (var assignment in roleAssignments)
             {
                 AddRoleClaims(principalIdentity, assignment.RoleCode);
-                principalIdentity.AddClaim(new Claim("school_id", assignment.SchoolId.ToString()));
+                principalIdentity.AddClaim(new Claim(SkolioClaimTypes.SchoolId, assignment.SchoolId.ToString()));
             }
 
             var linkedStudentIds = await dbContext.ParentStudentLinks
@@ -71,7 +72,7 @@ public sealed class AuthorizationController(
 
             foreach (var linkedStudentId in linkedStudentIds)
             {
-                principalIdentity.AddClaim(new Claim("linked_student_id", linkedStudentId.ToString()));
+                principalIdentity.AddClaim(new Claim(SkolioClaimTypes.LinkedStudentId, linkedStudentId.ToString()));
             }
         }
 
@@ -102,6 +103,26 @@ public sealed class AuthorizationController(
             return SignIn(result.Principal!, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
+        if (request.IsClientCredentialsGrantType())
+        {
+            var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, request.ClientId!));
+            identity.AddClaim(new Claim(ClaimTypes.Role, SkolioRoles.Service));
+            identity.AddClaim(new Claim(OpenIddictConstants.Claims.Role, SkolioRoles.Service));
+
+            var principal = new ClaimsPrincipal(identity);
+            principal.SetScopes(request.GetScopes());
+            principal.SetResources("skolio_api");
+
+            foreach (var claim in principal.Claims)
+            {
+                claim.SetDestinations(OpenIddictConstants.Destinations.AccessToken);
+            }
+
+            logger.LogInformation("AUDIT identity.auth.service-token-issued client={ClientId}", request.ClientId);
+            return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        }
+
         return BadRequest(new { error = "unsupported_grant_type" });
     }
 
@@ -115,8 +136,8 @@ public sealed class AuthorizationController(
             sub = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Subject),
             email = claimsPrincipal.FindFirstValue(OpenIddictConstants.Claims.Email),
             role = claimsPrincipal.FindAll(ClaimTypes.Role).Select(roleClaim => roleClaim.Value).ToArray(),
-            school_id = claimsPrincipal.FindAll("school_id").Select(x => x.Value).ToArray(),
-            linked_student_id = claimsPrincipal.FindAll("linked_student_id").Select(x => x.Value).ToArray()
+            school_id = claimsPrincipal.FindAll(SkolioClaimTypes.SchoolId).Select(x => x.Value).ToArray(),
+            linked_student_id = claimsPrincipal.FindAll(SkolioClaimTypes.LinkedStudentId).Select(x => x.Value).ToArray()
         });
     }
 

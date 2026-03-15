@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Domain.Entities;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -14,7 +14,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class GradeLevelsController(OrganizationDbContext dbContext, ILogger<GradeLevelsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<GradeLevelContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -27,7 +27,7 @@ public sealed class GradeLevelsController(OrganizationDbContext dbContext, ILogg
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<GradeLevelContract>> Create([FromBody] CreateGradeLevelRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -44,7 +44,7 @@ public sealed class GradeLevelsController(OrganizationDbContext dbContext, ILogg
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<GradeLevelContract>> Update(Guid id, [FromBody] UpdateGradeLevelRequest request, CancellationToken cancellationToken)
     {
         var gradeLevel = await dbContext.GradeLevels.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="../Skolio.Identity.Application/Skolio.Identity.Application.csproj" />
     <ProjectReference Include="../Skolio.Identity.Domain/Skolio.Identity.Domain.csproj" />
+    <ProjectReference Include="../../../Skolio.ServiceDefaults/Skolio.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

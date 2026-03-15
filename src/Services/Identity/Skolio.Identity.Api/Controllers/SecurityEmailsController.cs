@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Skolio.Identity.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Identity.Application.Abstractions;
 
 namespace Skolio.Identity.Api.Controllers;

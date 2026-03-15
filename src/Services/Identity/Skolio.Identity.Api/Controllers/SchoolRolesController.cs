@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Identity.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.Roles;
 using Skolio.Identity.Infrastructure.Persistence;
@@ -18,7 +18,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     private static readonly HashSet<string> SchoolAdministratorManageableRoleCodes = ["Teacher", "Parent", "Student"];
 
     [HttpGet("student-me")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.StudentSelfService)]
+    [Authorize(Policy = SkolioPolicies.StudentSelfService)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> StudentAssignments(CancellationToken cancellationToken)
     {
         var actorUserId = ResolveActorUserId();
@@ -57,7 +57,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     }
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolRoleAssignmentContract>>> List([FromQuery] Guid? schoolId, [FromQuery] string? roleCode, CancellationToken cancellationToken)
     {
         var query = dbContext.SchoolRoleAssignments.AsQueryable();
@@ -84,7 +84,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolRoleAssignmentContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.SchoolRoleAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -95,7 +95,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<SchoolRoleAssignmentContract>> Assign([FromBody] AssignSchoolRoleRequest request, CancellationToken cancellationToken)
     {
         if (!SupportedRoleCodes.Contains(request.RoleCode)) return this.ValidationField("roleCode", "Unsupported role code.");
@@ -112,7 +112,7 @@ public sealed class SchoolRolesController(IMediator mediator, IdentityDbContext 
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.SchoolRoleAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

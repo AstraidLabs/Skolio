@@ -40,11 +40,13 @@ public sealed class IdentityAuthSeeder(
             case SeedState.FullyInitialized:
                 logger.LogInformation("Identity system seed skipped: mandatory role baseline already exists.");
                 await EnsureOidcClientAsync(cancellationToken);
+                await EnsureServiceClientsAsync(cancellationToken);
                 return;
             case SeedState.Empty:
             case SeedState.PartiallyInitialized:
                 await EnsureRolesAsync(cancellationToken);
                 await EnsureOidcClientAsync(cancellationToken);
+                await EnsureServiceClientsAsync(cancellationToken);
                 logger.LogInformation("Identity system seed completed.");
                 return;
             default:
@@ -168,6 +170,40 @@ public sealed class IdentityAuthSeeder(
 
         await applicationManager.CreateAsync(descriptor, cancellationToken);
         logger.LogInformation("OpenIddict client created: {ClientId}", oidcOptions.FrontendClient.ClientId);
+    }
+
+    private async Task EnsureServiceClientsAsync(CancellationToken cancellationToken)
+    {
+        var oidcOptions = configuration.GetSection(OpenIddictOptions.SectionName).Get<OpenIddictOptions>()
+                          ?? throw new InvalidOperationException("Missing OpenIddict options for seeding.");
+
+        foreach (var serviceClient in oidcOptions.ServiceClients)
+        {
+            if (await applicationManager.FindByClientIdAsync(serviceClient.ClientId, cancellationToken) is not null)
+            {
+                logger.LogInformation("OpenIddict service client already exists: {ClientId}", serviceClient.ClientId);
+                continue;
+            }
+
+            var descriptor = new OpenIddictApplicationDescriptor
+            {
+                ClientId = serviceClient.ClientId,
+                ClientSecret = serviceClient.ClientSecret,
+                ConsentType = OpenIddictConstants.ConsentTypes.Systematic,
+                DisplayName = serviceClient.DisplayName,
+                ClientType = OpenIddictConstants.ClientTypes.Confidential
+            };
+
+            descriptor.Permissions.UnionWith(new[]
+            {
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                OpenIddictConstants.Permissions.Prefixes.Scope + "skolio_service_api"
+            });
+
+            await applicationManager.CreateAsync(descriptor, cancellationToken);
+            logger.LogInformation("OpenIddict service client created: {ClientId}", serviceClient.ClientId);
+        }
     }
 
     private sealed record SeedRoleDefinition(

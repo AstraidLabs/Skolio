@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Administration.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Administration.Infrastructure.Persistence;
 
 namespace Skolio.Administration.Api.Controllers;
@@ -12,7 +12,7 @@ namespace Skolio.Administration.Api.Controllers;
 public sealed class TeacherContextController(AdministrationDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<TeacherContextContract>> Summary(CancellationToken cancellationToken)
     {
         if (!User.IsInRole("Teacher")) return Forbid();

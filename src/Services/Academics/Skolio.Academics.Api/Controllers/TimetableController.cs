@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Timetable;
 using Skolio.Academics.Domain.Enums;
@@ -16,7 +16,7 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class TimetableController(IMediator mediator, AcademicsDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<TimetableEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -61,7 +61,7 @@ public sealed class TimetableController(IMediator mediator, AcademicsDbContext d
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     public async Task<ActionResult<TimetableEntryContract>> Create([FromBody] CreateTimetableEntryRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();

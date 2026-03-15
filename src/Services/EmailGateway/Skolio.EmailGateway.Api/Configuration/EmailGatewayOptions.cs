@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Skolio.EmailGateway.Api.Configuration;
 
@@ -8,9 +8,6 @@ public sealed class EmailGatewayOptions
 
     [Required]
     public string ServiceName { get; init; } = "Skolio.EmailGateway.Api";
-
-    [Required]
-    public string InternalApiKey { get; init; } = string.Empty;
 
     [Required]
     [EmailAddress]

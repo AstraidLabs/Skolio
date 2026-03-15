@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.ClassRooms;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -15,7 +15,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class ClassRoomsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<ClassRoomsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<ClassRoomContract>>> List([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -46,7 +46,7 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(ClassRoomContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateClassRoom([FromBody] CreateClassRoomRequest request, CancellationToken cancellationToken)
     {
@@ -58,7 +58,7 @@ public sealed class ClassRoomsController(IMediator mediator, OrganizationDbConte
     }
 
     [HttpPut("{id:guid}/override")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<ClassRoomContract>> OverrideClassRoom(Guid id, [FromBody] OverrideClassRoomRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");

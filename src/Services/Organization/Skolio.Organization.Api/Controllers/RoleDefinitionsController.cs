@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Infrastructure.Persistence;
 

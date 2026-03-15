@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Communication.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Communication.Api.Hubs;
 using Skolio.Communication.Application.Announcements;
 using Skolio.Communication.Application.Contracts;
@@ -17,7 +17,7 @@ namespace Skolio.Communication.Api.Controllers;
 public sealed class AnnouncementsController(IMediator mediator, IHubContext<CommunicationHub> hubContext, CommunicationDbContext dbContext, ILogger<AnnouncementsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<AnnouncementContract>>> List([FromQuery] Guid schoolId, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -31,7 +31,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<AnnouncementContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -42,7 +42,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AnnouncementContract>> Publish([FromBody] PublishAnnouncementRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -54,7 +54,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPost("platform")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     public async Task<ActionResult<AnnouncementContract>> PublishPlatformAnnouncement([FromBody] PublishAnnouncementRequest request, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new PublishAnnouncementCommand(request.SchoolId, request.Title, request.Message, request.PublishAtUtc), cancellationToken);
@@ -64,7 +64,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPut("{id:guid}/override")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<AnnouncementContract>> OverrideAnnouncement(Guid id, [FromBody] OverrideAnnouncementRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
@@ -80,7 +80,7 @@ public sealed class AnnouncementsController(IMediator mediator, IHubContext<Comm
     }
 
     [HttpPut("{id:guid}/deactivation")]
-    [Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AnnouncementContract>> SetActivation(Guid id, [FromBody] SetAnnouncementActivationRequest request, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Announcements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

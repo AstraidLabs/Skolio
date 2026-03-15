@@ -1,15 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Skolio.EmailGateway.Api.Configuration;
 using Skolio.EmailGateway.Api.Contracts;
 using Skolio.EmailGateway.Api.Delivery;
-using Skolio.EmailGateway.Api.Filters;
+using Skolio.ServiceDefaults.Authorization;
 
 namespace Skolio.EmailGateway.Api.Controllers;
 
 [ApiController]
 [Route("internal/email-gateway")]
-[ServiceFilter(typeof(InternalServiceAccessFilter))]
+[Authorize(Policy = SkolioPolicies.ServiceAccess)]
 public sealed class IdentitySecurityEmailController(
     IOptions<EmailGatewayOptions> options,
     IIdentityTemplateRenderer templateRenderer,

@@ -14,4 +14,6 @@ public sealed class OpenIddictOptions
 
     [Required]
     public OpenIddictClientSeedOptions FrontendClient { get; init; } = new();
+
+    public OpenIddictServiceClientSeedOptions[] ServiceClients { get; init; } = [];
 }

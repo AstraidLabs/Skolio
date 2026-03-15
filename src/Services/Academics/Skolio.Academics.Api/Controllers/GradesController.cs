@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Grades;
 using Skolio.Academics.Infrastructure.Persistence;
@@ -15,7 +15,7 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class GradesController(IMediator mediator, AcademicsDbContext dbContext, ILogger<GradesController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<GradeEntryContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid studentUserId, [FromQuery] Guid subjectId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -46,7 +46,7 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<GradeEntryContract>> RecordGrade([FromBody] RecordGradeRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -66,7 +66,7 @@ public sealed class GradesController(IMediator mediator, AcademicsDbContext dbCo
     }
 
     [HttpPut("{id:guid}/override")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<GradeEntryContract>> OverrideGrade(Guid id, [FromBody] OverrideGradeRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");

@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Administration.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Administration.Application.AuditLogs;
 using Skolio.Administration.Application.Contracts;
 using Skolio.Administration.Application.FeatureToggles;
@@ -16,7 +16,7 @@ using Skolio.Administration.Infrastructure.Persistence;
 namespace Skolio.Administration.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.SharedAdministration)]
+[Authorize(Policy = SkolioPolicies.SharedAdministration)]
 [Route("api/administration")]
 public sealed class AdministrationController(IMediator mediator, AdministrationDbContext dbContext) : ControllerBase
 {
@@ -35,7 +35,7 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     }
 
     [HttpPut("system-settings/{id:guid}")]
-    [Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     public async Task<ActionResult<SystemSettingContract>> UpdateSetting(Guid id, [FromBody] UpdateSettingRequest request, CancellationToken cancellationToken)
     {
         var current = await dbContext.SystemSettings.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -173,7 +173,7 @@ public sealed class AdministrationController(IMediator mediator, AdministrationD
     }
 
     [HttpPut("housekeeping-policies/{id:guid}")]
-    [Authorize(Policy = Skolio.Administration.Api.Auth.SkolioPolicies.PlatformAdministration)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdministration)]
     public async Task<ActionResult<HousekeepingPolicyContract>> UpdateHousekeepingPolicy(Guid id, [FromBody] UpdateHousekeepingPolicyRequest request, CancellationToken cancellationToken)
     {
         var current = await dbContext.HousekeepingPolicies.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

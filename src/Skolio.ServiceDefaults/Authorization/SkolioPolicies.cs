@@ -1,4 +1,4 @@
-namespace Skolio.Academics.Api.Auth;
+namespace Skolio.ServiceDefaults.Authorization;
 
 public static class SkolioPolicies
 {
@@ -9,4 +9,5 @@ public static class SkolioPolicies
     public const string TeacherOrSchoolAdministrationOnly = "teacher-or-school-administration-only";
     public const string ParentStudentTeacherRead = "parent-student-teacher-read";
     public const string StudentSelfService = "student-self-service";
+    public const string ServiceAccess = "service-access";
 }

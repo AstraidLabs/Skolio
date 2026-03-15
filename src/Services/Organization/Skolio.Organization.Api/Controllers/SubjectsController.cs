@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.Subjects;
 using Skolio.Organization.Infrastructure.Persistence;
@@ -17,7 +17,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     private const int MaxPageSize = 200;
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<PagedResult<SubjectContract>>> List([FromQuery] Guid schoolId, [FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -64,7 +64,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<SubjectContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.Subjects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -89,7 +89,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(SubjectContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSubject([FromBody] CreateSubjectRequest request, CancellationToken cancellationToken)
     {
@@ -101,7 +101,7 @@ public sealed class SubjectsController(IMediator mediator, OrganizationDbContext
     }
 
     [HttpPut("{id:guid}/override")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<SubjectContract>> OverrideSubject(Guid id, [FromBody] OverrideSubjectRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");

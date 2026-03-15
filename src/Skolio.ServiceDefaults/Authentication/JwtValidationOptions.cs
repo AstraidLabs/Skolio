@@ -1,11 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Skolio.Academics.Api.Configuration;
+namespace Skolio.ServiceDefaults.Authentication;
 
 public sealed class JwtValidationOptions
 {
-    public const string SectionName = "Academics:Auth";
-
     [Required]
     public string Authority { get; init; } = string.Empty;
 

@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Homework;
 using Skolio.Academics.Infrastructure.Persistence;
@@ -15,7 +15,7 @@ namespace Skolio.Academics.Api.Controllers;
 public sealed class HomeworkController(IMediator mediator, AcademicsDbContext dbContext, ILogger<HomeworkController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<HomeworkAssignmentContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -67,7 +67,7 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<HomeworkAssignmentContract>> Assign([FromBody] AssignHomeworkRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -87,7 +87,7 @@ public sealed class HomeworkController(IMediator mediator, AcademicsDbContext db
     }
 
     [HttpPut("{id:guid}/override")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<HomeworkAssignmentContract>> OverrideHomework(Guid id, [FromBody] OverrideHomeworkRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");

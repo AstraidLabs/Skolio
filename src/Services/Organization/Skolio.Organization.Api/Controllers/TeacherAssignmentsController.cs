@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Organization.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Organization.Application.Contracts;
 using Skolio.Organization.Application.TeacherAssignments;
 using Skolio.Organization.Domain.Entities;
@@ -17,7 +17,7 @@ namespace Skolio.Organization.Api.Controllers;
 public sealed class TeacherAssignmentsController(IMediator mediator, OrganizationDbContext dbContext, ILogger<TeacherAssignmentsController> logger) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<TeacherAssignmentContract>>> List([FromQuery] Guid schoolId, [FromQuery] Guid? teacherUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -42,7 +42,7 @@ public sealed class TeacherAssignmentsController(IMediator mediator, Organizatio
     }
 
     [HttpGet("me")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<IReadOnlyCollection<TeacherAssignmentContract>>> MyAssignments([FromQuery] Guid schoolId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -59,7 +59,7 @@ public sealed class TeacherAssignmentsController(IMediator mediator, Organizatio
     }
 
     [HttpPost]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.SchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.SchoolAdministrationOnly)]
     [ProducesResponseType(typeof(TeacherAssignmentContract), StatusCodes.Status201Created)]
     public async Task<IActionResult> AssignTeacher([FromBody] AssignTeacherRequest request, CancellationToken cancellationToken)
     {
@@ -71,7 +71,7 @@ public sealed class TeacherAssignmentsController(IMediator mediator, Organizatio
     }
 
     [HttpPost("override/reassign")]
-    [Authorize(Policy = Skolio.Organization.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<TeacherAssignmentContract>> OverrideReassign([FromBody] OverrideReassignTeacherRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");

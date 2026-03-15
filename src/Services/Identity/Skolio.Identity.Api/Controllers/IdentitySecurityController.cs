@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
-using Skolio.Identity.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Identity.Application.Abstractions;
 using Skolio.Identity.Infrastructure.Auth;
 

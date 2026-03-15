@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Identity.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Identity.Application.Contracts;
 using Skolio.Identity.Application.Profiles;
 using Skolio.Identity.Domain.Entities;
@@ -113,7 +113,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpGet("{id:guid}/school-position-options")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<SchoolPositionOptionContract>>> UserSchoolPositionOptions(Guid id, [FromQuery] Guid? schoolId, CancellationToken cancellationToken)
     {
         if (!await HasProfileAccess(id, cancellationToken)) return Forbid();
@@ -209,7 +209,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpGet("linked-students")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<UserProfileContract>>> LinkedStudents(CancellationToken cancellationToken)
     {
         if (!User.IsInRole("Parent")) return Forbid();
@@ -275,7 +275,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpGet("student-context")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.StudentSelfService)]
+    [Authorize(Policy = SkolioPolicies.StudentSelfService)]
     public async Task<ActionResult<StudentContextContract>> StudentContext(CancellationToken cancellationToken)
     {
         var actorUserId = SchoolScope.ResolveActorUserId(User);
@@ -294,7 +294,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpGet]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<IReadOnlyCollection<UserProfileContract>>> List([FromQuery] bool? isActive, [FromQuery] UserType? userType, [FromQuery] string? search, CancellationToken cancellationToken)
     {
         var query = dbContext.UserProfiles.AsQueryable();
@@ -366,7 +366,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<UserProfileContract>> Detail(Guid id, CancellationToken cancellationToken)
     {
         if (!await HasProfileAccess(id, cancellationToken)) return Forbid();
@@ -376,7 +376,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<UserProfileContract>> Update(Guid id, [FromBody] UpdateAdminProfileRequest request, CancellationToken cancellationToken)
     {
         if (!await HasProfileAccess(id, cancellationToken)) return Forbid();
@@ -448,7 +448,7 @@ public sealed class UserProfilesController(IMediator mediator, IdentityDbContext
     }
 
     [HttpPut("{id:guid}/activation")]
-    [Authorize(Policy = Skolio.Identity.Api.Auth.SkolioPolicies.SharedAdministration)]
+    [Authorize(Policy = SkolioPolicies.SharedAdministration)]
     public async Task<ActionResult<UserProfileContract>> SetActivation(Guid id, [FromBody] SetActivationRequest request, CancellationToken cancellationToken)
     {
         if (!await HasProfileAccess(id, cancellationToken)) return Forbid();

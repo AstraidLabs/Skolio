@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Communication.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Communication.Api.Hubs;
 using Skolio.Communication.Application.Contracts;
 using Skolio.Communication.Application.Conversations;
@@ -12,7 +12,7 @@ using Skolio.Communication.Infrastructure.Persistence;
 namespace Skolio.Communication.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = Skolio.Communication.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+[Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
 [Route("api/communication/conversations")]
 public sealed class ConversationsController(IMediator mediator, IHubContext<CommunicationHub> hubContext, CommunicationDbContext dbContext) : ControllerBase
 {

@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Skolio.Academics.Api.Auth;
+using Skolio.ServiceDefaults.Authorization;
 using Skolio.Academics.Application.Attendance;
 using Skolio.Academics.Application.Contracts;
 using Skolio.Academics.Application.Excuses;
@@ -19,7 +19,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     private static readonly TimeSpan ParentExcuseUpdateWindow = TimeSpan.FromHours(48);
 
     [HttpGet("records")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<AttendanceRecordContract>>> Records([FromQuery] Guid schoolId, [FromQuery] Guid? audienceId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -63,7 +63,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPost("records")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
+    [Authorize(Policy = SkolioPolicies.TeacherOrSchoolAdministrationOnly)]
     public async Task<ActionResult<AttendanceRecordContract>> RecordAttendance([FromBody] RecordAttendanceRequest request, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, request.SchoolId)) return Forbid();
@@ -83,7 +83,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPut("records/{id:guid}/override")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<AttendanceRecordContract>> OverrideAttendance(Guid id, [FromBody] OverrideAttendanceRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
@@ -99,7 +99,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpGet("excuse-notes")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<ExcuseNoteContract>>> ExcuseNotes([FromQuery] Guid schoolId, [FromQuery] Guid? studentUserId, CancellationToken cancellationToken)
     {
         if (!SchoolScope.HasSchoolAccess(User, schoolId)) return Forbid();
@@ -138,7 +138,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpGet("my/excuse-requests")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<IReadOnlyCollection<ExcuseNoteContract>>> MyExcuseRequests(CancellationToken cancellationToken)
     {
         if (!IsParentOnly()) return Forbid();
@@ -160,7 +160,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPost("my/excuse-requests")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ExcuseNoteContract>> SubmitMyExcuse([FromBody] SubmitMyExcuseNoteRequest request, CancellationToken cancellationToken)
     {
         if (!IsParentOnly()) return Forbid();
@@ -179,7 +179,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPut("my/excuse-requests/{id:guid}")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ExcuseNoteContract>> UpdateMyExcuse(Guid id, [FromBody] UpdateExcuseRequest request, CancellationToken cancellationToken)
     {
         if (!IsParentOnly()) return Forbid();
@@ -205,7 +205,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpDelete("my/excuse-requests/{id:guid}")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<IActionResult> CancelMyExcuse(Guid id, CancellationToken cancellationToken)
     {
         if (!IsParentOnly()) return Forbid();
@@ -231,7 +231,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPost("excuse-notes")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ExcuseNoteContract>> SubmitExcuse([FromBody] SubmitExcuseNoteRequest request, CancellationToken cancellationToken)
     {
         var attendance = await dbContext.AttendanceRecords.FirstOrDefaultAsync(x => x.Id == request.AttendanceRecordId, cancellationToken);
@@ -263,7 +263,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPut("excuse-notes/{id:guid}")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<ActionResult<ExcuseNoteContract>> UpdateExcuse(Guid id, [FromBody] UpdateExcuseRequest request, CancellationToken cancellationToken)
     {
         var entity = await dbContext.ExcuseNotes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -294,7 +294,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpDelete("excuse-notes/{id:guid}")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.ParentStudentTeacherRead)]
+    [Authorize(Policy = SkolioPolicies.ParentStudentTeacherRead)]
     public async Task<IActionResult> CancelExcuse(Guid id, CancellationToken cancellationToken)
     {
         var entity = await dbContext.ExcuseNotes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -325,7 +325,7 @@ public sealed class AttendanceController(IMediator mediator, AcademicsDbContext 
     }
 
     [HttpPut("excuse-notes/{id:guid}/override")]
-    [Authorize(Policy = Skolio.Academics.Api.Auth.SkolioPolicies.PlatformAdminOverride)]
+    [Authorize(Policy = SkolioPolicies.PlatformAdminOverride)]
     public async Task<ActionResult<ExcuseNoteContract>> OverrideExcuse(Guid id, [FromBody] OverrideExcuseRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason)) return this.ValidationField("overrideReason", "Override reason is required.");
